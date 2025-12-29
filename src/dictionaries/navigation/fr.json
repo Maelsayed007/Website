@@ -1,0 +1,12 @@
+
+{
+  "links": {
+    "home": "Accueil",
+    "houseboats": "Péniches",
+    "dailyTravel": "Excursions",
+    "restaurant": "Restaurant",
+    "gallery": "Galerie",
+    "contact": "Contact"
+  },
+  "requestBooking": "Demander une réservation"
+}

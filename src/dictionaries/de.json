@@ -1,0 +1,261 @@
+
+{
+  "homepage": {
+    "hero": {
+      "title": "Ihr Hausboot-Abenteuer",
+      "subtitle": "Wählen Sie einfach Ihre Daten und Ihre Crew, um loszulegen.",
+      "licenseFree": "Kein Führerschein zum Fahren erforderlich",
+      "form": {
+        "checkIn": "Check-in",
+        "checkOut": "Check-out",
+        "guests": "Gäste",
+        "addDate": "Datum hinzufügen",
+        "addGuests": "Gäste hinzufügen"
+      }
+    },
+    "results": {
+      "available": "Verfügbare Hausboote für Ihre Reise",
+      "noneAvailable": "Keine Boote verfügbar",
+      "noResults": "Leider haben wir keine Hausboote, die Ihren Suchkriterien entsprechen. Bitte versuchen Sie es mit anderen Daten oder weniger Gästen.",
+      "viewAll": "Alle Hausboote ansehen"
+    },
+    "featured": {
+      "title": "Unsere vorgestellte Flotte",
+      "subtitle": "Eine Auswahl unserer beliebtesten Boote für ein unvergessliches Abenteuer."
+    },
+    "dining": {
+      "title": "Exquisites Essen am See",
+      "description": "Unser Restaurant bietet ein Menü, das von den reichen Aromen Portugals inspiriert ist und mit den frischesten lokalen Zutaten zubereitet wird. Genießen Sie Ihre Mahlzeit auf unserer Terrasse mit Blick auf den herrlichen Alqueva-See.",
+      "button": "Menü ansehen"
+    },
+    "testimonials": {
+      "title": "Was unsere Gäste sagen",
+      "subtitle": "Geschichten von unvergesslichen Aufenthalten auf dem Wasser.",
+      "none": "Noch keine Erfahrungsberichte verfügbar."
+    }
+  },
+  "contact": {
+    "title": "Kontakt aufnehmen",
+    "subtitle": "Wir würden uns freuen, von Ihnen zu hören! Ob Sie eine Frage zu unseren Dienstleistungen haben, eine Buchungsanfrage stellen oder einfach nur Hallo sagen möchten, zögern Sie nicht, uns zu kontaktieren.",
+    "form": {
+      "title": "Senden Sie uns eine Nachricht",
+      "name": "Name",
+      "namePlaceholder": "Ihr Name",
+      "email": "E-Mail",
+      "emailPlaceholder": "ihre@email.com",
+      "message": "Nachricht",
+      "messagePlaceholder": "Ihre Nachricht...",
+      "submit": "Nachricht senden",
+      "submitting": "Wird gesendet...",
+      "success": {
+        "title": "Nachricht gesendet!",
+        "description": "Danke, dass Sie uns kontaktiert haben. Wir werden uns in Kürze bei Ihnen melden."
+      },
+      "error": {
+        "title": "Übermittlungsfehler",
+        "description": "Ihre Nachricht konnte nicht gesendet werden. Bitte versuchen Sie es erneut."
+      },
+      "validation": {
+        "title": "Fehlende Informationen",
+        "description": "Bitte füllen Sie alle Felder aus, bevor Sie senden."
+      }
+    },
+    "info": {
+      "title": "Kontaktinformationen"
+    },
+    "location": {
+      "title": "Unser Standort"
+    }
+  },
+  "houseboats": {
+    "title": "Unsere Flotte",
+    "subtitle": "Wählen Sie aus unserer Auswahl an Premium-Hausbooten, die alle für Komfort und Abenteuer konzipiert sind.",
+    "licenseFree": "Kein Führerschein Erforderlich",
+    "filters": {
+      "guestsPlaceholder": "Nach Gästen filtern...",
+      "allCapacities": "Alle Kapazitäten",
+      "guests": "Gäste",
+      "sortPlaceholder": "Sortieren nach...",
+      "priceAsc": "Preis: Niedrig bis Hoch",
+      "priceDesc": "Preis: Hoch bis Niedrig",
+      "capacityDesc": "Kapazität: Hoch bis Niedrig"
+    },
+    "noResults": {
+      "title": "Keine Hausboote entsprechen Ihren Kriterien",
+      "description": "Bitte versuchen Sie, Ihre Filter anzupassen."
+    }
+  },
+  "restaurant": {
+    "hero": {
+      "title": "Amieira Restaurant",
+      "subtitle": "Erleben Sie exquisites Essen mit Aussicht."
+    },
+    "about": {
+      "title": "Eine kulinarische Reise",
+      "description1": "Unser Restaurant bietet ein Menü, das von den reichen Aromen Portugals inspiriert ist und mit den frischesten lokalen Zutaten zubereitet wird. Genießen Sie Ihre Mahlzeit auf unserer Terrasse mit Blick auf den herrlichen Alqueva-See.",
+      "description2": "Ob es sich um ein romantisches Abendessen für zwei oder ein festliches Mahl mit Familie und Freunden handelt, unser Team ist bestrebt, Ihr Erlebnis unvergesslich zu machen."
+    },
+    "menu": {
+      "title": "Geschmack des Alentejo",
+      "subtitle": "Ein Menü, das mit lokalen Zutaten und traditionellen Aromen kreiert wurde.",
+      "notAvailable": "Das Menü ist im Moment nicht verfügbar. Bitte schauen Sie später wieder vorbei."
+    },
+    "form": {
+      "title": "Eine Reservierung vornehmen",
+      "name": "Vollständiger Name",
+      "namePlaceholder": "Ihr Name",
+      "email": "E-Mail",
+      "emailPlaceholder": "ihre@email.com",
+      "phone": "Telefon",
+      "date": "Datum",
+      "datePlaceholder": "Wählen Sie ein Datum",
+      "time": "Zeit",
+      "timePlaceholder": "Wählen Sie eine Zeit",
+      "guests": "Gäste",
+      "guestsPlaceholder": "Wählen Sie Gäste aus",
+      "guestLabel": "Gast",
+      "guestsLabel": "Gäste",
+      "seating": "Sitzplatzpräferenz",
+      "seatingPlaceholder": "Wählen Sie eine Präferenz",
+      "seatingIndoor": "Innen",
+      "seatingOutdoor": "Außen",
+      "seatingAny": "Beliebig",
+      "submit": "Reservierung anfragen",
+      "submitting": "Wird gesendet...",
+      "success": {
+        "title": "Reservierung übermittelt",
+        "description": "Wir haben Ihre Anfrage erhalten und werden sie in Kürze bestätigen."
+      },
+      "error": {
+        "title": "Übermittlung fehlgeschlagen",
+        "description": "Ihre Reservierung konnte nicht übermittelt werden. Bitte versuchen Sie es erneut."
+      }
+    }
+  },
+  "gallery": {
+    "title": "Unsere Galerie",
+    "subtitle": "Ein Einblick in das Amieira Getaways-Erlebnis.",
+    "categories": {
+      "all": "Alle",
+      "houseboat": "Hausboote",
+      "restaurant": "Restaurant",
+      "scenery": "Landschaft"
+    }
+  },
+  "dailyTravel": {
+    "title": "Tagesausflüge",
+    "subtitle": "Entdecken Sie die Schönheit des Alqueva mit unseren geführten Bootstouren. Perfekt für einen Tag voller Abenteuer und Entspannung.",
+    "duration": "Dauer",
+    "hours": "Stunden",
+    "minimum": "Minimum",
+    "people": "Personen",
+    "from": "Ab",
+    "exclusive": "exklusiv",
+    "perAdult": "pro Erwachsenem",
+    "requestBooking": "Buchung anfragen",
+    "noExcursions": {
+      "title": "Keine Ausflüge verfügbar",
+      "description": "Bitte schauen Sie später wieder vorbei oder kontaktieren Sie uns für private Touroptionen."
+    },
+    "submissionFailed": {
+      "title": "Übermittlung fehlgeschlagen",
+      "description": "Ihre Anfrage konnte nicht übermittelt werden. Bitte kontaktieren Sie uns direkt."
+    },
+    "dialog": {
+      "title": "Buchen anfragen",
+      "description": "Bitte geben Sie Ihre Daten an. Wir werden Sie kontaktieren, um das Datum und die Zahlung zu bestätigen.",
+      "form": {
+        "name": "Vollständiger Name",
+        "namePlaceholder": "Ihr Name",
+        "email": "E-Mail",
+        "emailPlaceholder": "ihre@email.com",
+        "phone": "Telefon",
+        "guests": "Anzahl der Gäste",
+        "cancel": "Abbrechen",
+        "submit": "Anfrage senden",
+        "submitting": "Wird gesendet..."
+      }
+    }
+  },
+  "payment": {
+    "title": "Reservierungsanfrage gesendet!",
+    "subtitle": "Vielen Dank für Ihre Buchungsanfrage. Ihre Reservierung ist jetzt ausstehend. Bitte befolgen Sie die nachstehenden Anweisungen, um Ihre Buchung zu bestätigen.",
+    "instructionsTitle": "Zahlungsanweisungen",
+    "instructionsSubtitle": "Um Ihre Reservierung abzuschließen, führen Sie bitte die Zahlung durch.",
+    "noInstructions": "Zahlungsanweisungen sind im Moment nicht verfügbar. Wir werden Sie in Kürze mit den Details kontaktieren.",
+    "returnHome": "Zurück zur Startseite"
+  },
+  "houseboat": {
+    "breadcrumbs": {
+      "home": "Startseite",
+      "houseboats": "Hausboote"
+    },
+    "licenseFree": "Kein Führerschein erforderlich",
+    "descriptionTitle": "Beschreibung",
+    "amenitiesTitle": "Was dieser Ort bietet",
+    "features": {
+      "bedrooms": "Schlafzimmer",
+      "bathrooms": "Badezimmer",
+      "guests": "Gäste"
+    },
+    "booking": {
+      "perNight": "Nacht",
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "addDate": "Datum hinzufügen",
+      "guests": "Gäste",
+      "guest": "Gast",
+      "selectGuests": "Gäste auswählen",
+      "requestButton": "Buchung anfragen",
+      "error": {
+        "title": "Buchungsfehler",
+        "description": "Bitte wählen Sie gültige Daten und stellen Sie sicher, dass alle Daten geladen sind."
+      },
+      "missingDetails": {
+        "title": "Fehlende Details",
+        "description": "Bitte geben Sie Ihren Namen, Ihre E-Mail-Adresse und Ihre Telefonnummer ein."
+      },
+      "noAvailability": {
+        "title": "Keine Verfügbarkeit",
+        "description": "Alle Boote für dieses Modell sind für die ausgewählten Daten ausgebucht."
+      },
+      "submissionFailed": {
+        "title": "Übermittlung fehlgeschlagen",
+        "description": "Ihre Buchungsanfrage konnte nicht übermittelt werden. Bitte versuchen Sie es erneut oder kontaktieren Sie uns direkt."
+      },
+      "summary": {
+        "normalNights": "normale Nächte",
+        "weekendNights": "Wochenendnächte",
+        "extras": "Extras",
+        "taxes": "Steuern & Gebühren",
+        "total": "Gesamt"
+      }
+    },
+    "dialog": {
+      "title": "Bestätigen Sie Ihre Buchungsanfrage",
+      "description": "Überprüfen Sie Ihre Daten und fügen Sie optionale Extras hinzu, bevor Sie Ihre Anfrage absenden.",
+      "extrasTitle": "Optionale Extras",
+      "noExtras": "Für diese Buchung sind keine optionalen Extras verfügbar.",
+      "detailsTitle": "Ihre Daten",
+      "summary": {
+        "title": "Buchungszusammenfassung",
+        "normalNights": "normale Nacht(en)",
+        "weekendNights": "Wochenendnacht(en)",
+        "extras": "Extras",
+        "taxes": "Steuern & Gebühren",
+        "total": "Gesamt"
+      },
+      "form": {
+        "name": "Vollständiger Name",
+        "namePlaceholder": "Ihr vollständiger Name",
+        "email": "E-Mail-Addresse",
+        "emailPlaceholder": "ihre.email@beispiel.com",
+        "phone": "Telefonnummer",
+        "phonePlaceholder": "Ihre Telefonnummer",
+        "cancel": "Abbrechen",
+        "submit": "Anfrage Senden",
+        "submitting": "Wird gesendet..."
+      }
+    }
+  }
+}

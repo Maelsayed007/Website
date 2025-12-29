@@ -1,0 +1,488 @@
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import { format, isSameDay } from 'date-fns';
+
+// Extend the jsPDF type to include the autoTable method
+interface jsPDFWithAutoTable extends jsPDF {
+  autoTable: (options: any) => jsPDFWithAutoTable;
+}
+
+// These types should be kept in sync with the main page types
+export type Booking = {
+  id: string;
+  clientName: string;
+  startTime: string | Date;
+  endTime: string | Date;
+  status: 'Confirmed' | 'Pending' | 'Maintenance';
+  source?: string;
+  clientPhone?: string;
+  clientEmail?: string;
+  notes?: string;
+  price?: number;
+  discount?: number;
+  initialPaymentAmount?: number;
+  initialPaymentMethod?: string;
+  extras?: { id: string; name: string; price: number }[];
+  houseboatId?: string;
+  restaurantTableId?: string;
+  dailyTravelPackageId?: string;
+  numberOfGuests?: number;
+};
+
+type Boat = {
+  name: string;
+  modelName: string;
+};
+
+type WebsiteSettings = {
+  companyName: string;
+  logoUrl: string;
+  address: string;
+  contactEmail: string;
+  restaurantEmail: string;
+  contactPhone1: string;
+  contactPhone2: string;
+  websiteUrl: string;
+  pdfTermsAndConditions: string;
+  pdfOtherDetails: string;
+};
+
+
+// --- CHECK-IN MANIFEST ---
+export const generateCheckinManifest = (booking: Booking, boat: Boat | undefined, settings: WebsiteSettings) => {
+  if (!boat) return; // Add null check for boat
+  const doc = new jsPDF() as jsPDFWithAutoTable;
+  const pageHeight = doc.internal.pageSize.height;
+  const pageWidth = doc.internal.pageSize.width;
+  let y = 15;
+
+  // --- Font Definitions ---
+  const titleFont = 'Times-Roman';
+  const mainFont = 'Helvetica';
+
+  // --- Header ---
+  if (settings.logoUrl && settings.logoUrl.startsWith('data:image')) {
+    try {
+      doc.addImage(settings.logoUrl, 'PNG', 15, y, 25, 25);
+    } catch (e) {
+      console.error("Error adding logo to PDF:", e);
+    }
+  }
+  
+  const companyInfoX = pageWidth - 15;
+  doc.setFont(mainFont, 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(100, 100, 100);
+  doc.text(settings.address || '', companyInfoX, y + 8, { align: 'right' });
+  doc.text(settings.contactEmail || '', companyInfoX, y + 12, { align: 'right' });
+  doc.text(settings.contactPhone1 || '', companyInfoX, y + 16, { align: 'right' });
+
+
+  y += 30;
+  
+  doc.setDrawColor(230, 230, 230);
+  doc.line(15, y, pageWidth - 15, y); // Horizontal line
+  y += 15;
+
+
+  // --- Main Title ---
+  doc.setFont(titleFont, 'bold');
+  doc.setFontSize(24);
+  doc.setTextColor(0, 0, 0);
+  doc.text('Check-in Manifest', pageWidth / 2, y, { align: 'center' });
+  y += 8;
+
+  doc.setFont(mainFont, 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(120, 120, 120);
+  doc.text(
+    `Reservation #${booking.id || ''} | ${boat.modelName || ''} (${boat.name || ''})`,
+    pageWidth / 2, y, { align: 'center' }
+  );
+  y += 12;
+
+  // --- Client and Booking Details ---
+    const clientText = `${booking.clientName || ''}\n${booking.clientEmail || ''}\n${booking.clientPhone || ''}`.trim();
+    const bookingPeriodText = `Check-in: ${booking.startTime ? format(new Date(booking.startTime), 'E, MMM dd, yyyy') : ''}\nCheck-out: ${booking.endTime ? format(new Date(booking.endTime), 'E, MMM dd, yyyy') : ''}\nSource: ${booking.source || ''}`.trim();
+
+    doc.autoTable({
+        startY: y,
+        body: [
+            [
+                { content: 'CLIENT', styles: { fontStyle: 'bold', textColor: 120 } },
+                { content: 'BOOKING PERIOD', styles: { fontStyle: 'bold', textColor: 120 } }
+            ],
+            [
+                { content: clientText, styles: { fontSize: 10 } },
+                { content: bookingPeriodText, styles: { fontSize: 10 } }
+            ]
+        ],
+        theme: 'plain',
+        styles: { font: mainFont, cellPadding: { top: 1, right: 3, bottom: 1, left: 3 } },
+    });
+    y = (doc as any).lastAutoTable.finalY + 12;
+
+  // --- Guest Manifest Title Block ---
+  doc.setFont(mainFont, 'bold');
+  doc.setFontSize(11);
+  doc.setFillColor(240, 243, 245); // Light grey-blue
+  doc.rect(15, y, pageWidth - 30, 10, 'F');
+  doc.setTextColor(40, 40, 40);
+  doc.text('Guest Manifest (To be completed by client)', pageWidth / 2, y + 6.5, { align: 'center' });
+  y += 10;
+  
+  // --- Guest Manifest Table ---
+  const guestHead = [['Full Name', 'Country', 'Age', 'Phone Number']];
+  const guestBody = Array.from({ length: 8 }, () => [ '', '', '', '' ]);
+
+  doc.autoTable({
+    startY: y,
+    head: guestHead,
+    body: guestBody,
+    theme: 'grid',
+    headStyles: { 
+        fillColor: [52, 58, 64], // Dark grey
+        textColor: 255, 
+        font: mainFont, 
+        fontStyle: 'bold' 
+    },
+    styles: { 
+        cellPadding: 2.5, 
+        fontSize: 9, 
+        font: mainFont, 
+        lineColor: [222, 226, 230], 
+        lineWidth: 0.2 
+    },
+    alternateRowStyles: {
+        fillColor: [248, 249, 250] // Very light grey for rows
+    },
+  });
+  y = (doc as any).lastAutoTable.finalY + 12;
+
+
+  // --- Financial Summary ---
+  const financialHead = [['Description', 'Amount']];
+  const totalBookingPrice = (booking.price || 0);
+  const extrasTotal = booking.extras?.reduce((sum, e) => sum + e.price, 0) || 0;
+  const subtotal = totalBookingPrice; // Total price already includes extras from dialog
+  const discount = booking.discount || 0;
+  const paidAmount = booking.initialPaymentAmount || 0;
+  const balanceDue = subtotal - discount - paidAmount;
+  
+  const financialBody = [
+    ['Total Reservation Cost', `€${totalBookingPrice.toFixed(2)}`],
+    ...(booking.extras && booking.extras.length > 0 ? booking.extras.map(e => [`Extra: ${e.name}`, `€${e.price.toFixed(2)}`]) : []),
+    ...(discount > 0 ? [['Discount Applied', `-€${discount.toFixed(2)}`]] : []),
+    ['Amount Paid', `€${paidAmount.toFixed(2)}`],
+  ];
+
+  doc.autoTable({
+    startY: y,
+    head: financialHead,
+    body: financialBody,
+    theme: 'striped',
+    headStyles: { 
+      fillColor: [52, 58, 64],
+      font: mainFont,
+      fontStyle: 'bold',
+    },
+    bodyStyles: { font: mainFont },
+    columnStyles: { 1: { halign: 'right' } },
+  });
+  
+  // --- Balance Due Row (Drawn After Table) ---
+  const finalTableY = (doc as any).lastAutoTable.finalY;
+  
+  doc.setFont(mainFont, 'bold');
+  doc.setFontSize(12);
+  doc.setFillColor(228, 243, 228); // Light green
+
+  const rectX = 15;
+  const rectWidth = pageWidth - 30;
+  doc.rect(rectX, finalTableY, rectWidth, 10, 'F');
+
+  doc.text('Balance Due', rectX + 5, finalTableY + 6.5);
+  doc.text(`€${balanceDue.toFixed(2)}`, rectX + rectWidth - 5, finalTableY + 6.5, { align: 'right' });
+
+  y = finalTableY + 10;
+  
+
+  // --- Footer ---
+  const footerY = pageHeight - 35;
+  doc.setFont(mainFont, 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(150, 150, 150);
+  const terms = settings.pdfTermsAndConditions || '';
+  const termsLines = doc.splitTextToSize(terms, pageWidth - 30);
+  doc.text(termsLines, 15, footerY);
+
+  const signatureY = pageHeight - 15;
+  doc.text('Signature: _________________________', 15, signatureY);
+  doc.text(`Date: ${format(new Date(), 'dd/MM/yyyy')}`, pageWidth - 15, signatureY, { align: 'right' });
+
+  doc.save(`checkin-manifest-${booking.id}.pdf`);
+};
+
+
+// --- RESERVATION DETAILS SUMMARY ---
+export const generateFinancialSummary = (booking: Booking, boat: Boat, settings: WebsiteSettings) => {
+    const doc = new jsPDF() as jsPDFWithAutoTable;
+    const pageWidth = doc.internal.pageSize.width;
+    let y = 15;
+    const mainFont = 'Helvetica';
+
+    // --- Header ---
+    if (settings.logoUrl && settings.logoUrl.startsWith('data:image')) {
+      try {
+        doc.addImage(settings.logoUrl, 'PNG', 15, y, 25, 25);
+      } catch(e) { console.error(e); }
+    }
+    
+    doc.setFont(mainFont, 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    const companyX = pageWidth - 15;
+    doc.text(settings.companyName.toUpperCase() || '', companyX, y + 2, { align: 'right' });
+    doc.text(settings.address || '', companyX, y + 7, { align: 'right' });
+    doc.text(settings.contactPhone1 || '', companyX, y + 12, { align: 'right' });
+    doc.text(settings.websiteUrl || '', companyX, y + 17, { align: 'right' });
+    
+    y += 40;
+    
+    // --- Title ---
+    doc.setFont(mainFont, 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(40, 40, 40);
+    doc.text('Reservation Details Summary', pageWidth / 2, y, { align: 'center' });
+    y += 8;
+    doc.setFontSize(10);
+    doc.setTextColor(150, 150, 150);
+    doc.text(`Booking ID: ${booking.id || ''}`, pageWidth / 2, y, { align: 'center' });
+    y += 15;
+
+    // --- Information Sections ---
+    doc.autoTable({
+        startY: y,
+        theme: 'plain',
+        body: [
+            [
+                { content: 'Client Information', styles: { fontStyle: 'bold', fontSize: 11 } },
+                { content: 'Reservation Details', styles: { fontStyle: 'bold', fontSize: 11 } },
+            ],
+            [
+                { content: `${booking.clientName || ''}\n${booking.clientEmail || ''}\n${booking.clientPhone || ''}`, styles: { cellPadding: { top: 2 } } },
+                { content: `${boat.modelName} (${boat.name})\nCheck-in: ${format(new Date(booking.startTime), 'PPp')}\nCheck-out: ${format(new Date(booking.endTime), 'PPp')}`, styles: { cellPadding: { top: 2 } } },
+            ],
+            [
+                { content: 'Booking Status', styles: { fontStyle: 'bold', fontSize: 11, cellPadding: { top: 8 } } },
+                { content: 'Reservation Source', styles: { fontStyle: 'bold', fontSize: 11, cellPadding: { top: 8 } } },
+            ],
+            [
+                { content: booking.status || '', styles: { cellPadding: { top: 2 } } },
+                { content: booking.source || '', styles: { cellPadding: { top: 2 } } },
+            ]
+        ],
+    });
+    y = (doc as any).lastAutoTable.finalY + 15;
+
+    // --- Financial Table ---
+    doc.setFont(mainFont, 'bold');
+    doc.setFontSize(11);
+    doc.text('Financial Summary', 15, y);
+    y += 6;
+    
+    const head = [['Description', 'Total']];
+    const bodyData = [];
+
+    const basePrice = (booking.price || 0) - (booking.extras?.reduce((sum, e) => sum + e.price, 0) || 0);
+    bodyData.push(['Base Rental Price', `€${basePrice.toFixed(2)}`]);
+    
+    if (booking.extras && booking.extras.length > 0) {
+        booking.extras.forEach(e => {
+            bodyData.push([`Extra: ${e.name}`, `€${e.price.toFixed(2)}`]);
+        });
+    }
+    
+    const subtotal = booking.price || 0;
+    const discount = booking.discount || 0;
+    const total = subtotal - discount;
+    const paid = booking.initialPaymentAmount || 0;
+    const balanceDue = total - paid;
+    
+    // Add totals to body
+    bodyData.push(
+        [{ content: 'Subtotal', styles: { fontStyle: 'bold' } }, { content: `€${subtotal.toFixed(2)}`, styles: { fontStyle: 'bold' } }],
+    );
+    if (discount > 0) {
+        bodyData.push(['Discount', `-€${discount.toFixed(2)}`]);
+    }
+     bodyData.push(
+        [{ content: 'Total', styles: { fontStyle: 'bold' } }, { content: `€${total.toFixed(2)}`, styles: { fontStyle: 'bold' } }],
+    );
+     bodyData.push(['Amount Paid', `€${paid.toFixed(2)}`]);
+
+
+    doc.autoTable({
+        startY: y,
+        head: head,
+        body: bodyData,
+        theme: 'striped',
+        headStyles: { fillColor: [52, 58, 64] },
+        styles: { fontSize: 10, cellPadding: 3 },
+        columnStyles: { 1: { halign: 'right' } },
+        didDrawCell: (data) => {
+            if (data.section === 'body' && data.row.index >= bodyData.length - 3) {
+                 if(data.row.raw[0].styles?.fontStyle === 'bold'){
+                     doc.setFont(doc.getFont().fontName, 'bold');
+                 }
+            }
+        }
+    });
+    y = (doc as any).lastAutoTable.finalY;
+
+    // Balance Due
+    doc.setFontSize(12);
+    doc.setFont(mainFont, 'bold');
+    doc.setFillColor(228, 243, 228); // Light green
+    doc.rect(15, y, pageWidth - 30, 10, 'F');
+    doc.text('Balance Due', 20, y + 7);
+    doc.text(`€${balanceDue.toFixed(2)}`, pageWidth - 20, y + 7, { align: 'right' });
+    y += 20;
+
+    // --- Notes ---
+    if (booking.notes) {
+        doc.setFontSize(11);
+        doc.setFont(mainFont, 'bold');
+        doc.text('Booking Notes', 15, y);
+        y += 6;
+        doc.setFontSize(10);
+        doc.setFont(mainFont, 'normal');
+        doc.setTextColor(100);
+        const notesLines = doc.splitTextToSize(booking.notes, pageWidth - 30);
+        doc.text(notesLines, 15, y);
+        y += notesLines.length * 5 + 10;
+    }
+    
+    // --- Footer Text ---
+    const footerY = doc.internal.pageSize.height - 20;
+    doc.setFontSize(9);
+    doc.setFont(mainFont, 'normal');
+    doc.setTextColor(150);
+    const footerText = settings.pdfOtherDetails || 'Thank you for your business!';
+    doc.text(footerText, pageWidth / 2, footerY, { align: 'center' });
+
+    doc.save(`reservation-summary-${booking.id}.pdf`);
+};
+
+// --- DAILY/WEEKLY ACTIVITY REPORT ---
+export const generateActivityReport = (startDate: Date, endDate: Date, bookings: Booking[]) => {
+    const doc = new jsPDF() as jsPDFWithAutoTable;
+    const pageWidth = doc.internal.pageSize.width;
+    let y = 15;
+    const mainFont = 'Helvetica';
+
+    // --- Header ---
+    doc.setFont(mainFont, 'bold');
+    doc.setFontSize(22);
+    doc.text('Activity Report', pageWidth / 2, y, { align: 'center' });
+    y += 8;
+    doc.setFont(mainFont, 'normal');
+    doc.setFontSize(14);
+    doc.setTextColor(100);
+    const dateRangeString = isSameDay(startDate, endDate) 
+        ? format(startDate, 'EEEE, MMMM d, yyyy')
+        : `${format(startDate, 'MMM d, yyyy')} - ${format(endDate, 'MMM d, yyyy')}`;
+    doc.text(dateRangeString, pageWidth / 2, y, { align: 'center' });
+    y += 15;
+
+    const houseboatArrivals = bookings.filter(b => b.houseboatId);
+    const restaurantBookings = bookings.filter(b => b.restaurantTableId);
+    const dailyTravelBookings = bookings.filter(b => b.dailyTravelPackageId);
+
+    // --- Houseboat Section ---
+    if (houseboatArrivals.length > 0) {
+        doc.setFontSize(16);
+        doc.setFont(mainFont, 'bold');
+        doc.text('Houseboat Arrivals', 15, y);
+        y += 8;
+        doc.autoTable({
+            startY: y,
+            head: [['Date', 'Time', 'Client', 'Phone', 'Notes']],
+            body: houseboatArrivals.map(b => [
+                format(new Date(b.startTime), 'EEE, MMM d'),
+                format(new Date(b.startTime), 'p'),
+                b.clientName,
+                b.clientPhone || '-',
+                b.notes || ''
+            ]),
+            theme: 'striped',
+            headStyles: { fillColor: [23, 107, 135] }, // Dark Blue
+        });
+        y = (doc as any).lastAutoTable.finalY + 15;
+    }
+
+    // --- Restaurant Section ---
+    if (restaurantBookings.length > 0) {
+        if (y > 200) { // Check if there's enough space, otherwise add new page
+          doc.addPage();
+          y = 15;
+        }
+        doc.setFontSize(16);
+        doc.setFont(mainFont, 'bold');
+        doc.text('Restaurant Reservations', 15, y);
+        y += 8;
+        doc.autoTable({
+            startY: y,
+            head: [['Date', 'Time', 'Client', 'Guests', 'Phone', 'Notes']],
+            body: restaurantBookings.map(b => [
+                format(new Date(b.startTime), 'EEE, MMM d'),
+                format(new Date(b.startTime), 'p'),
+                b.clientName,
+                b.numberOfGuests || '?',
+                b.clientPhone || '-',
+                b.notes || ''
+            ]),
+            theme: 'striped',
+            headStyles: { fillColor: [214, 116, 80] }, // Terracotta
+        });
+        y = (doc as any).lastAutoTable.finalY + 15;
+    }
+
+    // --- Daily Travel Section ---
+    if (dailyTravelBookings.length > 0) {
+        if (y > 200) { // Check if there's enough space, otherwise add new page
+          doc.addPage();
+          y = 15;
+        }
+        doc.setFontSize(16);
+        doc.setFont(mainFont, 'bold');
+        doc.text('Daily Travel Excursions', 15, y);
+        y += 8;
+        doc.autoTable({
+            startY: y,
+            head: [['Date', 'Time', 'Client', 'Guests', 'Phone', 'Notes']],
+            body: dailyTravelBookings.map(b => [
+                format(new Date(b.startTime), 'EEE, MMM d'),
+                format(new Date(b.startTime), 'p'),
+                b.clientName,
+                b.numberOfGuests || '?',
+                b.clientPhone || '-',
+                b.notes || ''
+            ]),
+            theme: 'striped',
+            headStyles: { fillColor: [142, 172, 145] }, // Sage Green
+        });
+        y = (doc as any).lastAutoTable.finalY + 15;
+    }
+    
+    if (houseboatArrivals.length === 0 && restaurantBookings.length === 0 && dailyTravelBookings.length === 0) {
+        doc.setFontSize(12);
+        doc.text('No scheduled activities found for the selected date range.', 15, y);
+    }
+
+    const fileNameSafeRange = isSameDay(startDate, endDate)
+      ? format(startDate, 'yyyy-MM-dd')
+      : `${format(startDate, 'yyyy-MM-dd')}_to_${format(endDate, 'yyyy-MM-dd')}`;
+
+    doc.save(`activity-report-${fileNameSafeRange}.pdf`);
+};

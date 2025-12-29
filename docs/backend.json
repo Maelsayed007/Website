@@ -1,0 +1,951 @@
+
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user account for the Amieira Getaways platform.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "username": {
+            "type": "string",
+            "description": "The user's display name or username."
+        },
+        "permissions": {
+            "type": "object",
+            "description": "Granular permissions for staff access control.",
+            "properties": {
+                "isSuperAdmin": { "type": "boolean", "description": "Grants all permissions, cannot be edited."},
+                "canViewDashboard": { "type": "boolean" },
+                "canViewHouseboatReservations": { "type": "boolean" },
+                "canEditHouseboatReservations": { "type": "boolean" },
+                "canViewRestaurantReservations": { "type": "boolean" },
+                "canEditRestaurantReservations": { "type": "boolean" },
+                "canViewDailyTravelReservations": { "type": "boolean" },
+                "canEditDailyTravelReservations": { "type": "boolean" },
+                "canViewClients": { "type": "boolean" },
+                "canEditClients": { "type": "boolean" },
+                "canViewMessages": { "type": "boolean" },
+                "canAccessSettings": { "type": "boolean" },
+                "canManageStaff": { "type": "boolean" }
+            }
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "username"
+      ]
+    },
+    "CustomerProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CustomerProfile",
+      "type": "object",
+      "description": "Represents a public customer profile for non-staff users.",
+      "properties": {
+        "uid": { "type": "string", "description": "The Firebase Authentication user ID." },
+        "email": { "type": "string", "format": "email" },
+        "name": { "type": "string" },
+        "photoURL": { "type": "string", "format": "uri" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "isStaff": { "type": "boolean", "default": false }
+      },
+      "required": ["uid", "email", "name", "createdAt", "isStaff"]
+    },
+    "Houseboat": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Houseboat",
+      "type": "object",
+      "description": "Represents a specific, individual houseboat unit available for rent.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Houseboat entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The specific name or number of this houseboat (e.g., 'Aqua Cruiser 2')."
+        },
+        "modelId": {
+          "type": "string",
+          "description": "Reference to the HouseboatModel this boat is an instance of."
+        }
+      },
+      "required": [
+        "name",
+        "modelId"
+      ]
+    },
+    "HouseboatModel": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "HouseboatModel",
+      "type": "object",
+      "description": "Defines a template or type of houseboat, including its specifications and base pricing.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the HouseboatModel entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the model (e.g., 'Aqua Cruiser Series 2')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A client-facing description of the model."
+        },
+        "optimalCapacity": {
+          "type": "number",
+          "description": "The recommended number of guests for comfort."
+        },
+        "maximumCapacity": {
+          "type": "number",
+          "description": "The maximum legal number of guests."
+        },
+        "kitchens": {
+          "type": "number",
+          "description": "Number of kitchens or kitchenettes."
+        },
+        "bathrooms": {
+          "type": "number",
+          "description": "Number of bathrooms."
+        },
+        "bedrooms": {
+          "type": "number",
+          "description": "Number of bedrooms."
+        },
+        "singleBeds": {
+          "type": "number",
+          "description": "Number of single beds."
+        },
+        "doubleBeds": {
+          "type": "number",
+          "description": "Number of double beds."
+        },
+        "amenities": {
+          "type": "array",
+          "description": "A list of available amenities.",
+          "items": {
+            "type": "string",
+            "enum": [
+              "wifi",
+              "tv",
+              "kitchen",
+              "ac",
+              "heating",
+              "grill",
+              "sun-deck"
+            ]
+          }
+        },
+        "imageUrls": {
+          "type": "array",
+          "description": "A list of URLs for the houseboat model's photos.",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "optimalCapacity",
+        "maximumCapacity",
+        "kitchens",
+        "bathrooms",
+        "bedrooms",
+        "singleBeds",
+        "doubleBeds"
+      ]
+    },
+    "HouseboatModelPrice": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "HouseboatModelPrice",
+      "type": "object",
+      "description": "Links a HouseboatModel to a Tariff, defining prices for that period.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "tariffId": {
+          "type": "string",
+          "description": "Reference to the Tariff ID."
+        },
+        "weekday": {
+          "type": "number",
+          "description": "Price per night for a weekday."
+        },
+        "weekend": {
+          "type": "number",
+          "description": "Price per night for a weekend day."
+        }
+      },
+      "required": [
+        "tariffId",
+        "weekday",
+        "weekend"
+      ]
+    },
+    "RestaurantTable": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "RestaurantTable",
+      "type": "object",
+      "description": "Represents a restaurant table available for reservation.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the RestaurantTable entity."
+        },
+        "location": {
+          "type": "string",
+          "description": "Location of the table (e.g., 'indoor', 'outdoor')."
+        },
+        "capacity": {
+          "type": "number",
+          "description": "Maximum capacity of the table."
+        }
+      },
+      "required": [
+        "id",
+        "location",
+        "capacity"
+      ]
+    },
+    "Booking": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Booking",
+      "type": "object",
+      "description": "Represents a booking for either a houseboat or a restaurant table.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Booking entity."
+        },
+        "clientId": {
+            "type": "string",
+            "description": "Reference to the Client who made the booking."
+        },
+        "clientName": {
+          "type": "string",
+          "description": "Name of the client who made the booking."
+        },
+        "houseboatId": {
+          "type": "string",
+          "description": "Reference to a specific Houseboat unit. Null if it's a restaurant booking."
+        },
+        "restaurantTableId": {
+          "type": "string",
+          "description": "Reference to a RestaurantTable. Null if it's a houseboat booking."
+        },
+        "dailyTravelPackageId": {
+          "type": "string",
+          "description": "Reference to a DailyTravelPackage. Null if it's another booking type."
+        },
+        "startTime": {
+          "type": "string",
+          "description": "Start date and time of the booking.",
+          "format": "date-time"
+        },
+        "endTime": {
+          "type": "string",
+          "description": "End date and time of the booking.",
+          "format": "date-time"
+        },
+        "totalPrice": {
+          "type": "number",
+          "description": "Total price of the booking."
+        },
+        "status": {
+            "type": "string",
+            "enum": ["Confirmed", "Pending", "Maintenance", "Cancelled"],
+            "description": "The current status of the booking."
+        },
+        "source": {
+          "type": "string",
+          "description": "The source of the booking (e.g., 'Online', 'Phone')."
+        },
+        "clientPhone": {
+            "type": "string",
+            "description": "Client's phone number."
+        },
+        "clientEmail": {
+            "type": "string",
+            "description": "Client's email address.",
+            "format": "email"
+        },
+        "notes": {
+            "type": "string",
+            "description": "Additional notes about the booking."
+        },
+        "price": {
+            "type": "number",
+            "description": "The total price of the booking."
+        },
+        "discount": {
+            "type": "number",
+            "description": "Any discount applied to the booking."
+        },
+        "voucher": {
+            "type": "string",
+            "description": "Voucher or promo code used."
+        },
+        "initialPaymentAmount": {
+            "type": "number",
+            "description": "The amount of the initial payment made."
+        },
+        "initialPaymentMethod": {
+            "type": "string",
+            "description": "The method used for the initial payment."
+        },
+        "numberOfGuests": {
+          "type": "number",
+          "description": "Number of guests for a restaurant reservation."
+        },
+        "extras": {
+          "type": "array",
+          "description": "A list of selected optional extras for the booking.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "The ID of the selected extra."
+              },
+              "name": {
+                "type": "string",
+                "description": "The name of the extra at the time of booking."
+              },
+              "price": {
+                "type": "number",
+                "description": "The price of the extra at the time of booking."
+              }
+            },
+            "required": ["id", "name", "price"]
+          }
+        }
+      },
+      "required": [
+        "clientName",
+        "startTime",
+        "endTime",
+        "status"
+      ]
+    },
+    "Tariff": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Tariff",
+      "type": "object",
+      "description": "Defines a pricing tariff (e.g., High Season, Low Season) and its date periods.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Tariff entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the tariff (e.g., 'High Season')."
+        },
+        "periods": {
+          "type": "array",
+          "description": "A list of recurring date ranges (by day and month) for which this tariff is active.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "start": {
+                "type": "string",
+                "description": "The start day and month of the period (MM-DD).",
+                "pattern": "^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              "end": {
+                "type": "string",
+                "description": "The end day and month of the period (MM-DD).",
+                "pattern": "^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              }
+            },
+            "required": [
+              "start",
+              "end"
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "periods"
+      ]
+    },
+    "DailyBoat": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DailyBoat",
+      "type": "object",
+      "description": "Represents a boat available for daily travel packages.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the boat."
+        },
+        "capacity": {
+          "type": "number",
+          "description": "The passenger capacity of the boat."
+        }
+      },
+      "required": [
+        "name",
+        "capacity"
+      ]
+    },
+    "DailyTravelPackage": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DailyTravelPackage",
+      "type": "object",
+      "description": "Defines a daily travel package, including details, pricing, and terms.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the travel package (e.g., 'Sunset Cruise')."
+        },
+        "boatId": {
+          "type": "string",
+          "description": "Reference to the DailyBoat used for this package."
+        },
+        "photoUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL of the promotional photo for the package."
+        },
+        "durationHours": {
+          "type": "number",
+          "description": "Duration of the trip in hours."
+        },
+        "destination": {
+          "type": "string",
+          "description": "Description of the travel route or destination."
+        },
+        "pricing": {
+          "type": "object",
+          "description": "Pricing model for the package.",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "per-person",
+                "exclusive"
+              ]
+            },
+            "adults": {
+              "type": "object",
+              "properties": {
+                "price": {
+                  "type": "number"
+                },
+                "minAge": {
+                  "type": "number"
+                },
+                "maxAge": {
+                  "type": "number"
+                }
+              }
+            },
+            "children": {
+              "type": "object",
+              "properties": {
+                "price": {
+                  "type": "number"
+                },
+                "minAge": {
+                  "type": "number"
+                },
+                "maxAge": {
+                  "type": "number"
+                }
+              }
+            },
+            "seniors": {
+              "type": "object",
+              "properties": {
+                "price": {
+                  "type": "number"
+                },
+                "minAge": {
+                  "type": "number"
+                }
+              }
+            },
+            "totalPrice": {
+              "type": "number",
+              "description": "Fixed total price for an exclusive package."
+            }
+          }
+        },
+        "terms": {
+          "type": "object",
+          "properties": {
+            "minimumPeople": {
+              "type": "number"
+            },
+            "conditions": {
+              "type": "string",
+              "description": "Text field for terms and conditions."
+            }
+          }
+        }
+      },
+      "required": [
+        "name",
+        "boatId",
+        "durationHours",
+        "destination",
+        "pricing",
+        "terms"
+      ]
+    },
+    "WebsiteSettings": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "WebsiteSettings",
+      "type": "object",
+      "description": "Stores general website settings like company name, logo, contact info, and social media links.",
+      "properties": {
+        "companyName": {
+          "type": "string",
+          "description": "The name of the company."
+        },
+        "logoUrl": {
+          "type": "string",
+          "description": "URL of the company logo, stored as a data URI."
+        },
+        "heroImageUrl": {
+          "type": "string",
+          "description": "URL of the homepage hero image, stored as a data URI."
+        },
+        "contactEmail": {
+          "type": "string",
+          "description": "Primary contact email address for reservations.",
+          "format": "email"
+        },
+        "restaurantEmail": {
+          "type": "string",
+          "description": "Contact email address for the restaurant.",
+          "format": "email"
+        },
+        "contactPhone1": {
+          "type": "string",
+          "description": "Primary contact phone number."
+        },
+        "contactPhone2": {
+          "type": "string",
+          "description": "Secondary contact phone number."
+        },
+        "workingHours": {
+          "type": "string",
+          "description": "Company's hours of operation."
+        },
+        "address": {
+          "type": "string",
+          "description": "Company's physical address."
+        },
+        "websiteUrl": {
+          "type": "string",
+          "description": "Company's main website URL."
+        },
+        "socialLinks": {
+          "type": "object",
+          "description": "URLs for social media profiles.",
+          "properties": {
+            "tiktok": {
+              "type": "string",
+              "format": "uri"
+            },
+            "facebook": {
+              "type": "string",
+              "format": "uri"
+            },
+            "instagram": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        },
+        "pdfTermsAndConditions": {
+            "type": "string",
+            "description": "The terms and conditions text to be displayed on the check-in manifest PDF."
+        },
+        "pdfOtherDetails": {
+            "type": "string",
+            "description": "The 'other details' text to be displayed on the financial summary PDF."
+        }
+      },
+      "required": [
+        "companyName"
+      ]
+    },
+    "RestaurantMenuCategory": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "RestaurantMenuCategory",
+      "type": "object",
+      "description": "Represents a category in the restaurant menu (e.g., Appetizers, Main Courses).",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "description": "The name of the category." },
+        "order": { "type": "number", "description": "The display order of the category." }
+      },
+      "required": ["name", "order"]
+    },
+    "RestaurantMenuItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "RestaurantMenuItem",
+      "type": "object",
+      "description": "Represents an individual item within a menu category.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "description": "The name of the dish." },
+        "description": { "type": "string", "description": "A description of the dish." },
+        "price": { "type": "string", "description": "The price of the dish (e.g., '€12.50')." },
+        "ingredients": { "type": "string", "description": "Comma-separated list of ingredients for AI."}
+      },
+      "required": ["name", "price"]
+    },
+    "Extra": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Extra",
+      "type": "object",
+      "description": "Represents an optional add-on service or item for a booking.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Extra."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the extra (e.g., 'Welcome Basket', 'Fishing Package')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A short description of what the extra includes."
+        },
+        "price": {
+          "type": "number",
+          "description": "The cost of the extra."
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of booking this extra is applicable to.",
+          "enum": [
+            "houseboat",
+            "daily-travel",
+            "restaurant",
+            "all"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "price",
+        "type"
+      ]
+    },
+    "Testimonial": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Testimonial",
+      "type": "object",
+      "description": "Represents a customer testimonial or review.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "description": "The name of the customer." },
+        "quote": { "type": "string", "description": "The content of the testimonial." },
+        "rating": { "type": "number", "description": "A star rating from 1 to 5.", "minimum": 1, "maximum": 5 }
+      },
+      "required": ["name", "quote", "rating"]
+    },
+    "Voucher": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Voucher",
+      "type": "object",
+      "description": "Represents a discount voucher or promotional code.",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string", "description": "The unique code for the voucher (e.g., 'SUMMER20')." },
+        "description": { "type": "string", "description": "A short description of the voucher for internal use." },
+        "type": { "type": "string", "description": "The type of discount.", "enum": ["percentage", "fixed"] },
+        "value": { "type": "number", "description": "The value of the discount (percentage or fixed amount)." },
+        "expiresAt": { "type": "string", "format": "date-time", "description": "The expiration date of the voucher." },
+        "isActive": { "type": "boolean", "description": "Whether the voucher is currently active." }
+      },
+      "required": ["code", "type", "value", "isActive"]
+    },
+    "Client": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Client",
+      "type": "object",
+      "description": "Represents a client in the CRM.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastModified": { "type": "string", "format": "date-time" },
+        "source": { "type": "string" },
+        "currentLocation": { 
+            "type": "string", 
+            "enum": ["database", "active-reservations", "potential-clients"]
+        },
+        "status": {
+            "type": "string",
+            "enum": ["needs-followup", "waiting-payment", "offer-sent", "canceled", "confirmed", "pending", null]
+        },
+        "leadStatus": {
+            "type": "string",
+            "enum": ["lead-sent", "waiting-confirmation", "waiting-payment", "converted", "lost", null]
+        },
+        "tags": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["VIP", "blacklist", "potential"] }
+        },
+        "hasActiveReservation": { "type": "boolean" },
+        "bookingId": { "type": "string" },
+        "bookingDate": { "type": "string", "format": "date-time" },
+        "bookingType": { "type": "string", "enum": ["houseboat", "restaurant", "travel"] },
+        "bookingAmount": { "type": "number" },
+        "paymentStatus": { "type": "string", "enum": ["paid", "partial", "pending"] },
+        "processLogs": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": { "type": "string" },
+                    "timestamp": { "type": "string", "format": "date-time" },
+                    "action": { "type": "string" },
+                    "details": { "type": "string" },
+                    "userId": { "type": "string" },
+                    "userName": { "type": "string" },
+                    "previousLocation": { "type": "string" },
+                    "newLocation": { "type": "string" }
+                }
+            }
+        },
+        "files": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": { "type": "string" },
+                    "name": { "type": "string" },
+                    "url": { "type": "string", "format": "uri" },
+                    "type": { "type": "string", "enum": ["pdf", "image"] },
+                    "size": { "type": "number" },
+                    "compressedSize": { "type": "number" },
+                    "uploadedAt": { "type": "string", "format": "date-time" },
+                    "uploadedBy": { "type": "string" }
+                }
+            }
+        },
+        "notes": { "type": "string" },
+        "totalRevenue": { "type": "number" },
+        "bookingCount": { "type": "number" }
+      },
+      "required": ["name", "email", "currentLocation"]
+    },
+    "ActivityLog": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "ActivityLog",
+        "type": "object",
+        "description": "Records an action taken by a staff member in the dashboard.",
+        "properties": {
+            "id": { "type": "string" },
+            "userId": { "type": "string", "description": "The ID of the user who performed the action." },
+            "username": { "type": "string", "description": "The name of the user." },
+            "action": { "type": "string", "description": "A short, machine-readable description of the action (e.g., 'create_client', 'update_booking_status')." },
+            "details": { "type": "string", "description": "A human-readable summary of the action (e.g., 'Created client John Doe')." },
+            "timestamp": { "type": "string", "format": "date-time", "description": "When the action occurred." },
+            "path": { "type": "string", "description": "The Firestore path of the affected document, if any." }
+        },
+        "required": ["userId", "username", "action", "details", "timestamp"]
+    }
+  },
+  "auth": {
+    "providers": [
+      "email",
+      "google"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/User"
+          },
+          "description": "Stores user profile information and permissions."
+        }
+      },
+      {
+        "path": "/customer_profiles/{profileId}",
+        "definition": {
+          "schema": { "$ref": "#/entities/CustomerProfile" },
+          "description": "Stores public profiles for non-staff customers."
+        }
+      },
+      {
+        "path": "/clients/{clientId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/Client"
+          },
+          "description": "Stores CRM client information."
+        }
+      },
+      {
+        "path": "/bookings/{bookingId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/Booking"
+          },
+          "description": "Stores booking information for all users."
+        }
+      },
+      {
+        "path": "/houseboatModels/{modelId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/HouseboatModel"
+          },
+          "description": "Stores houseboat model definitions."
+        }
+      },
+      {
+        "path": "/houseboatModels/{modelId}/prices/{priceId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/HouseboatModelPrice"
+          },
+          "description": "Stores tariff-based pricing for a specific houseboat model."
+        }
+      },
+      {
+        "path": "/houseboatModels/{modelId}/boats/{boatId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/Houseboat"
+          },
+          "description": "Stores individual boat instances of a specific houseboat model."
+        }
+      },
+      {
+        "path": "/restaurant_tables/{restaurantTableId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/RestaurantTable"
+          },
+          "description": "Stores information about available restaurant tables."
+        }
+      },
+      {
+        "path": "/tariffs/{tariffId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/Tariff"
+          },
+          "description": "Stores pricing tariffs and their date ranges."
+        }
+      },
+      {
+        "path": "/daily_boats/{boatId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/DailyBoat"
+          },
+          "description": "Stores boats available for daily travel packages."
+        }
+      },
+      {
+        "path": "/daily_travel_packages/{packageId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/DailyTravelPackage"
+          },
+          "description": "Stores daily travel package configurations."
+        }
+      },
+      {
+        "path": "/website_settings/main",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/WebsiteSettings"
+          },
+          "description": "Stores general website settings in a single document."
+        }
+      },
+      {
+        "path": "/restaurant_menu/{categoryId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/RestaurantMenuCategory"
+          },
+          "description": "Stores restaurant menu categories."
+        }
+      },
+      {
+        "path": "/restaurant_menu/{categoryId}/items/{itemId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/RestaurantMenuItem"
+          },
+          "description": "Stores individual items for a menu category."
+        }
+      },
+      {
+        "path": "/extras/{extraId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/Extra"
+          },
+          "description": "Stores optional add-on services or items for bookings."
+        }
+      },
+      {
+        "path": "/testimonials/{testimonialId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/Testimonial"
+          },
+          "description": "Stores customer testimonials for display on the website."
+        }
+      },
+      {
+        "path": "/activity_logs/{logId}",
+        "definition": {
+            "schema": {
+                "$ref": "#/entities/ActivityLog"
+            },
+            "description": "Stores a log of all significant staff actions."
+        }
+      },
+       {
+        "path": "/vouchers/{voucherId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/Voucher"
+          },
+          "description": "Stores discount vouchers and promotional codes."
+        }
+      }
+    ]
+  }
+}

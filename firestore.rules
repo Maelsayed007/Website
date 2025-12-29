@@ -1,0 +1,131 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // --- Helper Functions ---
+    function isAdmin() {
+      // This is a simple check based on email.
+      // For production, it's safer to use custom claims.
+      return request.auth != null && (request.auth.token.email == 'myasserofficial@gmail.com' || request.auth.token.admin == true);
+    }
+    
+    function isStaff() {
+      return request.auth != null;
+    }
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // --- Collection Rules ---
+
+    // User profiles contain role information.
+    match /users/{userId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+    
+    // Clients collection
+    match /clients/{clientId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && 
+        request.resource.data.keys().hasAll(['name', 'email', 'currentLocation']);
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    // Bookings can be read publicly to check availability, but only managed by staff.
+    match /bookings/{bookingId} {
+      allow get, list: if true;
+      allow update, delete: if isStaff();
+      allow create: if isStaff() || request.resource.data.status == 'Pending';
+    }
+    
+    // Customer profiles - users can only read/update their own
+    match /customer_profiles/{profileId} {
+      // Users can read their own profile
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      
+      // Users can create their own profile during sign-up
+      allow create: if isAuthenticated() && 
+                      request.resource.data.uid == request.auth.uid &&
+                      request.resource.data.isStaff == false;
+      
+      // Users can update their own profile (except uid and isStaff)
+      allow update: if isAuthenticated() && 
+                      resource.data.uid == request.auth.uid &&
+                      request.resource.data.uid == resource.data.uid &&
+                      request.resource.data.isStaff == resource.data.isStaff;
+      
+      // Staff can read all customer profiles
+      allow read: if isStaff();
+      
+      // Admin can do anything
+      allow write: if isAdmin();
+    }
+
+
+    // Activity logs are append-only for staff.
+    match /activity_logs/{logId} {
+      allow read, list: if isStaff();
+      allow create: if isAuthenticated();
+      allow update, delete: if false; // Immutable
+    }
+    
+    // Website settings, tariffs, and menus should be publicly readable.
+    match /website_settings/{docId} {
+      allow get: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /tariffs/{tariffId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+    
+    match /restaurant_menu/{categoryId} {
+       allow get, list: if true;
+       allow write: if isAdmin();
+        match /items/{itemId} {
+            allow get, list: if true;
+            allow write: if isAdmin();
+        }
+    }
+    
+    // Other public-read/admin-write collections.
+    match /daily_boats/{docId} { allow write: if isAdmin(); allow read: if true; }
+    match /extras/{docId} { allow write: if isAdmin(); allow read: if true; }
+    match /testimonials/{docId} { allow get, list: if true; allow create, update, delete: if isAdmin(); }
+    match /restaurant_tables/{tableId} { allow get, list: if true; allow write: if isAdmin(); }
+    match /daily_travel_packages/{packageId} { allow get, list: if true; allow write: if isAdmin(); }
+    match /vouchers/{docId} { allow read, write: if isAdmin(); }
+    
+    // Houseboat models and their subcollections are publicly readable for the website.
+    match /houseboatModels/{modelId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+
+      match /prices/{priceId} {
+        allow get, list: if true;
+        allow create, update, delete: if isAdmin();
+      }
+      match /boats/{boatId} {
+        allow get, list: if true;
+        allow create, update, delete: if isAdmin();
+      }
+    }
+  }
+}
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /clients/{clientId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        request.resource.size < 5 * 1024 * 1024; // 5MB max
+    }
+  }
+}

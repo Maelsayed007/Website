@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // --- Helper Functions ---
+    function isAdmin() {
+      // This is a simple check based on email.
+      // For production, it's safer to use custom claims.
+      return request.auth != null && request.auth.token.email == 'user@example.com';
+    }
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // --- Collection Rules ---
+
+    // Users can only manage their own profile.
+    match /users/{userId} {
+      allow read, update: if isOwner(userId);
+      allow create: if isAuthenticated();
+    }
+
+    // Bookings can be created by anyone (for website forms), but only managed by admins.
+    match /bookings/{bookingId} {
+      allow list, get, update, delete: if isAdmin();
+      // Allow creation for pending bookings from the website.
+      allow create: if request.resource.data.status == 'Pending';
+    }
+
+    // All settings-related collections are admin-only.
+    match /clients/{docId} { allow read, write: if isAdmin(); }
+    match /tariffs/{docId} { allow read, write: if isAdmin(); }
+    match /daily_boats/{docId} { allow read, write: if isAdmin(); }
+    match /extras/{docId} { allow read, write: if isAdmin(); }
+    match /testimonials/{docId} { allow read, write: if isAdmin(); }
+    
+    match /website_settings/{docId} {
+        allow get: if true; // Publicly readable for website
+        allow write: if isAdmin();
+    }
+    
+    // Houseboat models and their subcollections should be readable by anyone, but only writable by admins.
+    match /houseboatModels/{modelId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+
+      match /prices/{priceId} {
+        allow get, list: if true;
+        allow create, update, delete: if isAdmin();
+      }
+      match /boats/{boatId} {
+        allow get, list: if true;
+        allow create, update, delete: if isAdmin();
+      }
+    }
+    
+    // Restaurant menu and tables should be readable by anyone, but only writable by admins.
+     match /restaurant_tables/{tableId} {
+      allow get, list: if true;
+      allow write: if isAdmin();
+    }
+    match /restaurant_menu/{categoryId} {
+       allow get, list: if true;
+       allow write: if isAdmin();
+        match /items/{itemId} {
+            allow get, list: if true;
+            allow write: if isAdmin();
+        }
+    }
+
+    // Daily travel packages should be readable by anyone, writable by admins.
+    match /daily_travel_packages/{packageId} {
+        allow get, list: if true;
+        allow write: if isAdmin();
+    }
+  }
+}

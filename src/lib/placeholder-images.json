@@ -1,0 +1,88 @@
+{
+  "placeholderImages": [
+    {
+      "id": "hero-1",
+      "description": "An aerial view of a tropical island with a plane flying overhead.",
+      "imageUrl": "https://images.unsplash.com/photo-1569154941061-62f3fb23c794?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxhZXJpYWwlMjB2aWV3JTIwYWlycGxhbmV8ZW58MHx8fHwxNzYyODU1NTk4fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "aerial view airplane",
+      "category": "scenery"
+    },
+    {
+      "id": "houseboat-exterior-1",
+      "description": "Modern houseboat docked at a marina.",
+      "imageUrl": "https://images.unsplash.com/photo-1761068967113-0a75ea9a80b8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxob3VzZWJvYXQlMjBtYXJpbmF8ZW58MHx8fHwxNzYyNTk0ODA3fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "houseboat marina",
+      "category": "houseboat"
+    },
+    {
+      "id": "houseboat-exterior-2",
+      "description": "Sleek houseboat cruising on calm water.",
+      "imageUrl": "https://images.unsplash.com/photo-1681825784040-22c872b55f91?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxob3VzZWJvYXQlMjB3YXRlcnxlbnwwfHx8fDE3NjI1OTQ4MDd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "houseboat water",
+      "category": "houseboat"
+    },
+    {
+      "id": "houseboat-exterior-3",
+      "description": "Houseboat with a spacious deck.",
+      "imageUrl": "https://images.unsplash.com/photo-1707136153411-c3bb8930aa40?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxob3VzZWJvYXQlMjBkZWNrfGVufDB8fHx8MTc2MjU5NDgwN3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "houseboat deck",
+      "category": "houseboat"
+    },
+    {
+      "id": "houseboat-interior-1",
+      "description": "Cozy and modern living area of a houseboat.",
+      "imageUrl": "https://images.unsplash.com/photo-1651902387099-787f4a62a3e3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxob3VzZWJvYXQlMjBpbnRlcmlvcnxlbnwwfHx8fDE3NjI1OTQ4MDd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "houseboat interior",
+      "category": "houseboat"
+    },
+    {
+      "id": "houseboat-interior-2",
+      "description": "Bright and airy houseboat kitchen.",
+      "imageUrl": "https://images.unsplash.com/photo-1711426793036-791f09d0846d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxob3VzZWJvYXQlMjBraXRjaGVufGVufDB8fHx8MTc2MjU5NDgwN3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "houseboat kitchen",
+      "category": "houseboat"
+    },
+    {
+      "id": "houseboat-interior-3",
+      "description": "Comfortable bedroom on a houseboat with a view of the water.",
+      "imageUrl": "https://images.unsplash.com/photo-1594130139005-3f0c0f0e7c5e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8aG91c2Vib2F0JTIwYmVkcm9vbXxlbnwwfHx8fDE3NjI1OTQ4MDd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "houseboat bedroom",
+      "category": "houseboat"
+    },
+    {
+      "id": "restaurant-interior-1",
+      "description": "Elegant restaurant dining room with a view of the marina.",
+      "imageUrl": "https://images.unsplash.com/photo-1613274554329-70f997f5789f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxyZXN0YXVyYW50JTIwaW50ZXJpb3J8ZW58MHx8fHwxNzYyNTM2NTg1fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "restaurant interior",
+      "category": "restaurant"
+    },
+    {
+      "id": "restaurant-food-1",
+      "description": "A beautifully plated gourmet dish.",
+      "imageUrl": "https://images.unsplash.com/photo-1623073284788-0d846f75e329?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxnb3VybWV0JTIwZm9vZHxlbnwwfHx8fDE3NjI1ODc4NTh8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "gourmet food",
+      "category": "restaurant"
+    },
+    {
+      "id": "restaurant-view-1",
+      "description": "View from the restaurant terrace overlooking the water.",
+      "imageUrl": "https://images.unsplash.com/photo-1677508397828-0e65fd4aabe3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxtYXJpbmElMjB2aWV3fGVufDB8fHx8MTc2MjU5NDgwN3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "marina view",
+      "category": "scenery"
+    },
+    {
+      "id": "login-background",
+      "description": "A tranquil view of the marina at dusk.",
+      "imageUrl": "https://images.unsplash.com/photo-1702893165901-f882629fa1fe?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxtYXJpbmElMjBkdXNrfGVufDB8fHx8MTc2MjU5NDgwN3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "marina dusk",
+      "category": "scenery"
+    },
+    {
+      "id": "not-found",
+      "description": "A compass on a map.",
+      "imageUrl": "https://images.unsplash.com/photo-1667069543385-4d0523270998?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxjb21wYXNzJTIwbWFwfGVufDB8fHx8MTc2MjQ2ODgxMnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "compass map",
+      "category": "scenery"
+    }
+  ]
+}
