@@ -15,6 +15,7 @@ type AppContextType = {
     companyName?: string;
     heroImageUrl?: string;
   } | null;
+  navigationDictionary: any;
 };
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -89,14 +90,16 @@ export default function AppLayout({
   }
 
   return (
-    <AppContext.Provider value={{ activeTab, setActiveTab, websiteSettings }}>
+    <AppContext.Provider value={{ activeTab, setActiveTab, websiteSettings, navigationDictionary: dictionary.navigation }}>
       <div className="flex min-h-screen flex-col">
-        <Header
-          navigation={dictionary.navigation}
-          websiteSettings={websiteSettings}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-        />
+        {!isHomePage && (
+          <Header
+            navigation={dictionary.navigation}
+            websiteSettings={websiteSettings}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
+        )}
         <main className="flex-grow">{children}</main>
         <Footer dictionary={dictionary.footer} />
       </div>

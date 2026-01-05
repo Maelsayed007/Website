@@ -1,5 +1,5 @@
 
-import type {Config} from 'tailwindcss';
+import type { Config } from 'tailwindcss';
 import { PluginAPI } from 'tailwindcss/types/config';
 
 export default {
@@ -19,9 +19,10 @@ export default {
     },
     extend: {
       fontFamily: {
-        body: ['var(--font-body)', 'sans-serif'],
-        headline: ['var(--font-headline)', 'sans-serif'],
-        subheading: ['var(--font-headline)', 'sans-serif'],
+        body: ['var(--font-outfit)', 'sans-serif'],
+        headline: ['var(--font-outfit)', 'sans-serif'],
+        display: ['var(--font-display)', 'system-ui', 'sans-serif'],
+        subheading: ['var(--font-outfit)', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {
@@ -89,14 +90,14 @@ export default {
           },
         },
         'fade-in-up': {
-            '0%': {
-                opacity: '0',
-                transform: 'translateY(20px)',
-            },
-            '100%': {
-                opacity: '1',
-                transform: 'translateY(0)',
-            },
+          '0%': {
+            opacity: '0',
+            transform: 'translateY(20px)',
+          },
+          '100%': {
+            opacity: '1',
+            transform: 'translateY(0)',
+          },
         },
       },
       animation: {
@@ -113,7 +114,7 @@ export default {
   },
   plugins: [
     require('tailwindcss-animate'),
-    function({ matchUtilities, theme }: PluginAPI) {
+    function ({ matchUtilities, theme }: PluginAPI) {
       matchUtilities(
         {
           'text-shadow': (value) => ({

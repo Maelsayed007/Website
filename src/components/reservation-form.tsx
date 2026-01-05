@@ -93,23 +93,15 @@ export default function ReservationForm({ activeTab = 'houseboats' }: Reservatio
       <form onSubmit={form.handleSubmit(onAvailabilitySubmit)} className="w-full relative">
 
         {/* Wrapper Card */}
-        <div className="bg-white rounded-xl shadow-[0_1px_3px_0_rgba(60,64,67,0.3),0_4px_8px_3px_rgba(60,64,67,0.15)] p-2 md:p-6 pb-8 md:pb-8 relative z-10">
+        <div className="bg-white rounded-3xl shadow-[0_1px_3px_0_rgba(60,64,67,0.3),0_4px_8px_3px_rgba(60,64,67,0.15)] p-2 md:p-5 pb-5 md:pb-5 relative z-10">
 
-          {/* Top Row: "No license required" Badge (Highlited) */}
-          {activeTab === 'houseboats' && (
-            <div className="flex items-start mb-4 px-1">
-              <div className="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs md:text-sm font-medium shadow-sm border border-emerald-200">
-                <Shield className="w-3.5 h-3.5 fill-current" />
-                <span>No license required</span>
-              </div>
-            </div>
-          )}
+
 
           {/* Main Inputs Row - Separated Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-[1.5fr,1fr,1fr,0.8fr] gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-[1.5fr,1fr,1fr,0.8fr,auto] gap-3 items-end">
 
             {/* Box 1: Location */}
-            <div className="bg-white rounded-md border border-[#dadce0] p-0 flex items-center relative group transition-all duration-200 hover:border-[#dadce0] hover:bg-[#f1f3f4] cursor-text h-[50px]">
+            <div className="bg-white rounded-2xl border border-[#dadce0] p-0 flex items-center relative group transition-all duration-200 hover:border-[#dadce0] hover:bg-[#f1f3f4] cursor-text h-[44px]">
               <div className="absolute inset-y-0 left-0 pl-3 md:pl-4 flex items-center pointer-events-none">
                 <div className="w-4 h-4 rounded-full border-[1.5px] border-[#5f6368] flex items-center justify-center">
                   <div className="w-1 h-1 rounded-full bg-[#5f6368]" />
@@ -123,7 +115,7 @@ export default function ReservationForm({ activeTab = 'houseboats' }: Reservatio
             </div>
 
             {/* Box 2: Dates (Check-in) */}
-            <div className="bg-white rounded-md border border-[#dadce0] transition-all duration-200 hover:border-[#dadce0] hover:bg-[#f1f3f4] relative h-[50px]">
+            <div className="bg-white rounded-2xl border border-[#dadce0] transition-all duration-200 hover:border-[#dadce0] hover:bg-[#f1f3f4] relative h-[44px]">
               <FormField
                 control={form.control}
                 name="dateRange"
@@ -134,7 +126,7 @@ export default function ReservationForm({ activeTab = 'houseboats' }: Reservatio
                         type="button"
                         className="w-full h-full flex items-center px-3 md:px-4 text-left gap-2 md:gap-3 group"
                       >
-                        <CalendarDays className="w-4 h-4 md:w-5 md:h-5 text-[#5f6368] flex-shrink-0" />
+                        <CalendarDays className="w-4 h-4 text-[#5f6368] flex-shrink-0" />
                         <span className={cn(
                           "text-sm md:text-base font-normal truncate",
                           field.value?.from ? "text-[#3c4043]" : "text-[#70757a]"
@@ -143,7 +135,7 @@ export default function ReservationForm({ activeTab = 'houseboats' }: Reservatio
                         </span>
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-white rounded-xl shadow-xl border-0" align="start">
+                    <PopoverContent className="w-auto p-0 bg-white rounded-xl shadow-xl border-0 z-[10001]" align="start">
                       <CalendarComponent
                         initialFocus
                         mode="range"
@@ -160,7 +152,7 @@ export default function ReservationForm({ activeTab = 'houseboats' }: Reservatio
             </div>
 
             {/* Box 3: Dates (Check-out) */}
-            <div className="bg-white rounded-md border border-[#dadce0] transition-all duration-200 hover:border-[#dadce0] hover:bg-[#f1f3f4] relative h-[50px]">
+            <div className="bg-white rounded-2xl border border-[#dadce0] transition-all duration-200 hover:border-[#dadce0] hover:bg-[#f1f3f4] relative h-[44px]">
               <FormField
                 control={form.control}
                 name="dateRange"
@@ -171,7 +163,7 @@ export default function ReservationForm({ activeTab = 'houseboats' }: Reservatio
                         type="button"
                         className="w-full h-full flex items-center px-3 md:px-4 text-left gap-2 md:gap-3 group"
                       >
-                        <CalendarDays className="w-4 h-4 md:w-5 md:h-5 text-[#5f6368] flex-shrink-0" />
+                        <CalendarDays className="w-4 h-4 text-[#5f6368] flex-shrink-0" />
                         <span className={cn(
                           "text-sm md:text-base font-normal truncate",
                           field.value?.to ? "text-[#3c4043]" : "text-[#70757a]"
@@ -180,7 +172,7 @@ export default function ReservationForm({ activeTab = 'houseboats' }: Reservatio
                         </span>
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-white rounded-xl shadow-xl border-0" align="end">
+                    <PopoverContent className="w-auto p-0 bg-white rounded-xl shadow-xl border-0 z-[10001]" align="end">
                       <CalendarComponent
                         initialFocus
                         mode="range"
@@ -197,7 +189,7 @@ export default function ReservationForm({ activeTab = 'houseboats' }: Reservatio
             </div>
 
             {/* Box 4: Guests */}
-            <div className="bg-white rounded-md border border-[#dadce0] transition-all duration-200 hover:border-[#dadce0] hover:bg-[#f1f3f4] relative h-[50px]">
+            <div className="bg-white rounded-2xl border border-[#dadce0] transition-all duration-200 hover:border-[#dadce0] hover:bg-[#f1f3f4] relative h-[44px]">
               <FormField
                 control={form.control}
                 name="guests"
@@ -214,21 +206,21 @@ export default function ReservationForm({ activeTab = 'houseboats' }: Reservatio
                         </div>
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-60 p-2" align="end">
+                    <PopoverContent className="w-60 p-2 z-[10001]" align="end">
                       <div className="grid gap-1">
                         {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
                           <div
                             key={num}
                             className={cn(
                               "px-3 py-2 hover:bg-gray-100 rounded cursor-pointer text-sm flex justify-between",
-                              field.value === String(num) && "bg-emerald-50 text-emerald-700 font-medium"
+                              field.value === String(num) && "bg-lime-50 text-lime-800 font-semibold"
                             )}
                             onClick={() => {
                               field.onChange(String(num));
                             }}
                           >
                             <span>{num} {num === 1 ? 'Guest' : 'Guests'}</span>
-                            {field.value === String(num) && <div className="w-2 h-2 rounded-full bg-emerald-500 self-center" />}
+                            {field.value === String(num) && <div className="w-2 h-2 rounded-full bg-[#34C759] self-center border border-green-400" />}
                           </div>
                         ))}
                       </div>
@@ -238,19 +230,21 @@ export default function ReservationForm({ activeTab = 'houseboats' }: Reservatio
               />
             </div>
 
+            {/* Box 5: Search Button - Now inside the grid */}
+            <div className="flex items-center h-[44px]">
+              <Button
+                type="submit"
+                className="bg-[#34C759] hover:bg-[#2DA64D] text-black font-bold h-full px-6 rounded-2xl flex items-center gap-2 shadow-sm text-base transition-all hover:shadow-md w-full md:w-auto min-w-[120px]"
+                disabled={isSearching}
+              >
+                <Search className="w-5 h-5 flex-shrink-0" />
+                <span>Explore</span>
+              </Button>
+            </div>
+
           </div>
 
-          {/* Search Button - Absolute positioned half-in/half-out */}
-          <div className="absolute -bottom-5 left-1/2 -translate-x-1/2">
-            <Button
-              type="submit"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-6 py-3 rounded-full flex items-center gap-2 shadow-sm text-base transition-all hover:shadow-md"
-              disabled={isSearching}
-            >
-              <Search className="w-4 h-4" />
-              <span>Explore</span>
-            </Button>
-          </div>
+
 
         </div>
       </form>

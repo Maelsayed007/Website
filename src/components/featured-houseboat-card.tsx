@@ -26,7 +26,7 @@ export default function FeaturedHouseboatCard({
       className="block group h-full"
     >
       {/* Google Flights Style Card */}
-      <div className="h-full flex flex-col bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-200">
+      <div className="h-full flex flex-col bg-white rounded-2xl border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-200">
 
         {/* Image Section */}
         <div className="relative w-full h-40 overflow-hidden bg-gray-100">
@@ -47,13 +47,9 @@ export default function FeaturedHouseboatCard({
             {bedrooms ? `${bedrooms} Bedroom Houseboat` : 'Houseboat'}
           </div>
 
-          {/* Large Price */}
-          <div className="text-2xl font-normal text-gray-900 mb-2">
-            {startingPrice ? (
-              <>€{startingPrice}</>
-            ) : (
-              <span className="text-lg">View prices</span>
-            )}
+          {/* Houseboat Name - Google Style instead of price */}
+          <div className="text-3xl font-normal text-[#34C759] mb-2 font-display">
+            {houseboat.name}
           </div>
 
           {/* Details Row - Like "Iberia · 1 stop · 15 hrs" */}
@@ -72,7 +68,7 @@ export default function FeaturedHouseboatCard({
           )}
 
           {/* View Link - Google Flights Style */}
-          <div className="flex items-center gap-1 text-emerald-600 text-sm font-medium mt-auto pt-2">
+          <div className="flex items-center gap-1 text-black font-semibold mt-auto pt-2 hover:text-[#2DA64D] transition-colors">
             <Search className="w-4 h-4" />
             <span>View houseboat</span>
           </div>

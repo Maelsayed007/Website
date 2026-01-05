@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { Star, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Star, ChevronLeft, ChevronRight, Shield, Search, Ship } from 'lucide-react';
 import { useSupabase } from '@/components/providers/supabase-provider';
 import { useAppContext } from '@/components/app-layout';
 import type { HouseboatModel } from '@/lib/data-firestore';
 import FeaturedHouseboatCard from './featured-houseboat-card';
 import ReservationForm from './reservation-form';
+import Header from './header';
 
 type Testimonial = {
     id: string;
@@ -22,7 +23,7 @@ interface HomePageContentProps {
 
 export default function HomePageContent({ dictionary }: HomePageContentProps) {
     const { supabase } = useSupabase();
-    const { activeTab, websiteSettings } = useAppContext();
+    const { activeTab, setActiveTab, websiteSettings, navigationDictionary } = useAppContext();
 
     const [featuredHouseboats, setFeaturedHouseboats] = useState<(HouseboatModel & { startingPrice?: number })[]>([]);
     const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
@@ -157,56 +158,83 @@ export default function HomePageContent({ dictionary }: HomePageContentProps) {
     };
 
     return (
-        <div className="flex flex-col bg-white min-h-screen">
+        <div className="flex flex-col bg-white">
 
-            {/* ===== HERO SECTION - Taller for more photo visibility ===== */}
-            <section className="relative pt-16">
 
-                {/* Background Image - Taller banner */}
+            {/* ===== HERO SECTION - Fully Framed with Navbar and Form ===== */}
+            <section className="relative px-4 md:px-6 pt-4 pb-8 md:pb-12">
+
+                {/* Framed Image Container */}
                 {websiteSettings?.heroImageUrl && (
-                    <div className="w-full h-[350px] md:h-[420px] relative overflow-hidden">
+                    <div className="max-w-7xl mx-auto w-full aspect-[21/10] md:aspect-[21/9] min-h-[480px] max-h-[650px] relative rounded-[2.5rem] shadow-sm bg-white flex flex-col">
                         <Image
                             src={websiteSettings.heroImageUrl}
                             alt="Houseboats on Alqueva"
                             fill
-                            className="object-cover object-center"
+                            className="object-cover object-center rounded-[2.5rem]"
                             priority
                         />
-                        {/* Gradient fade to white at bottom - simpler fade */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-white/90 via-transparent to-transparent" />
+
+                        {/* Overlay Content */}
+                        <div className="relative z-[1000] w-full h-full flex flex-col pt-3 md:pt-4 px-6 md:px-8 pb-6 md:pb-8">
+
+                            {/* Navbar inside the frame */}
+                            <div className="relative w-full mb-4">
+                                <Header
+                                    navigation={navigationDictionary}
+                                    websiteSettings={websiteSettings}
+                                    activeTab={activeTab}
+                                    onTabChange={setActiveTab}
+                                    isFixed={true}
+                                />
+                            </div>
+
+
+
+                            {/* Left Aligned Title & Subtitle - Positioned with breathing room from navbar */}
+                            <div className="flex-grow flex flex-col justify-start w-[95%] max-w-6xl mx-auto px-8 pt-20 md:pt-24">
+                                <h1 className="text-5xl md:text-7xl font-normal text-left text-[#34C759] font-display tracking-tight">
+                                    {getPageTitle()}
+                                </h1>
+                                <p className="text-2xl md:text-3xl text-gray-800 font-medium mt-2 font-headline">
+                                    Discover the magic of alqueva lake
+                                </p>
+                                <div className="flex items-center gap-2 text-black bg-[#34C759] mt-2 w-fit px-4 py-1 rounded-full font-medium">
+                                    <Shield className="w-4 h-4 fill-current" />
+                                    <span className="text-base uppercase tracking-wider">No license required</span>
+                                </div>
+                            </div>
+
+                            {/* Form at the bottom inside the frame - Width matching Navbar */}
+                            <div className="w-[95%] max-w-6xl mx-auto mb-0">
+                                <ReservationForm activeTab={activeTab} />
+                            </div>
+
+                        </div>
                     </div>
                 )}
-
-                {/* Title + Form - Below image, with more spacing */}
-                <div className="container max-w-5xl mx-auto px-4 pb-12 -mt-40 relative z-10">
-                    <h1 className="text-5xl md:text-7xl font-semibold text-center text-gray-900 mb-8 drop-shadow-sm">
-                        {getPageTitle()}
-                    </h1>
-
-                    {/* Search Form */}
-                    <ReservationForm activeTab={activeTab} />
-                </div>
             </section>
 
-            {/* ===== FEATURED FLEET SECTION ===== */}
-            {activeTab === 'houseboats' && (
-                <section className="py-10 bg-gray-50">
-                    <div className="container max-w-6xl mx-auto px-4">
+            {/* ===== MAIN CONTENT SECTION (Fleet / Cruises / Restaurant) ===== */}
+            <section className="py-12 bg-[#34C759]/5 min-h-[400px]">
+                <div className="w-[95%] max-w-6xl mx-auto px-4 md:px-8">
 
-                        {/* Section Header */}
-                        <div className="mb-6">
-                            <h2 className="text-xl font-normal text-gray-800 mb-1">
-                                Our Fleet
-                            </h2>
-                            <p className="text-sm text-gray-500">
-                                Explore our premium houseboats on Europe's largest reservoir
-                            </p>
-                        </div>
+                    {/* Section Header - Dynamic based on activeTab */}
+                    <div className="mb-12 text-center">
+                        <h2 className="text-5xl md:text-6xl font-normal text-[#34C759] mb-4 font-display">
+                            {activeTab === 'houseboats' ? 'Our Fleet' :
+                                activeTab === 'river-cruise' ? 'River Cruises' :
+                                    activeTab === 'restaurant' ? 'Dining @ Marina' : 'Contact Us'}
+                        </h2>
+                        <p className="text-lg text-gray-500 font-medium max-w-2xl mx-auto">
+                            {activeTab === 'houseboats' ? 'Explore our premium houseboats on Europe\'s largest reservoir' :
+                                activeTab === 'river-cruise' ? 'Discover the beauty of Alqueva from our scenic cruises' :
+                                    activeTab === 'restaurant' ? 'Savor local delicacies with a marina view' : 'Get in touch for bookings and inquiries'}
+                        </p>
+                    </div>
 
-                        {/* Cards Grid */}
-                        {/* Cards Grid with Carousel Controls */}
-                        {/* Cards Grid with Carousel Controls */}
-                        {/* Cards Grid with Carousel Controls */}
+                    {/* Main Content Area */}
+                    {activeTab === 'houseboats' ? (
                         <div className="relative group">
                             <style jsx global>{`
                                 .no-scrollbar::-webkit-scrollbar {
@@ -223,7 +251,7 @@ export default function HomePageContent({ dictionary }: HomePageContentProps) {
                             {canScrollLeft && (
                                 <button
                                     onClick={() => scroll('left')}
-                                    className="absolute left-0 top-1/2 -translate-y-1/2 -ml-4 z-20 bg-white p-2 rounded-full shadow-lg border border-gray-100 text-gray-700 hover:bg-gray-50 hover:scale-105 transition-all"
+                                    className="absolute left-0 top-1/2 -translate-y-1/2 -ml-4 z-20 bg-[#34C759] p-2 rounded-full shadow-lg text-black hover:bg-[#2DA64D] hover:scale-110 transition-all"
                                     aria-label="Previous"
                                 >
                                     <ChevronLeft className="w-6 h-6" />
@@ -262,70 +290,136 @@ export default function HomePageContent({ dictionary }: HomePageContentProps) {
                             {canScrollRight && (
                                 <button
                                     onClick={() => scroll('right')}
-                                    className="absolute right-0 top-1/2 -translate-y-1/2 -mr-4 z-20 bg-white p-2 rounded-full shadow-lg border border-gray-100 text-gray-700 hover:bg-gray-50 hover:scale-105 transition-all"
+                                    className="absolute right-0 top-1/2 -translate-y-1/2 -mr-4 z-20 bg-[#34C759] p-2 rounded-full shadow-lg text-black hover:bg-[#2DA64D] hover:scale-110 transition-all"
                                     aria-label="Next"
                                 >
                                     <ChevronRight className="w-6 h-6" />
                                 </button>
                             )}
                         </div>
-
-                    </div>
-                </section>
-            )}
-
-            {/* ===== TESTIMONIALS SECTION ===== */}
-            <section className="py-10 bg-white">
-                <div className="container max-w-6xl mx-auto px-4">
-
-                    {/* Section Header */}
-                    <div className="mb-6">
-                        <h2 className="text-xl font-normal text-gray-800 mb-1">
-                            What our guests say
-                        </h2>
-                        <p className="text-sm text-gray-500">
-                            Reviews from guests who experienced our houseboats
-                        </p>
-                    </div>
-
-                    {/* Testimonial Cards */}
-                    <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
-                        {isLoadingTestimonials ? (
-                            <div className="text-gray-500 text-sm">Loading testimonials...</div>
-                        ) : testimonials && testimonials.length > 0 ? (
-                            testimonials.map(testimonial => (
-                                <div key={testimonial.id} className="flex-shrink-0 w-80 bg-gray-50 rounded-lg border border-gray-200 p-5">
-                                    <p className="text-sm text-gray-700 mb-4 italic">
-                                        "{testimonial.quote}"
-                                    </p>
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-medium">
-                                            {testimonial.name.charAt(0)}
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-medium text-gray-900">{testimonial.name}</p>
-                                            <div className="flex items-center gap-0.5">
-                                                {[...Array(5)].map((_, i) => (
-                                                    <Star
-                                                        key={i}
-                                                        className={`h-3 w-3 ${i < testimonial.rating ? 'text-amber-400 fill-amber-400' : 'text-gray-300'}`}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <div className="bg-gray-50 rounded-lg border border-gray-200 p-5 text-center text-gray-500">
-                                No testimonials yet
-                            </div>
-                        )}
-                    </div>
-
+                    ) : (
+                        <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-16 text-center">
+                            <h3 className="text-xl font-medium text-gray-900 mb-2">Coming Soon</h3>
+                            <p className="text-gray-500 max-w-sm mx-auto">
+                                We are currently preparing the {activeTab.replace('-', ' ')} details for you. Check back soon for bookings and menus!
+                            </p>
+                        </div>
+                    )}
                 </div>
             </section>
 
+            {/* ===== PROMOTIONS SECTION ===== */}
+            <section className="py-16 bg-white">
+                <div className="w-[95%] max-w-6xl mx-auto px-4 md:px-8">
+                    <div className="mb-12 text-center">
+                        <h2 className="text-5xl md:text-6xl font-normal text-[#34C759] mb-4 font-display">
+                            Discover Promotions
+                        </h2>
+                        <p className="text-lg text-gray-500 font-medium max-w-2xl mx-auto">
+                            Exclusive deals for your next adventure
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Promo Card 1 */}
+                        <div className="bg-[#34C759]/5 rounded-2xl p-8 border border-[#34C759]/10 relative overflow-hidden group hover:shadow-md transition-all">
+                            <div className="relative z-10">
+                                <span className="inline-block bg-[#34C759] text-black text-xs font-bold px-3 py-1 rounded-full mb-4">LIMITED TIME</span>
+                                <h3 className="text-3xl font-normal text-gray-900 mb-2 font-display tracking-wide">Early Bird Special</h3>
+                                <p className="text-gray-600 mb-6">Book your summer escape 3 months in advance and enjoy a 15% discount on all houseboats.</p>
+                                <button className="text-black font-semibold flex items-center gap-2 hover:translate-x-1 transition-transform">
+                                    Learn more <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                            <div className="absolute right-[-20px] bottom-[-20px] opacity-10 group-hover:scale-110 transition-transform">
+                                <Search className="w-32 h-32 text-[#34C759]" />
+                            </div>
+                        </div>
+
+                        {/* Promo Card 2 */}
+                        <div className="bg-gray-50 rounded-2xl p-8 border border-gray-100 relative overflow-hidden group hover:shadow-md transition-all">
+                            <div className="relative z-10">
+                                <span className="inline-block bg-black text-white text-xs font-bold px-3 py-1 rounded-full mb-4">LAST MINUTE</span>
+                                <h3 className="text-3xl font-normal text-gray-900 mb-2 font-display tracking-wide">Weekend Getaway</h3>
+                                <p className="text-gray-600 mb-6">Suddenly free this weekend? Grab remaining boats with a 20% discount for 2-night stays.</p>
+                                <button className="text-black font-semibold flex items-center gap-2 hover:translate-x-1 transition-transform">
+                                    Check availability <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                            <div className="absolute right-[-20px] bottom-[-20px] opacity-10 group-hover:scale-110 transition-transform">
+                                <Ship className="w-32 h-32 text-black" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* ===== PACKAGES SECTION ===== */}
+            <section className="py-16 bg-[#34C759]/5">
+                <div className="w-[95%] max-w-6xl mx-auto px-4 md:px-8">
+                    <div className="mb-12 text-center">
+                        <h2 className="text-5xl md:text-6xl font-normal text-[#34C759] mb-4 font-display">
+                            Exclusive Packages
+                        </h2>
+                        <p className="text-lg text-gray-500 font-medium max-w-2xl mx-auto">
+                            Curated experiences for every occasion
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {/* Package 1 */}
+                        <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-lg transition-all">
+                            <div className="h-48 bg-gray-200 relative">
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                            </div>
+                            <div className="p-6">
+                                <h4 className="text-2xl font-normal text-gray-900 mb-1 font-display tracking-wide">Romantic Escape</h4>
+                                <p className="text-sm text-gray-500 mb-4 line-clamp-2">Perfect for couples. Includes a welcome bottle of wine, sunset dinner, and late check-out.</p>
+                                <div className="flex items-center justify-between mt-auto">
+                                    <span className="text-lg font-bold text-[#34C759]">From €299</span>
+                                    <button className="bg-[#34C759] p-2 rounded-full hover:scale-110 transition-transform">
+                                        <ChevronRight className="w-5 h-5 text-black" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Package 2 */}
+                        <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-lg transition-all">
+                            <div className="h-48 bg-gray-200 relative">
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                            </div>
+                            <div className="p-6">
+                                <h4 className="text-2xl font-normal text-gray-900 mb-1 font-display tracking-wide">Family Explorer</h4>
+                                <p className="text-sm text-gray-500 mb-4 line-clamp-2">All-inclusive family fun. Includes fishing kits, paddle boards, and Alqueva activity map.</p>
+                                <div className="flex items-center justify-between mt-auto">
+                                    <span className="text-lg font-bold text-[#34C759]">From €450</span>
+                                    <button className="bg-[#34C759] p-2 rounded-full hover:scale-110 transition-transform">
+                                        <ChevronRight className="w-5 h-5 text-black" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Package 3 */}
+                        <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-lg transition-all">
+                            <div className="h-48 bg-gray-200 relative">
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                            </div>
+                            <div className="p-6">
+                                <h4 className="text-2xl font-normal text-gray-900 mb-1 font-display tracking-wide">Wellness Weekend</h4>
+                                <p className="text-sm text-gray-500 mb-4 line-clamp-2">Recharge on the water. Includes Yoga mats, healthy breakfast hamper, and meditation guide.</p>
+                                <div className="flex items-center justify-between mt-auto">
+                                    <span className="text-lg font-bold text-[#34C759]">From €320</span>
+                                    <button className="bg-[#34C759] p-2 rounded-full hover:scale-110 transition-transform">
+                                        <ChevronRight className="w-5 h-5 text-black" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </div>
     );
 }

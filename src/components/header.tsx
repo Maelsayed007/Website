@@ -30,13 +30,25 @@ interface HeaderProps {
   } | null;
   activeTab?: string;
   onTabChange?: (tab: string) => void;
+  isFixed?: boolean;
 }
 
-export default function Header({ navigation, websiteSettings, activeTab = 'houseboats', onTabChange }: HeaderProps) {
+export default function Header({
+  navigation,
+  websiteSettings,
+  activeTab = 'houseboats',
+  onTabChange,
+  isFixed = true
+}: HeaderProps) {
   const pathname = usePathname();
   const isHomePage = pathname === '/';
   const [isScrolled, setIsScrolled] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const { user, signOut } = useSupabase();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSignOut = async () => {
     try {
@@ -54,50 +66,53 @@ export default function Header({ navigation, websiteSettings, activeTab = 'house
     { id: 'contact', label: 'Contact', icon: Mail },
   ];
 
-  // Scroll detection
+  // Scroll detection - only relevant if fixed
   useEffect(() => {
+    if (!isFixed) return;
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [isFixed]);
 
   return (
     <header
       className={cn(
-        'fixed top-0 z-50 w-full transition-all duration-300',
-        isScrolled
-          ? 'bg-white shadow-sm border-b border-gray-200'
-          : 'bg-white border-b border-gray-100'
+        'z-[9999] w-[95%] max-w-6xl transition-all duration-300',
+        (isFixed && isScrolled)
+          ? 'fixed top-4 left-1/2 -translate-x-1/2 bg-white rounded-full shadow-md'
+          : 'absolute top-4 left-1/2 -translate-x-1/2 bg-white rounded-full shadow-md'
       )}
     >
-      <div className="container mx-auto max-w-7xl px-4">
-        <div className="flex items-center h-16 gap-10 relative">
+      <div className="mx-auto px-8 w-full">
+        <div className="flex items-center justify-between h-[72px] relative">
 
-          {/* Logo Section - BIGGER */}
-          <Link
-            href="/"
-            className="flex items-center flex-shrink-0 hover:opacity-80 transition-opacity"
-          >
-            {websiteSettings?.logoUrl ? (
-              <Image
-                src={websiteSettings.logoUrl}
-                alt={websiteSettings?.companyName || 'Logo'}
-                width={180}
-                height={60}
-                className="h-12 w-auto object-contain"
-              />
-            ) : (
-              <span className="text-2xl font-semibold text-gray-700">
-                {websiteSettings?.companyName || 'Amieira'}
-              </span>
-            )}
-          </Link>
+          {/* Logo Section */}
+          <div className="flex-shrink-0 min-w-[140px]">
+            <Link
+              href="/"
+              className="flex items-center hover:opacity-80 transition-opacity"
+            >
+              {websiteSettings?.logoUrl ? (
+                <Image
+                  src={websiteSettings.logoUrl}
+                  alt={websiteSettings?.companyName || 'Logo'}
+                  width={180}
+                  height={60}
+                  className="h-14 w-auto object-contain"
+                />
+              ) : (
+                <span className="text-2xl font-semibold text-black">
+                  {websiteSettings?.companyName || 'Amieira'}
+                </span>
+              )}
+            </Link>
+          </div>
 
-          {/* Main Tabs - Google Style: Centered Absolute */}
-          <nav className="hidden lg:flex items-center gap-2 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+          {/* Main Tabs */}
+          <nav className="hidden lg:flex items-center gap-2 px-2">
             {mainTabs.map(tab => {
               const isActive = activeTab === tab.id;
               const IconComponent = tab.icon;
@@ -106,15 +121,15 @@ export default function Header({ navigation, websiteSettings, activeTab = 'house
                   key={tab.id}
                   onClick={() => onTabChange?.(tab.id)}
                   className={cn(
-                    'px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-2 border',
+                    'px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 flex items-center gap-2 border whitespace-nowrap',
                     isActive
-                      ? 'bg-emerald-600 text-white border-emerald-600' // Filled emerald for selected
-                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50' // Outline for others
+                      ? 'bg-[#34C759] text-black border-[#34C759]'
+                      : 'bg-white text-black border-gray-100 hover:bg-gray-50'
                   )}
                 >
                   <IconComponent className={cn(
-                    'h-4 w-4',
-                    isActive ? 'text-white' : 'text-gray-500'
+                    'h-5 w-5',
+                    isActive ? 'text-black' : 'text-black'
                   )} />
                   {tab.label}
                 </button>
@@ -122,40 +137,37 @@ export default function Header({ navigation, websiteSettings, activeTab = 'house
             })}
           </nav>
 
-          {/* Spacer - Removed since we are using flex with justify-between logic implicitly by spacing items */}
-          <div className="flex-1 lg:hidden" /> {/* Keep spacer only for mobile to push menu right if needed, but flex-1 works generally */}
-          <div className="hidden lg:block flex-1"></div> {/* Push right side auth to right */}
-
           {/* Right Side - Auth & Mobile Menu */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0 min-w-[140px] justify-end">
 
             {/* Auth Buttons - Desktop */}
             <div className="hidden lg:flex items-center gap-2">
-              {!user ? (
-                <Button asChild variant="ghost" size="sm" className="text-gray-600 hover:bg-gray-100 rounded-full">
+              {mounted && !user ? (
+                <Button asChild variant="ghost" size="sm" className="bg-gray-100 text-black hover:bg-gray-200 rounded-full h-10 px-5 text-sm font-medium transition-all border-none shadow-none">
                   <Link href="/login">
                     <LogIn className="h-4 w-4 mr-2" />
                     Sign in
                   </Link>
                 </Button>
-              ) : (
+              ) : mounted && user ? (
                 <>
-                  <Button asChild variant="ghost" size="sm" className="text-gray-600 hover:bg-gray-100 rounded-full">
-                    <Link href="/dashboard">
-                      <User className="h-4 w-4 mr-2" />
-                      Dashboard
+                  <Button asChild variant="ghost" size="icon" className="bg-gray-100 text-black hover:bg-gray-200 rounded-full h-10 w-10 transition-all border-none shadow-none">
+                    <Link href="/dashboard" title="Dashboard">
+                      <User className="h-5 w-5" />
                     </Link>
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleSignOut}
-                    className="text-gray-600 hover:bg-gray-100 rounded-full"
+                    className="bg-gray-100 text-black hover:bg-gray-200 rounded-full h-10 px-5 text-sm font-medium transition-all border-none shadow-none"
                   >
                     <LogOut className="h-4 w-4 mr-2" />
                     Sign out
                   </Button>
                 </>
+              ) : (
+                <div className="h-10 w-20" />
               )}
             </div>
 
@@ -184,7 +196,7 @@ export default function Header({ navigation, websiteSettings, activeTab = 'house
                           className={cn(
                             'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors w-full text-left',
                             isActive
-                              ? 'bg-emerald-600 text-white'
+                              ? 'bg-[#34C759] text-black'
                               : 'text-gray-700 hover:bg-gray-100'
                           )}
                         >
@@ -195,9 +207,9 @@ export default function Header({ navigation, websiteSettings, activeTab = 'house
                     );
                   })}
                   <div className="my-4 border-t border-gray-100" />
-                  {!user ? (
+                  {mounted && (!user ? (
                     <SheetClose asChild>
-                      <Button asChild className="w-full bg-emerald-600 hover:bg-emerald-700 rounded-lg">
+                      <Button asChild className="w-full bg-[#34C759] text-black hover:bg-[#2DA64D] rounded-lg">
                         <Link href="/login">
                           <LogIn className="h-4 w-4 mr-2" /> Sign In
                         </Link>
@@ -219,7 +231,7 @@ export default function Header({ navigation, websiteSettings, activeTab = 'house
                         </button>
                       </SheetClose>
                     </>
-                  )}
+                  ))}
                 </nav>
               </SheetContent>
             </Sheet>

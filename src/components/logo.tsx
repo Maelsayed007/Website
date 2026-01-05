@@ -13,7 +13,7 @@ interface LogoProps {
 export default function Logo({ className, logoUrl, companyName, isWhite }: LogoProps) {
   if (logoUrl) {
     return (
-      <div className={cn("relative h-10 w-auto aspect-[3/1]", className)}>
+      <div className={cn("relative aspect-[3/1]", className || "h-10 w-auto")}>
         <Image
           src={logoUrl}
           alt={companyName || "Logo"}

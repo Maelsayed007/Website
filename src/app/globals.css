@@ -7,8 +7,8 @@
 @layer base {
   :root {
     /* Striking High-Contrast Light Mode - Extra Bold Separation */
-    --background: 220 14% 91%;
-    /* Noticeably darker background #e5e7eb */
+    --background: 0 0% 100%;
+    /* Pure white background */
     --foreground: 222.2 84% 4.9%;
 
     --card: 0 0% 100%;

@@ -3,19 +3,19 @@ import Script from 'next/script';
 import { Toaster } from '@/components/ui/toaster';
 import SupabaseProvider from '@/components/providers/supabase-provider';
 import './globals.css';
-import { Lexend, Comfortaa } from 'next/font/google';
+import { Outfit, Londrina_Solid } from 'next/font/google';
 import AppLayout from '@/components/app-layout';
 
-const lexend = Lexend({
+const outfit = Outfit({
   subsets: ['latin'],
-  weight: ['400', '700'],
-  variable: '--font-body',
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-outfit',
 });
 
-const comfortaa = Comfortaa({
+const londrinaSolid = Londrina_Solid({
   subsets: ['latin'],
-  weight: ['400', '700'],
-  variable: '--font-headline',
+  weight: ['400'],
+  variable: '--font-display',
 });
 
 export const metadata: Metadata = {
@@ -69,7 +69,7 @@ export default function RootLayout({
 }>) {
 
   return (
-    <html lang="en" className={`${lexend.variable} ${comfortaa.variable} scroll-smooth`} suppressHydrationWarning>
+    <html lang="en" className={`${outfit.variable} ${londrinaSolid.variable} scroll-smooth`} suppressHydrationWarning>
       <head>
         <Script id="strip-ext-attrs" strategy="beforeInteractive">
           {`(function(){ try { var el = document.documentElement; if (!el) return; var attrs = ['webcrx', 'g_editable', 'g_inited']; attrs.forEach(function(a){ if (el.hasAttribute(a)) el.removeAttribute(a); }); var badClasses = ['trancy-ar','trancy-rtl','trancy-ltr','translate-web-extension','g_translate']; badClasses.forEach(function(c){ if (el.classList.contains(c)) el.classList.remove(c); }); } catch (e) {} })();`}
