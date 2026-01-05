@@ -8,11 +8,13 @@ import * as z from 'zod';
 import { format, parseISO } from 'date-fns';
 import {
   Search,
+  CalendarDays,
+  Users,
+  Shield,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Form,
-  FormControl,
   FormField,
 } from '@/components/ui/form';
 import {
@@ -22,25 +24,31 @@ import {
 } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { Label } from '@/components/ui/label';
 
 const availabilitySchema = z.object({
+  guests: z.string().optional(),
   dateRange: z.object({
-    from: z.date({ required_error: 'Check-in required' }),
-    to: z.date({ required_error: 'Check-out required' }),
+    from: z.date().optional(),
+    to: z.date().optional(),
   }),
-  guests: z.string().min(1, 'Select guests'),
 });
 
-export default function ReservationForm() {
+interface ReservationFormProps {
+  activeTab?: string;
+}
+
+export default function ReservationForm({ activeTab = 'houseboats' }: ReservationFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isSearching, setIsSearching] = useState(false);
 
+  // Default values
+  const defaultGuests = searchParams.get('guests') || '2';
+
   const form = useForm<z.infer<typeof availabilitySchema>>({
     resolver: zodResolver(availabilitySchema),
     defaultValues: {
-      guests: searchParams.get('guests') || '2',
+      guests: defaultGuests,
       dateRange: {
         from: searchParams.get('from') ? parseISO(searchParams.get('from')!) : undefined,
         to: searchParams.get('to') ? parseISO(searchParams.get('to')!) : undefined,
@@ -54,127 +62,193 @@ export default function ReservationForm() {
     const params = new URLSearchParams();
     if (dateRange.from) params.append('from', dateRange.from.toISOString().split('T')[0]);
     if (dateRange.to) params.append('to', dateRange.to.toISOString().split('T')[0]);
-    params.append('guests', guests);
-    router.push(`/houseboats?${params.toString()}`);
+    if (guests) params.append('guests', guests);
+
+    if (activeTab === 'houseboats') {
+      router.push(`/houseboats?${params.toString()}`);
+    } else if (activeTab === 'river-cruise') {
+      router.push(`/daily-travel?${params.toString()}`);
+    } else if (activeTab === 'restaurant') {
+      router.push(`/restaurant?${params.toString()}`);
+    } else {
+      router.push(`/contact`);
+    }
+  }
+
+  const getLocationLabel = () => {
+    switch (activeTab) {
+      case 'houseboats': return 'Alqueva Lake, Portugal';
+      case 'river-cruise': return 'Amieira Marina';
+      case 'restaurant': return 'Marina Restaurant';
+      default: return 'Alqueva Lake';
+    }
+  };
+
+  if (activeTab === 'contact') {
+    return null;
   }
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onAvailabilitySubmit)} className="w-full h-full">
-        {/* Compact Strip: h-16 (64px) */}
-        <div className="flex flex-col md:flex-row items-center w-full h-full relative">
+      <form onSubmit={form.handleSubmit(onAvailabilitySubmit)} className="w-full relative">
 
-          {/* CHECK IN */}
-          <FormField
-            control={form.control}
-            name="dateRange"
-            render={({ field }) => (
-              <>
-                <div className="relative flex-1 w-full md:w-auto h-16 md:h-full group">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <button type="button" className="text-left w-full h-full px-6 md:px-8 flex flex-col justify-center rounded-[2rem] hover:bg-gray-50 transition-all outline-none relative z-10">
-                          <Label className="block text-[10px] font-extrabold tracking-widest text-gray-800 uppercase mb-0.5 cursor-pointer opacity-70 group-hover:opacity-100 transition-opacity">
-                            Check In
-                          </Label>
-                          <div className={cn("text-sm font-medium text-gray-400 truncate leading-tight", field.value?.from && "text-gray-900 font-bold")}>
-                            {field.value?.from ? format(field.value.from, 'MMM dd') : 'Add dates'}
-                          </div>
-                        </button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-white rounded-2xl shadow-2xl border-0" align="start">
-                      <CalendarComponent
-                        initialFocus
-                        mode="range"
-                        defaultMonth={field.value?.from}
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        numberOfMonths={2}
-                        className="bg-white rounded-xl"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  {/* Divider */}
-                  <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-8 w-px bg-gray-200 z-20" />
-                </div>
+        {/* Wrapper Card */}
+        <div className="bg-white rounded-xl shadow-[0_1px_3px_0_rgba(60,64,67,0.3),0_4px_8px_3px_rgba(60,64,67,0.15)] p-2 md:p-6 pb-8 md:pb-8 relative z-10">
 
-                {/* CHECK OUT */}
-                <div className="relative flex-1 w-full md:w-auto h-16 md:h-full group">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <button type="button" className="text-left w-full h-full px-6 md:px-8 flex flex-col justify-center rounded-[2rem] hover:bg-gray-50 transition-all outline-none relative z-10">
-                          <Label className="block text-[10px] font-extrabold tracking-widest text-gray-800 uppercase mb-0.5 cursor-pointer opacity-70 group-hover:opacity-100 transition-opacity">
-                            Check Out
-                          </Label>
-                          <div className={cn("text-sm font-medium text-gray-400 truncate leading-tight", field.value?.to && "text-gray-900 font-bold")}>
-                            {field.value?.to ? format(field.value.to, 'MMM dd') : 'Add dates'}
-                          </div>
-                        </button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-white rounded-2xl shadow-2xl border-0" align="start">
-                      <CalendarComponent
-                        initialFocus
-                        mode="range"
-                        defaultMonth={field.value?.from}
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        numberOfMonths={2}
-                        className="bg-white rounded-xl"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  {/* Divider */}
-                  <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-8 w-px bg-gray-200 z-20" />
-                </div>
-              </>
-            )}
-          />
+          {/* Top Row: "No license required" Badge (Highlited) */}
+          {activeTab === 'houseboats' && (
+            <div className="flex items-start mb-4 px-1">
+              <div className="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs md:text-sm font-medium shadow-sm border border-emerald-200">
+                <Shield className="w-3.5 h-3.5 fill-current" />
+                <span>No license required</span>
+              </div>
+            </div>
+          )}
 
-          {/* GUESTS */}
-          <FormField
-            control={form.control}
-            name="guests"
-            render={({ field }) => (
-              <div className="relative flex-1 w-full md:w-40 h-16 md:h-full group">
-                <div className="w-full h-full px-6 md:px-8 flex flex-col justify-center rounded-[2rem] hover:bg-gray-50 transition-all relative z-10 cursor-pointer">
-                  <Label className="block text-[10px] font-extrabold tracking-widest text-gray-800 uppercase mb-0.5 cursor-pointer opacity-70 group-hover:opacity-100 transition-opacity">
-                    Guests
-                  </Label>
-                  <div className="flex items-center justify-between w-full">
-                    <FormControl>
-                      <select
-                        {...field}
-                        className={cn(
-                          "w-full bg-transparent text-sm font-medium text-gray-400 outline-none appearance-none cursor-pointer p-0 m-0 border-none leading-tight",
-                          field.value && "text-gray-900 font-bold"
-                        )}
-                      >
-                        {[...Array(12)].map((_, i) => (
-                          <option key={i + 1} value={`${i + 1}`}>
-                            {i + 1} {i === 0 ? 'Guest' : 'Guests'}
-                          </option>
-                        ))}
-                      </select>
-                    </FormControl>
-                  </div>
+          {/* Main Inputs Row - Separated Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-[1.5fr,1fr,1fr,0.8fr] gap-3">
+
+            {/* Box 1: Location */}
+            <div className="bg-white rounded-md border border-[#dadce0] p-0 flex items-center relative group transition-all duration-200 hover:border-[#dadce0] hover:bg-[#f1f3f4] cursor-text h-[50px]">
+              <div className="absolute inset-y-0 left-0 pl-3 md:pl-4 flex items-center pointer-events-none">
+                <div className="w-4 h-4 rounded-full border-[1.5px] border-[#5f6368] flex items-center justify-center">
+                  <div className="w-1 h-1 rounded-full bg-[#5f6368]" />
                 </div>
               </div>
-            )}
-          />
+              <div className="w-full pl-10 md:pl-12 pr-3 h-full flex items-center">
+                <div className="text-[#3c4043] font-normal text-sm md:text-base truncate">
+                  {getLocationLabel()}
+                </div>
+              </div>
+            </div>
 
-          {/* SEARCH BUTTON - Compact Circle */}
-          <div className="p-1.5 pr-2 flex items-center justify-center">
+            {/* Box 2: Dates (Check-in) */}
+            <div className="bg-white rounded-md border border-[#dadce0] transition-all duration-200 hover:border-[#dadce0] hover:bg-[#f1f3f4] relative h-[50px]">
+              <FormField
+                control={form.control}
+                name="dateRange"
+                render={({ field }) => (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="w-full h-full flex items-center px-3 md:px-4 text-left gap-2 md:gap-3 group"
+                      >
+                        <CalendarDays className="w-4 h-4 md:w-5 md:h-5 text-[#5f6368] flex-shrink-0" />
+                        <span className={cn(
+                          "text-sm md:text-base font-normal truncate",
+                          field.value?.from ? "text-[#3c4043]" : "text-[#70757a]"
+                        )}>
+                          {field.value?.from ? format(field.value.from, 'EEE, MMM d') : 'Check-in'}
+                        </span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 bg-white rounded-xl shadow-xl border-0" align="start">
+                      <CalendarComponent
+                        initialFocus
+                        mode="range"
+                        defaultMonth={field.value?.from}
+                        selected={{ from: field.value?.from, to: field.value?.to }}
+                        onSelect={field.onChange}
+                        numberOfMonths={2}
+                        className="bg-white rounded-xl"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                )}
+              />
+            </div>
+
+            {/* Box 3: Dates (Check-out) */}
+            <div className="bg-white rounded-md border border-[#dadce0] transition-all duration-200 hover:border-[#dadce0] hover:bg-[#f1f3f4] relative h-[50px]">
+              <FormField
+                control={form.control}
+                name="dateRange"
+                render={({ field }) => (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="w-full h-full flex items-center px-3 md:px-4 text-left gap-2 md:gap-3 group"
+                      >
+                        <CalendarDays className="w-4 h-4 md:w-5 md:h-5 text-[#5f6368] flex-shrink-0" />
+                        <span className={cn(
+                          "text-sm md:text-base font-normal truncate",
+                          field.value?.to ? "text-[#3c4043]" : "text-[#70757a]"
+                        )}>
+                          {field.value?.to ? format(field.value.to, 'EEE, MMM d') : 'Check-out'}
+                        </span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 bg-white rounded-xl shadow-xl border-0" align="end">
+                      <CalendarComponent
+                        initialFocus
+                        mode="range"
+                        defaultMonth={field.value?.from}
+                        selected={{ from: field.value?.from, to: field.value?.to }}
+                        onSelect={field.onChange}
+                        numberOfMonths={2}
+                        className="bg-white rounded-xl"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                )}
+              />
+            </div>
+
+            {/* Box 4: Guests */}
+            <div className="bg-white rounded-md border border-[#dadce0] transition-all duration-200 hover:border-[#dadce0] hover:bg-[#f1f3f4] relative h-[50px]">
+              <FormField
+                control={form.control}
+                name="guests"
+                render={({ field }) => (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="w-full h-full flex items-center px-3 md:px-4 text-left gap-2 md:gap-3 group"
+                      >
+                        <Users className="w-4 h-4 md:w-5 md:h-5 text-[#5f6368] flex-shrink-0" />
+                        <div className="text-sm md:text-base font-normal text-[#3c4043] truncate">
+                          {field.value} {field.value === '1' ? 'Guest' : 'Guests'}
+                        </div>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-60 p-2" align="end">
+                      <div className="grid gap-1">
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                          <div
+                            key={num}
+                            className={cn(
+                              "px-3 py-2 hover:bg-gray-100 rounded cursor-pointer text-sm flex justify-between",
+                              field.value === String(num) && "bg-emerald-50 text-emerald-700 font-medium"
+                            )}
+                            onClick={() => {
+                              field.onChange(String(num));
+                            }}
+                          >
+                            <span>{num} {num === 1 ? 'Guest' : 'Guests'}</span>
+                            {field.value === String(num) && <div className="w-2 h-2 rounded-full bg-emerald-500 self-center" />}
+                          </div>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
+              />
+            </div>
+
+          </div>
+
+          {/* Search Button - Absolute positioned half-in/half-out */}
+          <div className="absolute -bottom-5 left-1/2 -translate-x-1/2">
             <Button
               type="submit"
-              size="icon"
-              className="rounded-full w-12 h-12 bg-green-600 hover:bg-green-700 text-white shadow-xl hover:shadow-green-500/40 transition-all flex items-center justify-center"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-6 py-3 rounded-full flex items-center gap-2 shadow-sm text-base transition-all hover:shadow-md"
               disabled={isSearching}
             >
-              <Search className="w-5 h-5 stroke-[2.5px]" />
+              <Search className="w-4 h-4" />
+              <span>Explore</span>
             </Button>
           </div>
 

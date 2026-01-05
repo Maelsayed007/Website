@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Users, Bed, ArrowRight } from 'lucide-react';
+import { Users, Search } from 'lucide-react';
 
 interface FeaturedHouseboatCardProps {
   houseboat: any;
@@ -18,68 +18,63 @@ export default function FeaturedHouseboatCard({
   const optimalCapacity = houseboat.optimalCapacity || houseboat.optimal_capacity || 6;
   const maxCapacity = houseboat.maximumCapacity || houseboat.maximum_capacity || optimalCapacity;
   const bedrooms = houseboat.bedrooms;
+  const startingPrice = houseboat.startingPrice;
 
   return (
     <Link
       href={`/houseboats/${houseboat.id}`}
       className="block group h-full"
     >
-      {/* 
-         Visual Updates:
-         1. bg-slate-100 -> Distinct from white background.
-         2. border-2 border-slate-200 -> Stronger visual boundary.
-         3. shadow-lg -> Lift off page.
-      */}
-      <div className="h-full flex flex-col sm:flex-row bg-slate-100 rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 border-2 border-slate-200">
+      {/* Google Flights Style Card */}
+      <div className="h-full flex flex-col bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-200">
 
-        {/* IMAGE - Left Side (Reduced to 45% per request) */}
-        <div className="relative w-full sm:w-[45%] h-56 sm:h-auto min-h-[14rem] overflow-hidden bg-slate-200 flex-shrink-0">
+        {/* Image Section */}
+        <div className="relative w-full h-40 overflow-hidden bg-gray-100">
           <Image
             src={imageUrl}
             alt={houseboat.name}
             fill
-            className="object-cover transition-transform duration-700 group-hover:scale-105"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
           />
         </div>
 
-        {/* CONTENT - Right Side (55%) */}
-        <div className="p-5 flex flex-col justify-center relative w-full sm:w-[55%] bg-slate-100">
+        {/* Content Section - Google Flights Style */}
+        <div className="p-4 flex flex-col flex-grow">
 
-          <div className="flex justify-between items-start mb-2">
-            <h3
-              className="text-xl font-bold line-clamp-1 group-hover:text-green-600 transition-colors text-slate-900"
-            >
-              {houseboat.name}
-            </h3>
+          {/* Header Label */}
+          <div className="text-xs text-gray-500 mb-1">
+            {bedrooms ? `${bedrooms} Bedroom Houseboat` : 'Houseboat'}
           </div>
 
+          {/* Large Price */}
+          <div className="text-2xl font-normal text-gray-900 mb-2">
+            {startingPrice ? (
+              <>€{startingPrice}</>
+            ) : (
+              <span className="text-lg">View prices</span>
+            )}
+          </div>
+
+          {/* Details Row - Like "Iberia · 1 stop · 15 hrs" */}
+          <div className="flex items-center gap-1 text-sm text-gray-600 mb-2">
+            <Users className="w-4 h-4 text-gray-400" />
+            <span>{optimalCapacity}–{maxCapacity} guests</span>
+            <span className="mx-1">·</span>
+            <span>{bedrooms || 1} {bedrooms === 1 ? 'room' : 'rooms'}</span>
+          </div>
+
+          {/* Description */}
           {houseboat.description && (
-            <p className="text-sm text-slate-500 mb-4 line-clamp-2 leading-relaxed font-medium">
+            <p className="text-sm text-gray-500 line-clamp-2 mb-3 flex-grow">
               {houseboat.description}
             </p>
           )}
 
-          {/* Features Row */}
-          <div className="flex flex-wrap gap-2 text-xs text-gray-600 mb-3">
-            {/* Capacity */}
-            <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 shadow-sm">
-              <Users className="w-3.5 h-3.5 text-green-600" />
-              <span className="font-bold text-slate-700">{optimalCapacity}-{maxCapacity} Guests</span>
-            </div>
-
-            {/* Bedrooms */}
-            {bedrooms && (
-              <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 shadow-sm">
-                <Bed className="w-3.5 h-3.5 text-green-600" />
-                <span className="font-bold text-slate-700">{bedrooms} Rooms</span>
-              </div>
-            )}
-          </div>
-
-          {/* CTA Button */}
-          <div className="flex items-center text-sm font-bold text-green-600 group-hover:translate-x-1 transition-transform mt-auto pt-1">
-            View Details <ArrowRight className="w-4 h-4 ml-1" />
+          {/* View Link - Google Flights Style */}
+          <div className="flex items-center gap-1 text-emerald-600 text-sm font-medium mt-auto pt-2">
+            <Search className="w-4 h-4" />
+            <span>View houseboat</span>
           </div>
 
         </div>

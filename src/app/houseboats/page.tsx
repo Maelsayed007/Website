@@ -243,114 +243,120 @@ function HouseboatsContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/50">
+    <div className="min-h-screen bg-white">
 
-      {/* Search Header - ULTRA COMPACT */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm/50 backdrop-blur-md bg-white/95">
-        <div className="container mx-auto px-4 py-3 md:py-3 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="md:hidden">
-              <Anchor className="w-5 h-5 text-[#010a1f]" />
-            </Link>
-            <div>
-              <h1 className="text-lg font-black text-[#010a1f] tracking-tight flex items-center gap-2">
-                {isSearchMode ? `Available Boats` : 'Our Fleet'}
-                <span className="text-gray-400 text-sm font-medium">({processedHouseboats.length})</span>
+      {/* HORIZONTAL FILTER BAR - Sticky Top */}
+      <div className="sticky top-16 md:top-20 z-40 bg-white border-b border-gray-200">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+
+            {/* Title / Count */}
+            <div className="hidden lg:block">
+              <h1 className="text-xl font-bold text-[#202124] flex items-center gap-2">
+                Available Boats
+                <span className="text-gray-500 text-sm font-normal">({processedHouseboats.length})</span>
               </h1>
+            </div>
+
+            {/* Filters - "Boxed" Style */}
+            <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto pb-1 lg:pb-0 no-scrollbar">
+
+              {/* DATE PICKER COPY - Boxed */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("h-12 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 rounded-lg px-4 justify-start text-left font-medium min-w-[260px] shadow-sm transition-all", !dateRange && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-3 h-5 w-5 text-gray-500" />
+                    <div className="flex flex-col items-start leading-none gap-0.5">
+                      <span className="text-xs text-gray-500 font-bold uppercase tracking-wider">Dates</span>
+                      <span className="text-sm font-semibold text-[#3c4043]">
+                        {dateRange?.from ? (
+                          dateRange.to ? `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}` : format(dateRange.from, "MMM dd")
+                        ) : (
+                          "Add dates"
+                        )}
+                      </span>
+                    </div>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-white shadow-xl z-50 border border-gray-200 rounded-xl overflow-hidden" align="start">
+                  <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={dateRange?.from}
+                    selected={dateRange}
+                    onSelect={setDateRange}
+                    numberOfMonths={2}
+                    disabled={(date) => date < new Date()}
+                    className="bg-white"
+                  />
+                </PopoverContent>
+              </Popover>
+
+              {/* GUESTS SELECT - Boxed */}
+              <Select value={guests} onValueChange={setGuests}>
+                <SelectTrigger className="h-12 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 rounded-lg px-4 w-[160px] shadow-sm transition-all">
+                  <div className="flex items-center gap-3">
+                    <Users className="w-5 h-5 text-gray-500" />
+                    <div className="flex flex-col items-start leading-none gap-0.5">
+                      <span className="text-xs text-gray-500 font-bold uppercase tracking-wider">Guests</span>
+                      <span className="text-sm font-semibold text-[#3c4043]">{guests} Guests</span>
+                    </div>
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="bg-white z-50 rounded-xl border-gray-200 shadow-xl">
+                  {[2, 4, 6, 8, 10, 12].map(num => (
+                    <SelectItem key={num} value={num.toString()}>{num} Guests</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* UPDATE SEARCH BUTTON - Pill but Prominent */}
+              <Button onClick={handleSearch} className="h-12 px-8 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-full shadow-md hover:shadow-lg transition-all ml-2">
+                Update
+              </Button>
+
+              {/* RESET - Desktop Only */}
+              <Button variant="ghost" size="icon" className="h-10 w-10 text-gray-400 hover:text-red-500 hidden lg:flex rounded-full ml-auto" onClick={handleClear} title="Reset Filters">
+                <X className="w-5 h-5" />
+              </Button>
             </div>
           </div>
 
-          <Button variant="ghost" size="sm" className="hidden md:flex text-xs h-8 text-gray-500 hover:text-red-500 font-semibold" onClick={handleClear}>
-            Reset
-          </Button>
+          {/* Mobile Count Row */}
+          <div className="lg:hidden mt-3 text-xs font-semibold text-gray-500">
+            {processedHouseboats.length} boats available
+          </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-6 md:py-8">
-        <div className="flex flex-col lg:flex-row gap-8 items-start">
+      <div className="container mx-auto px-4 py-6 md:py-8 min-h-[60vh]">
 
-          {/* SIDEBAR */}
-          <aside className="hidden lg:block w-72 flex-shrink-0 sticky top-24 h-fit space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-xs font-black uppercase tracking-widest text-gray-500 mb-6">Your Trip</h2>
-
-              {/* Date Picker */}
-              <div className="space-y-2 mb-6">
-                <Label className="text-sm font-bold text-gray-900">Dates</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full justify-start text-left font-medium h-12 rounded-xl border border-gray-200 hover:border-gray-300 text-gray-700 transition-colors bg-gray-50", !dateRange && "text-muted-foreground")}>
-                      <CalendarIcon className="mr-2 h-4 w-4 text-gray-400" />
-                      {dateRange?.from ? (
-                        dateRange.to ? `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}` : format(dateRange.from, "MMM dd")
-                      ) : (
-                        "Select Dates"
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 bg-white shadow-xl z-50 border border-gray-200 rounded-xl overflow-hidden" align="start">
-                    <Calendar
-                      initialFocus
-                      mode="range"
-                      defaultMonth={dateRange?.from}
-                      selected={dateRange}
-                      onSelect={setDateRange}
-                      numberOfMonths={1}
-                      disabled={(date) => date < new Date()}
-                      className="bg-white"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              {/* Guests Select */}
-              <div className="space-y-2 mb-8">
-                <Label className="text-sm font-bold text-gray-900">Guests</Label>
-                <Select value={guests} onValueChange={setGuests}>
-                  <SelectTrigger className="w-full h-12 font-medium border border-gray-200 text-gray-700 rounded-xl bg-gray-50 hover:border-gray-300 transition-colors">
-                    <SelectValue placeholder="Guests" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white z-50 rounded-xl border-gray-200 shadow-xl">
-                    {[2, 4, 6, 8, 10, 12].map(num => (
-                      <SelectItem key={num} value={num.toString()}>{num} Guests</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button onClick={handleSearch} className="w-full h-12 bg-[#010a1f] hover:bg-green-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300">
-                Update Search
-              </Button>
+        {/* RESULTS GRID - 2 Columns */}
+        <div className="w-full max-w-7xl mx-auto">
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-[400px] w-full rounded-2xl bg-gray-200" />)}
             </div>
-          </aside>
-
-          {/* RESULTS LIST */}
-          <div className="flex-1 w-full">
-            {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-[400px] w-full rounded-2xl bg-gray-200" />)}
+          ) : processedHouseboats.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 pb-20">
+              {processedHouseboats.map(boat => (
+                <HouseboatSearchCard
+                  key={boat.id}
+                  boat={boat as any}
+                  onSelect={setSelectedBoat}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-dashed border-gray-300">
+              <div className="bg-gray-50 p-4 rounded-full mb-4">
+                <Search className="w-8 h-8 text-gray-400" />
               </div>
-            ) : processedHouseboats.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-20">
-                {processedHouseboats.map(boat => (
-                  <HouseboatSearchCard
-                    key={boat.id}
-                    boat={boat as any}
-                    onSelect={setSelectedBoat}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-dashed border-gray-300">
-                <div className="bg-gray-50 p-4 rounded-full mb-4">
-                  <Search className="w-8 h-8 text-gray-400" />
-                </div>
-                <h3 className="text-lg font-bold text-gray-900">No boats found</h3>
-                <p className="text-gray-500 mt-1 mb-4">Try adjusting your dates or guest count.</p>
-                <Button variant="outline" onClick={handleClear}>Reset Filters</Button>
-              </div>
-            )}
-          </div>
+              <h3 className="text-lg font-bold text-gray-900">No boats found</h3>
+              <p className="text-gray-500 mt-1 mb-4">Try adjusting your dates or guest count.</p>
+              <Button variant="outline" onClick={handleClear}>Reset Filters</Button>
+            </div>
+          )}
         </div>
       </div>
 
