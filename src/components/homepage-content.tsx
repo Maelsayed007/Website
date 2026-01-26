@@ -193,13 +193,13 @@ export default function HomePageContent({ dictionary }: HomePageContentProps) {
 
                             {/* Left Aligned Title & Subtitle - Positioned with breathing room from navbar */}
                             <div className="flex-grow flex flex-col justify-start w-[95%] max-w-6xl mx-auto px-8 pt-20 md:pt-24">
-                                <h1 className="text-5xl md:text-7xl font-normal text-left text-[#34C759] font-display tracking-tight">
+                                <h1 className="text-5xl md:text-7xl font-normal text-left text-[#18230F] font-display tracking-tight">
                                     {getPageTitle()}
                                 </h1>
-                                <p className="text-2xl md:text-3xl text-gray-800 font-medium mt-2 font-headline">
+                                <p className="text-2xl md:text-3xl text-[#18230F] font-medium mt-2 font-headline">
                                     Discover the magic of alqueva lake
                                 </p>
-                                <div className="flex items-center gap-2 text-black bg-[#34C759] mt-2 w-fit px-4 py-1 rounded-full font-medium">
+                                <div className="flex items-center gap-2 text-[#18230F] bg-[#34C759] mt-2 w-fit px-4 py-1 rounded-full font-medium">
                                     <Shield className="w-4 h-4 fill-current" />
                                     <span className="text-base uppercase tracking-wider">No license required</span>
                                 </div>
@@ -221,7 +221,7 @@ export default function HomePageContent({ dictionary }: HomePageContentProps) {
 
                     {/* Section Header - Dynamic based on activeTab */}
                     <div className="mb-12 text-center">
-                        <h2 className="text-5xl md:text-6xl font-normal text-[#34C759] mb-4 font-display">
+                        <h2 className="text-5xl md:text-6xl font-normal text-[#18230F] mb-4 font-display">
                             {activeTab === 'houseboats' ? 'Our Fleet' :
                                 activeTab === 'river-cruise' ? 'River Cruises' :
                                     activeTab === 'restaurant' ? 'Dining @ Marina' : 'Contact Us'}
@@ -299,7 +299,7 @@ export default function HomePageContent({ dictionary }: HomePageContentProps) {
                         </div>
                     ) : (
                         <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-16 text-center">
-                            <h3 className="text-xl font-medium text-gray-900 mb-2">Coming Soon</h3>
+                            <h3 className="text-xl font-medium text-[#18230F] mb-2">Coming Soon</h3>
                             <p className="text-gray-500 max-w-sm mx-auto">
                                 We are currently preparing the {activeTab.replace('-', ' ')} details for you. Check back soon for bookings and menus!
                             </p>
@@ -312,7 +312,7 @@ export default function HomePageContent({ dictionary }: HomePageContentProps) {
             <section className="py-16 bg-white">
                 <div className="w-[95%] max-w-6xl mx-auto px-4 md:px-8">
                     <div className="mb-12 text-center">
-                        <h2 className="text-5xl md:text-6xl font-normal text-[#34C759] mb-4 font-display">
+                        <h2 className="text-5xl md:text-6xl font-normal text-[#18230F] mb-4 font-display">
                             Discover Promotions
                         </h2>
                         <p className="text-lg text-gray-500 font-medium max-w-2xl mx-auto">
@@ -324,10 +324,10 @@ export default function HomePageContent({ dictionary }: HomePageContentProps) {
                         {/* Promo Card 1 */}
                         <div className="bg-[#34C759]/5 rounded-2xl p-8 border border-[#34C759]/10 relative overflow-hidden group hover:shadow-md transition-all">
                             <div className="relative z-10">
-                                <span className="inline-block bg-[#34C759] text-black text-xs font-bold px-3 py-1 rounded-full mb-4">LIMITED TIME</span>
-                                <h3 className="text-3xl font-normal text-gray-900 mb-2 font-display tracking-wide">Early Bird Special</h3>
+                                <span className="inline-block bg-[#34C759] text-[#18230F] text-xs font-bold px-3 py-1 rounded-full mb-4">LIMITED TIME</span>
+                                <h3 className="text-3xl font-normal text-[#18230F] mb-2 font-display tracking-wide">Early Bird Special</h3>
                                 <p className="text-gray-600 mb-6">Book your summer escape 3 months in advance and enjoy a 15% discount on all houseboats.</p>
-                                <button className="text-black font-semibold flex items-center gap-2 hover:translate-x-1 transition-transform">
+                                <button className="text-[#18230F] font-semibold flex items-center gap-2 hover:translate-x-1 transition-transform">
                                     Learn more <ChevronRight className="w-4 h-4" />
                                 </button>
                             </div>
@@ -339,15 +339,15 @@ export default function HomePageContent({ dictionary }: HomePageContentProps) {
                         {/* Promo Card 2 */}
                         <div className="bg-gray-50 rounded-2xl p-8 border border-gray-100 relative overflow-hidden group hover:shadow-md transition-all">
                             <div className="relative z-10">
-                                <span className="inline-block bg-black text-white text-xs font-bold px-3 py-1 rounded-full mb-4">LAST MINUTE</span>
-                                <h3 className="text-3xl font-normal text-gray-900 mb-2 font-display tracking-wide">Weekend Getaway</h3>
+                                <span className="inline-block bg-[#18230F] text-white text-xs font-bold px-3 py-1 rounded-full mb-4">LAST MINUTE</span>
+                                <h3 className="text-3xl font-normal text-[#18230F] mb-2 font-display tracking-wide">Weekend Getaway</h3>
                                 <p className="text-gray-600 mb-6">Suddenly free this weekend? Grab remaining boats with a 20% discount for 2-night stays.</p>
-                                <button className="text-black font-semibold flex items-center gap-2 hover:translate-x-1 transition-transform">
+                                <button className="text-[#18230F] font-semibold flex items-center gap-2 hover:translate-x-1 transition-transform">
                                     Check availability <ChevronRight className="w-4 h-4" />
                                 </button>
                             </div>
                             <div className="absolute right-[-20px] bottom-[-20px] opacity-10 group-hover:scale-110 transition-transform">
-                                <Ship className="w-32 h-32 text-black" />
+                                <Ship className="w-32 h-32 text-[#18230F]" />
                             </div>
                         </div>
                     </div>
@@ -358,7 +358,7 @@ export default function HomePageContent({ dictionary }: HomePageContentProps) {
             <section className="py-16 bg-[#34C759]/5">
                 <div className="w-[95%] max-w-6xl mx-auto px-4 md:px-8">
                     <div className="mb-12 text-center">
-                        <h2 className="text-5xl md:text-6xl font-normal text-[#34C759] mb-4 font-display">
+                        <h2 className="text-5xl md:text-6xl font-normal text-[#18230F] mb-4 font-display">
                             Exclusive Packages
                         </h2>
                         <p className="text-lg text-gray-500 font-medium max-w-2xl mx-auto">
@@ -373,7 +373,7 @@ export default function HomePageContent({ dictionary }: HomePageContentProps) {
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
                             </div>
                             <div className="p-6">
-                                <h4 className="text-2xl font-normal text-gray-900 mb-1 font-display tracking-wide">Romantic Escape</h4>
+                                <h4 className="text-2xl font-normal text-[#18230F] mb-1 font-display tracking-wide">Romantic Escape</h4>
                                 <p className="text-sm text-gray-500 mb-4 line-clamp-2">Perfect for couples. Includes a welcome bottle of wine, sunset dinner, and late check-out.</p>
                                 <div className="flex items-center justify-between mt-auto">
                                     <span className="text-lg font-bold text-[#34C759]">From €299</span>
@@ -390,7 +390,7 @@ export default function HomePageContent({ dictionary }: HomePageContentProps) {
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
                             </div>
                             <div className="p-6">
-                                <h4 className="text-2xl font-normal text-gray-900 mb-1 font-display tracking-wide">Family Explorer</h4>
+                                <h4 className="text-2xl font-normal text-[#18230F] mb-1 font-display tracking-wide">Family Explorer</h4>
                                 <p className="text-sm text-gray-500 mb-4 line-clamp-2">All-inclusive family fun. Includes fishing kits, paddle boards, and Alqueva activity map.</p>
                                 <div className="flex items-center justify-between mt-auto">
                                     <span className="text-lg font-bold text-[#34C759]">From €450</span>
@@ -407,7 +407,7 @@ export default function HomePageContent({ dictionary }: HomePageContentProps) {
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
                             </div>
                             <div className="p-6">
-                                <h4 className="text-2xl font-normal text-gray-900 mb-1 font-display tracking-wide">Wellness Weekend</h4>
+                                <h4 className="text-2xl font-normal text-[#18230F] mb-1 font-display tracking-wide">Wellness Weekend</h4>
                                 <p className="text-sm text-gray-500 mb-4 line-clamp-2">Recharge on the water. Includes Yoga mats, healthy breakfast hamper, and meditation guide.</p>
                                 <div className="flex items-center justify-between mt-auto">
                                     <span className="text-lg font-bold text-[#34C759]">From €320</span>

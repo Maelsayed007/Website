@@ -48,7 +48,7 @@ export default function FeaturedHouseboatCard({
           </div>
 
           {/* Houseboat Name - Google Style instead of price */}
-          <div className="text-3xl font-normal text-[#34C759] mb-2 font-display">
+          <div className="text-3xl font-normal text-[#18230F] mb-2 font-display">
             {houseboat.name}
           </div>
 
@@ -68,7 +68,7 @@ export default function FeaturedHouseboatCard({
           )}
 
           {/* View Link - Google Flights Style */}
-          <div className="flex items-center gap-1 text-black font-semibold mt-auto pt-2 hover:text-[#2DA64D] transition-colors">
+          <div className="flex items-center gap-1 text-[#18230F] font-semibold mt-auto pt-2 hover:text-[#2DA64D] transition-colors">
             <Search className="w-4 h-4" />
             <span>View houseboat</span>
           </div>

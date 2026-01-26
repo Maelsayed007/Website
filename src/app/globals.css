@@ -9,27 +9,27 @@
     /* Striking High-Contrast Light Mode - Extra Bold Separation */
     --background: 0 0% 100%;
     /* Pure white background */
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 93 40% 10%;
 
     --card: 0 0% 100%;
     /* Pure white 'blocks' for maximum pop */
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 93 40% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 93 40% 10%;
 
     --primary: 153 60% 53%;
     /* Supabase Green */
     --primary-foreground: 210 40% 98%;
 
     --secondary: 220 13% 88%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary-foreground: 93 40% 10%;
 
     --muted: 220 13% 88%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
     --accent: 153 60% 53%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent-foreground: 93 40% 10%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
@@ -41,7 +41,7 @@
 
     --sidebar-bg: 0 0% 100%;
     /* Fully white sidebar to match cards */
-    --sidebar-fg: 222.2 47.4% 11.2%;
+    --sidebar-fg: 93 40% 10%;
     --sidebar-hover: 220 13% 88%;
     --sidebar-border: 220 13% 82%;
 
@@ -475,5 +475,18 @@
       0 12px 15px -8px rgba(0, 0, 0, 0.1);
     transform: translateY(-6px);
     border-color: hsl(var(--primary) / 0.6) !important;
+  }
+
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
   }
 }

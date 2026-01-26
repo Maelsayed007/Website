@@ -98,6 +98,7 @@ export default function AppLayout({
             websiteSettings={websiteSettings}
             activeTab={activeTab}
             onTabChange={setActiveTab}
+            isFixed={pathname !== '/houseboats'}
           />
         )}
         <main className="flex-grow">{children}</main>

@@ -11,6 +11,9 @@ import {
   CalendarDays,
   Users,
   Shield,
+  Ship,
+  Minus,
+  Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,6 +30,7 @@ import { cn } from '@/lib/utils';
 
 const availabilitySchema = z.object({
   guests: z.string().optional(),
+  boats: z.string().optional(),
   dateRange: z.object({
     from: z.date().optional(),
     to: z.date().optional(),
@@ -44,11 +48,13 @@ export default function ReservationForm({ activeTab = 'houseboats' }: Reservatio
 
   // Default values
   const defaultGuests = searchParams.get('guests') || '2';
+  const defaultBoats = searchParams.get('boats') || '1';
 
   const form = useForm<z.infer<typeof availabilitySchema>>({
     resolver: zodResolver(availabilitySchema),
     defaultValues: {
       guests: defaultGuests,
+      boats: defaultBoats,
       dateRange: {
         from: searchParams.get('from') ? parseISO(searchParams.get('from')!) : undefined,
         to: searchParams.get('to') ? parseISO(searchParams.get('to')!) : undefined,
@@ -58,11 +64,12 @@ export default function ReservationForm({ activeTab = 'houseboats' }: Reservatio
 
   async function onAvailabilitySubmit(values: z.infer<typeof availabilitySchema>) {
     setIsSearching(true);
-    const { dateRange, guests } = values;
+    const { dateRange, guests, boats } = values;
     const params = new URLSearchParams();
     if (dateRange.from) params.append('from', dateRange.from.toISOString().split('T')[0]);
     if (dateRange.to) params.append('to', dateRange.to.toISOString().split('T')[0]);
     if (guests) params.append('guests', guests);
+    if (boats) params.append('boats', boats);
 
     if (activeTab === 'houseboats') {
       router.push(`/houseboats?${params.toString()}`);
@@ -98,7 +105,7 @@ export default function ReservationForm({ activeTab = 'houseboats' }: Reservatio
 
 
           {/* Main Inputs Row - Separated Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-[1.5fr,1fr,1fr,0.8fr,auto] gap-3 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-[1.4fr,1fr,1fr,0.6fr,0.6fr,auto] gap-3 items-end">
 
             {/* Box 1: Location */}
             <div className="bg-white rounded-2xl border border-[#dadce0] p-0 flex items-center relative group transition-all duration-200 hover:border-[#dadce0] hover:bg-[#f1f3f4] cursor-text h-[44px]">
@@ -189,40 +196,62 @@ export default function ReservationForm({ activeTab = 'houseboats' }: Reservatio
             </div>
 
             {/* Box 4: Guests */}
-            <div className="bg-white rounded-2xl border border-[#dadce0] transition-all duration-200 hover:border-[#dadce0] hover:bg-[#f1f3f4] relative h-[44px]">
+            <div className="bg-white rounded-2xl border border-[#dadce0] transition-all duration-200 hover:border-[#dadce0] hover:bg-[#f1f3f4] relative h-[44px] group">
               <FormField
                 control={form.control}
                 name="guests"
                 render={({ field }) => (
                   <Popover>
                     <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        className="w-full h-full flex items-center px-3 md:px-4 text-left gap-2 md:gap-3 group"
-                      >
+                      <button type="button" className="w-full h-full flex items-center px-3 md:px-4 text-left gap-2 md:gap-3">
                         <Users className="w-4 h-4 md:w-5 md:h-5 text-[#5f6368] flex-shrink-0" />
-                        <div className="text-sm md:text-base font-normal text-[#3c4043] truncate">
-                          {field.value} {field.value === '1' ? 'Guest' : 'Guests'}
+                        <div className="flex flex-col items-start min-w-0">
+                          <span className={cn(
+                            "text-sm md:text-base font-normal truncate",
+                            field.value ? "text-[#3c4043]" : "text-[#70757a]"
+                          )}>
+                            {field.value || '2'} {parseInt(field.value || '2') === 1 ? 'Guest' : 'Guests'}
+                          </span>
                         </div>
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-60 p-2 z-[10001]" align="end">
-                      <div className="grid gap-1">
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-                          <div
-                            key={num}
-                            className={cn(
-                              "px-3 py-2 hover:bg-gray-100 rounded cursor-pointer text-sm flex justify-between",
-                              field.value === String(num) && "bg-lime-50 text-lime-800 font-semibold"
-                            )}
-                            onClick={() => {
-                              field.onChange(String(num));
-                            }}
-                          >
-                            <span>{num} {num === 1 ? 'Guest' : 'Guests'}</span>
-                            {field.value === String(num) && <div className="w-2 h-2 rounded-full bg-[#34C759] self-center border border-green-400" />}
+                    <PopoverContent className="w-[300px] p-4 bg-white rounded-xl shadow-xl border-none z-[10001]" align="center">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-base font-medium text-gray-700">Adults & Children</span>
+                          <div className="flex items-center gap-3 bg-gray-50 rounded-full p-1 border border-gray-100">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 rounded-full hover:bg-white hover:shadow-sm"
+                              onClick={() => {
+                                const current = parseInt(field.value || '0');
+                                const newVal = Math.max(1, current - 1);
+                                field.onChange(newVal.toString());
+                              }}
+                              disabled={parseInt(field.value || '0') <= 1}
+                            >
+                              <Minus className="w-4 h-4" />
+                            </Button>
+                            <span className="w-6 text-center font-semibold text-gray-900">{field.value || '2'}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 rounded-full hover:bg-white hover:shadow-sm"
+                              onClick={() => {
+                                const current = parseInt(field.value || '0');
+                                const newVal = Math.min(20, current + 1);
+                                field.onChange(newVal.toString());
+                              }}
+                              disabled={parseInt(field.value || '0') >= 20}
+                            >
+                              <Plus className="w-4 h-4" />
+                            </Button>
                           </div>
-                        ))}
+                        </div>
+                        <p className="text-xs text-gray-400 text-center">Max capacity varies by boat.</p>
                       </div>
                     </PopoverContent>
                   </Popover>
@@ -230,11 +259,46 @@ export default function ReservationForm({ activeTab = 'houseboats' }: Reservatio
               />
             </div>
 
-            {/* Box 5: Search Button - Now inside the grid */}
+            {/* Box 5: Boats (NEW) */}
+            <div className="bg-white rounded-2xl border border-[#dadce0] transition-all duration-200 hover:border-[#dadce0] hover:bg-[#f1f3f4] relative h-[44px] px-3 md:px-4 flex items-center group">
+              <FormField
+                control={form.control}
+                name="boats"
+                render={({ field }) => (
+                  <div className="flex items-center gap-2 md:gap-3 w-full">
+                    <Ship className="w-4 h-4 md:w-5 md:h-5 text-[#5f6368] flex-shrink-0" />
+                    <div className="flex items-center flex-1 min-w-0">
+                      <input
+                        type="number"
+                        value={field.value || ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const numVal = parseInt(val) || 0;
+                          if (val === '') field.onChange('');
+                          else if (numVal >= 1 && numVal <= 5) field.onChange(val);
+                        }}
+                        onBlur={() => {
+                          if (!field.value || parseInt(field.value) < 1) field.onChange('1');
+                        }}
+                        className="w-8 bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-sm md:text-base font-bold text-[#18230F] p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        placeholder="1"
+                        min="1"
+                        max="5"
+                      />
+                      <span className="text-sm md:text-base font-normal text-[#3c4043] ml-0.5 truncate">
+                        {parseInt(field.value || '0') === 1 ? 'Boat' : 'Boats'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              />
+            </div>
+
+            {/* Box 6: Search Button */}
             <div className="flex items-center h-[44px]">
               <Button
                 type="submit"
-                className="bg-[#34C759] hover:bg-[#2DA64D] text-black font-bold h-full px-6 rounded-2xl flex items-center gap-2 shadow-sm text-base transition-all hover:shadow-md w-full md:w-auto min-w-[120px]"
+                className="bg-[#34C759] hover:bg-[#2DA64D] text-[#18230F] font-bold h-full px-6 rounded-2xl flex items-center gap-2 shadow-sm text-base transition-all hover:shadow-md w-full md:w-auto min-w-[120px]"
                 disabled={isSearching}
               >
                 <Search className="w-5 h-5 flex-shrink-0" />

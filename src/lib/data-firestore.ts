@@ -6,7 +6,9 @@ export type Amenity = 'wifi' | 'tv' | 'kitchen' | 'ac' | 'heating' | 'grill' | '
 export type HouseboatModel = {
   id: string;
   name: string;
-  description: string;
+  description?: string;
+  optimal_capacity?: number;
+  maximum_capacity?: number;
   optimalCapacity: number;
   maximumCapacity: number;
   kitchens: number;
@@ -16,6 +18,21 @@ export type HouseboatModel = {
   doubleBeds: number;
   amenities: Amenity[];
   imageUrls: string[];
+  image_urls?: string[];
+  slug?: string;
+  // Computed Properties for UI
+  pricePerNight?: number;
+  totalPrice?: number;
+  isAvailable?: boolean;
+  breakdown?: {
+    weekdayNights: number;
+    weekdayPrice: number;
+    weekendNights: number;
+    weekendPrice: number;
+    preparationFee: number;
+    total: number;
+    deposit: number;
+  };
 };
 
 export type Houseboat = {

@@ -6,55 +6,21 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useSupabase } from '@/components/providers/supabase-provider';
 import HouseboatSearchCard from '@/components/houseboat-search-card';
+import PackageCard from '@/components/package-card';
+import { HouseboatModel } from '@/lib/data-firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose } from '@/components/ui/sheet';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format, parseISO, differenceInDays, eachDayOfInterval, isWithinInterval, addDays, getDay, subDays } from 'date-fns';
-import { Calendar as CalendarIcon, Users, SlidersHorizontal, Search, Check, Info, MapPin, Anchor, DollarSign, Bed, ArrowRight, X, Star, Utensils, Wifi, Droplets, CreditCard, BedDouble, Sofa } from 'lucide-react';
+import { Calendar as CalendarIcon, Users, SlidersHorizontal, Search, Check, Info, MapPin, Anchor, DollarSign, Bed, Ship, Minus, Plus, ChevronUp, ChevronDown, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DateRange } from 'react-day-picker';
 
-// Types
-type HouseboatModel = {
-  id: string;
-  name: string;
-  slug: string;
-  image_urls: string[];
-  optimal_capacity: number;
-  maximum_capacity: number;
-  kitchens: number;
-  bathrooms: number;
-  bedrooms: number;
-  description?: string;
-  // Computed Price Props
-  pricePerNight?: number;
-  totalPrice?: number;
-  breakdown?: {
-    weekdayNights: number;
-    weekdayPrice: number;
-    weekendNights: number;
-    weekendPrice: number;
-    preparationFee: number;
-    total: number;
-    deposit: number;
-  };
-  isAvailable?: boolean;
-  imageUrls?: string[];
-  optimalCapacity?: number;
-  maximumCapacity?: number;
-  // Missing properties to satisfy strict types
-  singleBeds?: number;
-  doubleBeds?: number;
-  amenities?: string[];
-  images?: string[];
-  licenseRequired?: boolean;
-};
-
+// Local UI Types
 type HouseboatPrice = {
   model_id: string;
   weekday_price: number;
@@ -76,6 +42,7 @@ function HouseboatsContent() {
   const fromParam = searchParams.get('from');
   const toParam = searchParams.get('to');
   const guestsParam = searchParams.get('guests');
+  const boatsParam = searchParams.get('boats');
   const isSearchMode = !!(fromParam && toParam);
 
   // States
@@ -88,10 +55,15 @@ function HouseboatsContent() {
     return undefined;
   });
   const [guests, setGuests] = useState(guestsParam || '2');
-  const [selectedBoat, setSelectedBoat] = useState<HouseboatModel | null>(null);
+  const [numberOfBoats, setNumberOfBoats] = useState(parseInt(boatsParam || '1') || 1);
+  const [guestWarning, setGuestWarning] = useState('');
+  // State
+  const [isGuestsOpen, setIsGuestsOpen] = useState(false);
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
 
   // Data
   const [houseboats, setHouseboats] = useState<HouseboatModel[]>([]);
+  const [boatUnits, setBoatUnits] = useState<{ id: string; model_id: string; name: string }[]>([]);
   const [prices, setPrices] = useState<HouseboatPrice[]>([]);
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -100,13 +72,15 @@ function HouseboatsContent() {
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
-      const [modelsRes, pricesRes] = await Promise.all([
+      const [modelsRes, pricesRes, unitsRes] = await Promise.all([
         supabase.from('houseboat_models').select('*'),
-        supabase.from('houseboat_prices').select('*')
+        supabase.from('houseboat_prices').select('*'),
+        supabase.from('boats').select('id, model_id, name')
       ]);
 
       if (modelsRes.data) setHouseboats(modelsRes.data as any);
       if (pricesRes.data) setPrices(pricesRes.data as any);
+      if (unitsRes.data) setBoatUnits(unitsRes.data as any);
 
       if (isSearchMode) {
         const { data: bookings } = await supabase.from('bookings').select('*').gte('end_time', new Date().toISOString());
@@ -137,7 +111,8 @@ function HouseboatsContent() {
       // Basic Availability & Capacity
       let isAvailable = true;
       if (isSearchMode) {
-        if (guestCount > (boat.maximum_capacity || 6)) isAvailable = false;
+        // Relax capacity check if we are booking multiple boats (allowing smaller boats to combine)
+        if (numberOfBoats === 1 && guestCount > (boat.maximum_capacity || 6)) isAvailable = false;
 
         // Date Check
         if (isAvailable && dateRange?.from && dateRange?.to) {
@@ -211,7 +186,150 @@ function HouseboatsContent() {
     })
       .filter(boat => !isSearchMode || boat.isAvailable)
       .sort((a, b) => (a.totalPrice || 0) - (b.totalPrice || 0));
-  }, [houseboats, prices, allBookings, dateRange, guests, isSearchMode]);
+  }, [houseboats, prices, allBookings, dateRange, guests, isSearchMode, numberOfBoats]);
+
+  // Package type for multi-boat results
+  type BoatPackage = {
+    id: string;
+    boats: HouseboatModel[];
+    totalCapacity: number;
+    totalOptimalCapacity: number;
+    totalPrice: number;
+  };
+
+  // Generate packages when multiple boats selected
+  const generatedPackages = useMemo((): BoatPackage[] => {
+    if (numberOfBoats <= 1 || !isSearchMode) return [];
+
+    if (numberOfBoats <= 1 || !isSearchMode) return [];
+
+    // EXPAND BOATS BASED ON AVAILABLE INVENTORY
+    const availableBoatsPool: HouseboatModel[] = [];
+
+    // Convert guests string to number
+    const guestCount = parseInt(guests) || 2;
+    console.log('[PackageDebug] Generating packages for Guests:', guestCount, 'Boats:', numberOfBoats);
+    console.log('[PackageDebug] Processed Houseboats available to combine:', processedHouseboats.map(b => ({ id: b.id, opt: b.optimalCapacity, avail: b.isAvailable })));
+
+    processedHouseboats.forEach(model => {
+      // 1. Get total physical units for this model
+      const modelUnits = boatUnits.filter(u => u.model_id === model.id);
+      const totalUnitsCount = modelUnits.length > 0 ? modelUnits.length : 1; // Fallback to 1 if no units defined
+
+      // 2. Count overlapping bookings for this model
+      let bookedCount = 0;
+      if (dateRange?.from && dateRange?.to) {
+        const requestedInterval = { start: dateRange.from, end: dateRange.to };
+        const modelBookings = allBookings.filter(b => b.houseboat_id === model.id && ['Confirmed', 'Pending'].includes(b.status));
+
+        bookedCount = modelBookings.filter(b => {
+          const start = parseISO(b.start_time);
+          const end = parseISO(b.end_time);
+          return (
+            isWithinInterval(requestedInterval.start, { start, end }) ||
+            isWithinInterval(requestedInterval.end, { start, end }) ||
+            isWithinInterval(start, { start: requestedInterval.start, end: requestedInterval.end })
+          );
+        }).length;
+      }
+
+      // 3. Calculate Available Units
+      const availableCount = Math.max(0, totalUnitsCount - bookedCount);
+
+      // 4. Add 'availableCount' copies of this model to the pool
+      for (let i = 0; i < availableCount; i++) {
+        availableBoatsPool.push(model);
+      }
+    });
+
+    // Guard: if not enough boats available
+    if (availableBoatsPool.length < numberOfBoats) return [];
+
+    // Guard: limit combinations to prevent performance issues
+    const maxBoatsToUse = Math.min(numberOfBoats, availableBoatsPool.length, 6); // Slightly increased limit for expanded pool
+
+    // Iterative combination generator (no recursion)
+    const getCombinations = (arr: HouseboatModel[], k: number): HouseboatModel[][] => {
+      if (k > arr.length || k <= 0) return [];
+      if (k === arr.length) return [arr];
+      if (k === 1) return arr.map(item => [item]);
+
+      const result: HouseboatModel[][] = [];
+      const indices = Array.from({ length: k }, (_, i) => i);
+
+      while (indices[0] <= arr.length - k) {
+        result.push(indices.map(i => arr[i]));
+
+        // Find rightmost index that can be incremented
+        let t = k - 1;
+        while (t >= 0 && indices[t] === arr.length - k + t) t--;
+
+        if (t < 0) break;
+
+        indices[t]++;
+        for (let j = t + 1; j < k; j++) {
+          indices[j] = indices[j - 1] + 1;
+        }
+      }
+
+      return result;
+    };
+
+    const combos = getCombinations(availableBoatsPool, maxBoatsToUse);
+
+    const packages: BoatPackage[] = combos
+      .map((combo, idx) => {
+        const totalCap = combo.reduce((sum, b) => sum + (b.maximumCapacity || 0), 0);
+        const totalOptimal = combo.reduce((sum, b) => sum + (b.optimalCapacity || 4), 0);
+        const totalPrice = combo.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+        return {
+          id: `pkg-${idx}`,
+          boats: combo,
+          totalCapacity: totalCap,
+          totalOptimalCapacity: totalOptimal,
+          totalPrice
+        };
+      })
+      // Filter: must fit guests optimally (or closely)
+      .filter(pkg => {
+        const minConfig = guestCount;
+        const maxConfig = guestCount + 2;
+        const isValid = pkg.totalOptimalCapacity >= minConfig && pkg.totalOptimalCapacity <= maxConfig;
+
+        if (!isValid) {
+          console.log(`[PackageDebug] Rejected Pkg: Opt=${pkg.totalOptimalCapacity} (Req: ${minConfig}-${maxConfig}). Boats:`, pkg.boats.map(b => b.optimalCapacity));
+        } else {
+          console.log(`[PackageDebug] Accepted Pkg: Opt=${pkg.totalOptimalCapacity}. Boats:`, pkg.boats.map(b => b.optimalCapacity));
+        }
+        return isValid;
+      });
+
+    // Deduplicate packages based on model composition
+    const uniquePackagesMap = new Map<string, BoatPackage>();
+
+    packages.forEach(pkg => {
+      // Create a sorted key based on model IDs to identify identical combinations
+      const compositionKey = pkg.boats
+        .map(b => b.id)
+        .sort()
+        .join('|');
+
+      if (!uniquePackagesMap.has(compositionKey)) {
+        uniquePackagesMap.set(compositionKey, pkg);
+      }
+    });
+
+    const uniquePackages = Array.from(uniquePackagesMap.values());
+
+    // Sort by closest capacity match first, then by price
+    return uniquePackages
+      .sort((a, b) => {
+        const aDiff = a.totalCapacity - guestCount;
+        const bDiff = b.totalCapacity - guestCount;
+        return aDiff - bDiff || a.totalPrice - b.totalPrice;
+      })
+      .slice(0, 5); // Limit to top 5 best-matching unique packages
+  }, [processedHouseboats, numberOfBoats, guests, isSearchMode]);
 
 
   const handleSearch = () => {
@@ -220,114 +338,255 @@ function HouseboatsContent() {
     params.set('from', format(dateRange.from, 'yyyy-MM-dd'));
     params.set('to', format(dateRange.to, 'yyyy-MM-dd'));
     params.set('guests', guests);
-    window.location.href = `/houseboats?${params.toString()}`;
+    params.set('boats', numberOfBoats.toString());
+    router.push(`/houseboats?${params.toString()}`);
   };
 
-  const handleClear = () => window.location.href = '/houseboats';
-
-  // Helper to determine bed configuration based on search
-  const showConvertibleBed = useMemo(() => {
-    if (!selectedBoat) return false;
-    const guestCount = parseInt(guests) || 2;
-    return guestCount > (selectedBoat.optimalCapacity || 0);
-  }, [guests, selectedBoat]);
-
-  // Generate Link with current params
-  const getReserveLink = (boat: HouseboatModel) => {
-    const params = new URLSearchParams();
-    if (dateRange?.from) params.set('from', format(dateRange.from, 'yyyy-MM-dd'));
-    if (dateRange?.to) params.set('to', format(dateRange.to, 'yyyy-MM-dd'));
-    params.set('guests', guests);
-
-    return `/houseboats/${boat.slug}?${params.toString()}`;
+  const handleClear = () => {
+    setDateRange(undefined);
+    setGuests('2');
+    setNumberOfBoats(1);
+    router.push('/houseboats');
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#f8f9fa]">
 
-      {/* HORIZONTAL FILTER BAR - Sticky Top */}
-      <div className="sticky top-16 md:top-20 z-40 bg-white border-b border-gray-200">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+      {/* SEARCH PAGE HERO */}
+      <div className="relative pt-32 pb-20 overflow-hidden bg-[#18230F]">
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="/boat-hero.jpg"
+            alt="Amieira Marina Boat"
+            fill
+            className="object-cover opacity-60"
+            priority
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#18230F]/80 via-transparent to-[#18230F]/90" />
+        </div>
 
-            {/* Title / Count */}
-            <div className="hidden lg:block">
-              <h1 className="text-xl font-bold text-[#202124] flex items-center gap-2">
-                Available Boats
-                <span className="text-gray-500 text-sm font-normal">({processedHouseboats.length})</span>
-              </h1>
-            </div>
+        <div className="container mx-auto px-4 relative z-10 text-center">
+          <h1 className="text-4xl md:text-5xl font-display font-medium text-white mb-4 tracking-tight">
+            Find your <span className="text-[#34C759]">perfect</span> escape
+          </h1>
+          <p className="text-white/70 max-w-2xl mx-auto text-lg">
+            Discover our exclusive fleet of houseboats on the Alqueva Lake.
+          </p>
+        </div>
+      </div>
 
-            {/* Filters - "Boxed" Style */}
-            <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto pb-1 lg:pb-0 no-scrollbar">
+      {/* STICKY FILTER BAR - Integrated Style */}
+      <div className="sticky top-0 z-40 w-full bg-white border-b border-gray-100 shadow-sm transition-all duration-300">
 
-              {/* DATE PICKER COPY - Boxed */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("h-12 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 rounded-lg px-4 justify-start text-left font-medium min-w-[260px] shadow-sm transition-all", !dateRange && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-3 h-5 w-5 text-gray-500" />
-                    <div className="flex flex-col items-start leading-none gap-0.5">
-                      <span className="text-xs text-gray-500 font-bold uppercase tracking-wider">Dates</span>
-                      <span className="text-sm font-semibold text-[#3c4043]">
-                        {dateRange?.from ? (
-                          dateRange.to ? `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}` : format(dateRange.from, "MMM dd")
-                        ) : (
-                          "Add dates"
-                        )}
-                      </span>
-                    </div>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-white shadow-xl z-50 border border-gray-200 rounded-xl overflow-hidden" align="start">
-                  <Calendar
-                    initialFocus
-                    mode="range"
-                    defaultMonth={dateRange?.from}
-                    selected={dateRange}
-                    onSelect={setDateRange}
-                    numberOfMonths={2}
-                    disabled={(date) => date < new Date()}
-                    className="bg-white"
-                  />
-                </PopoverContent>
-              </Popover>
+        <div className="mx-auto">
+          <div className="flex flex-col lg:flex-row items-center gap-4">
 
-              {/* GUESTS SELECT - Boxed */}
-              <Select value={guests} onValueChange={setGuests}>
-                <SelectTrigger className="h-12 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 rounded-lg px-4 w-[160px] shadow-sm transition-all">
-                  <div className="flex items-center gap-3">
-                    <Users className="w-5 h-5 text-gray-500" />
-                    <div className="flex flex-col items-start leading-none gap-0.5">
-                      <span className="text-xs text-gray-500 font-bold uppercase tracking-wider">Guests</span>
-                      <span className="text-sm font-semibold text-[#3c4043]">{guests} Guests</span>
-                    </div>
+
+            {/* Desktop Filter Bar */}
+            <div className="hidden lg:flex items-center w-full max-w-7xl mx-auto px-4">
+              <div className="flex items-center justify-center w-full py-2">
+
+                {/* 1. Location (Static/Read-only per design) */}
+                <div className="px-5 py-2 flex items-center h-[52px] rounded-xl transition-all duration-200 hover:bg-gray-50 cursor-not-allowed group min-w-[180px] shrink-0">
+                  <MapPin className="w-5 h-5 text-gray-400 mr-3 group-hover:text-emerald-600 transition-colors" />
+                  <div className="flex flex-col items-start overflow-hidden">
+                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider leading-none mb-0.5">Location</span>
+                    <span className="text-sm font-semibold text-[#3c4043] truncate w-full text-left">Alqueva Lake</span>
                   </div>
-                </SelectTrigger>
-                <SelectContent className="bg-white z-50 rounded-xl border-gray-200 shadow-xl">
-                  {[2, 4, 6, 8, 10, 12].map(num => (
-                    <SelectItem key={num} value={num.toString()}>{num} Guests</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                </div>
 
-              {/* UPDATE SEARCH BUTTON - Pill but Prominent */}
-              <Button onClick={handleSearch} className="h-12 px-8 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-full shadow-md hover:shadow-lg transition-all ml-2">
-                Update
-              </Button>
+                <div className="w-px h-8 bg-gray-200 my-auto" />
 
-              {/* RESET - Desktop Only */}
-              <Button variant="ghost" size="icon" className="h-10 w-10 text-gray-400 hover:text-red-500 hidden lg:flex rounded-full ml-auto" onClick={handleClear} title="Reset Filters">
-                <X className="w-5 h-5" />
-              </Button>
+                {/* 2. Check-in Date */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="px-5 py-2 flex items-center h-[52px] rounded-xl transition-all duration-200 hover:bg-gray-50 text-left group min-w-[150px]">
+                      <CalendarIcon className="w-5 h-5 text-gray-400 mr-3 group-hover:text-emerald-600 transition-colors" />
+                      <div className="flex flex-col items-start overflow-hidden">
+                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider leading-none mb-0.5 whitespace-nowrap">Check-in</span>
+                        <span className="text-sm font-semibold text-[#3c4043] truncate">
+                          {dateRange?.from ? format(dateRange.from, "MMM dd") : "Add date"}
+                        </span>
+                      </div>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 z-50 bg-white border-none shadow-2xl" align="start">
+                    <Calendar
+                      initialFocus
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={setDateRange}
+                      numberOfMonths={2}
+                      disabled={(date) => date < new Date()}
+                      className="rounded-xl shadow-xl bg-white"
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                <div className="w-px h-8 bg-gray-200 my-auto" />
+
+                {/* 3. Check-out Date */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="px-5 py-2 flex items-center h-[52px] rounded-xl transition-all duration-200 hover:bg-gray-50 text-left group min-w-[150px]">
+                      <CalendarIcon className="w-5 h-5 text-gray-400 mr-3 group-hover:text-emerald-600 transition-colors" />
+                      <div className="flex flex-col items-start overflow-hidden">
+                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider leading-none mb-0.5 whitespace-nowrap">Check-out</span>
+                        <span className="text-sm font-semibold text-[#3c4043] truncate">
+                          {dateRange?.to ? format(dateRange.to, "MMM dd") : "Add date"}
+                        </span>
+                      </div>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 z-50 bg-white border-none shadow-2xl" align="start">
+                    <Calendar
+                      initialFocus
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={setDateRange}
+                      numberOfMonths={2}
+                      disabled={(date) => date < new Date()}
+                      className="rounded-xl shadow-xl bg-white"
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                <div className="relative flex items-center">
+                  <div className="w-px h-8 bg-gray-200 my-auto mr-0" />
+                  <Popover open={isGuestsOpen} onOpenChange={setIsGuestsOpen}>
+                    <PopoverTrigger asChild>
+                      <div className={cn(
+                        "px-5 py-2 flex items-center h-[52px] cursor-pointer transition-all duration-200 hover:bg-gray-50 min-w-[130px] shrink-0 rounded-xl",
+                        isGuestsOpen && "bg-gray-50"
+                      )}>
+                        <div className={cn("w-2 h-2 rounded-full mr-3 shrink-0", parseInt(guests) > 0 ? "bg-emerald-500" : "bg-gray-300")} />
+                        <div className="flex flex-col items-start overflow-hidden">
+                          <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider leading-none mb-0.5">Guests</span>
+                          <span className="text-sm font-semibold text-[#3c4043] truncate">{guests} Guests</span>
+                        </div>
+                      </div>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[340px] p-6 rounded-3xl shadow-xl border-none" align="center" side="bottom" sideOffset={8}>
+                      {/* Guest Warning inside Popover */}
+                      {guestWarning && (
+                        <div className="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-3">
+                          <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                          <p className="text-xs text-amber-700 font-medium leading-relaxed">{guestWarning}</p>
+                        </div>
+                      )}
+
+                      <div className="space-y-6">
+                        {/* ... (existing content) ... */}
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-base font-medium text-gray-700">Adults & Children</span>
+                            <div className="flex items-center gap-3 bg-gray-50 rounded-full p-1 border border-gray-100">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-full hover:bg-white hover:shadow-sm"
+                                onClick={() => {
+                                  const current = parseInt(guests) || 0;
+                                  setGuests(Math.max(0, current - 1).toString());
+                                }}
+                                disabled={parseInt(guests) <= 0}
+                              >
+                                <Minus className="w-4 h-4" />
+                              </Button>
+                              <span className="w-4 text-center font-semibold text-gray-900">{guests}</span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-full hover:bg-white hover:shadow-sm"
+                                onClick={() => {
+                                  const current = parseInt(guests) || 0;
+                                  setGuests(Math.min(100, current + 1).toString());
+                                }}
+                                disabled={parseInt(guests) >= 100}
+                              >
+                                <Plus className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-400 text-center">Max capacity varies by boat package.</p>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* 5. Number of Boats Selector */}
+                <div className="w-px h-8 bg-gray-200 my-auto" />
+
+                <div className="px-5 py-2 flex items-center h-[52px] hover:bg-gray-50 transition-all w-[130px] shrink-0 rounded-xl">
+                  <Anchor className={cn("w-5 h-5 mr-3 transition-colors", numberOfBoats > 1 ? "text-emerald-500" : "text-gray-400")} />
+                  <div className="flex flex-col w-full">
+                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider leading-none mb-0.5">Boats</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="5"
+                      value={numberOfBoats}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (val >= 1 && val <= 5) setNumberOfBoats(val);
+                      }}
+                      className="w-full bg-transparent border-none p-0 h-5 text-sm font-semibold text-[#3c4043] focus:ring-0 focus:outline-none [-moz-appearance:_textfield] [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-0.5 ml-1">
+                    <button
+                      onClick={() => setNumberOfBoats(Math.min(5, numberOfBoats + 1))}
+                      className="text-gray-400 hover:text-emerald-600"
+                    >
+                      <ChevronUp className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => setNumberOfBoats(Math.max(1, numberOfBoats - 1))}
+                      className="text-gray-400 hover:text-emerald-600"
+                    >
+                      <ChevronDown className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* 6. Update Button */}
+                <div className="pl-2">
+                  <Button
+                    onClick={handleSearch}
+                    className="bg-[#34C759] hover:bg-[#2DA64D] text-[#18230F] font-bold h-[48px] px-8 rounded-xl flex items-center gap-2 shadow-sm transition-all hover:shadow-md shrink-0"
+                  >
+                    <Search className="w-4 h-4" />
+                    <span>Update</span>
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
 
-          {/* Mobile Count Row */}
-          <div className="lg:hidden mt-3 text-xs font-semibold text-gray-500">
-            {processedHouseboats.length} boats available
+            {/* Mobile Filter Bar Trigger (Centered & Natural) */}
+            <div className="lg:hidden w-full px-4 py-3 flex flex-col items-center gap-2">
+              <button
+                onClick={() => setIsSearchExpanded?.(!isSearchExpanded)}
+                className="w-full max-w-sm flex items-center gap-3 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-left"
+              >
+                <Search className="w-5 h-5 text-gray-400" />
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-gray-900 leading-none">Filters</span>
+                  <span className="text-[10px] text-gray-500 truncate">
+                    {dateRange?.from ? format(dateRange.from, "MMM dd") : "Add dates"} • {guests} Guests
+                  </span>
+                </div>
+              </button>
+
+              {/* Mobile Count Row */}
+              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                {processedHouseboats.length} boats found
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
 
       <div className="container mx-auto px-4 py-6 md:py-8 min-h-[60vh]">
 
@@ -335,207 +594,61 @@ function HouseboatsContent() {
         <div className="w-full max-w-7xl mx-auto">
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-[400px] w-full rounded-2xl bg-gray-200" />)}
+              {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-[200px] w-full rounded-3xl bg-gray-200" />)}
+            </div>
+          ) : numberOfBoats > 1 && generatedPackages.length > 0 ? (
+            <>
+              <div className="mb-6">
+                <h2 className="text-2xl font-display font-bold text-[#18230F]">Package Options</h2>
+                <p className="text-gray-500 mt-1">{generatedPackages.length} package combinations found for {guests} guests across {numberOfBoats} boats</p>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20">
+                {generatedPackages.map((pkg, idx) => (
+                  <PackageCard
+                    key={pkg.id}
+                    pkg={pkg}
+                    index={idx}
+                    dateRange={dateRange}
+                    guests={guests}
+                  />
+                ))}
+              </div>
+            </>
+          ) : numberOfBoats > 1 && generatedPackages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-dashed border-gray-300">
+              <div className="bg-emerald-50 p-4 rounded-full mb-4">
+                <Ship className="w-10 h-10 text-emerald-600" />
+              </div>
+              <h3 className="text-2xl font-display font-bold text-[#18230F]">No package combinations available</h3>
+              <p className="text-gray-500 mt-2 mb-6 text-center max-w-md">We couldn't find {numberOfBoats} available boats to accommodate your group for these dates. Try reducing the number of boats or checking different dates.</p>
+              <Button onClick={() => setNumberOfBoats(Math.max(1, numberOfBoats - 1))} className="bg-[#34C759] hover:bg-[#2DA64D] text-[#18230F] font-bold rounded-xl px-6 h-12 shadow-sm transition-all hover:shadow-md">
+                Try {Math.max(1, numberOfBoats - 1)} Boats
+              </Button>
             </div>
           ) : processedHouseboats.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 pb-20">
               {processedHouseboats.map(boat => (
                 <HouseboatSearchCard
                   key={boat.id}
-                  boat={boat as any}
-                  onSelect={setSelectedBoat}
+                  boat={boat}
+                  requestedGuests={parseInt(guests) || 2}
                 />
               ))}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-dashed border-gray-300">
-              <div className="bg-gray-50 p-4 rounded-full mb-4">
-                <Search className="w-8 h-8 text-gray-400" />
+              <div className="bg-emerald-50 p-4 rounded-full mb-4">
+                <Search className="w-10 h-10 text-emerald-600" />
               </div>
-              <h3 className="text-lg font-bold text-gray-900">No boats found</h3>
-              <p className="text-gray-500 mt-1 mb-4">Try adjusting your dates or guest count.</p>
-              <Button variant="outline" onClick={handleClear}>Reset Filters</Button>
+              <h3 className="text-2xl font-display font-bold text-[#18230F]">No boats found</h3>
+              <p className="text-gray-500 mt-2 mb-6 text-center text-lg">Try adjusting your dates or guest count.</p>
+              <Button onClick={handleClear} className="bg-[#34C759] hover:bg-[#2DA64D] text-[#18230F] font-bold rounded-xl px-6 h-12 shadow-sm transition-all hover:shadow-md">
+                Reset Filters
+              </Button>
             </div>
           )}
         </div>
       </div>
-
-      {/* SIDE PANEL (SHEET) */}
-      <Sheet open={!!selectedBoat} onOpenChange={(open: boolean) => !open && setSelectedBoat(null)}>
-        <SheetContent side="right" className="w-full sm:w-[500px] overflow-y-auto p-0 bg-white z-[60] border-l border-gray-200 shadow-2xl [&>button]:hidden">
-          <SheetHeader className="sr-only">
-            <SheetTitle>Houseboat Details</SheetTitle>
-            <SheetDescription>Detailed information and pricing for the selected houseboat.</SheetDescription>
-          </SheetHeader>
-
-          {selectedBoat && (
-            <div className="flex flex-col min-h-full font-sans">
-
-              {/* 1. HERO IMAGE */}
-              <div className="relative h-60 w-full bg-gray-100 shrink-0">
-                {selectedBoat.imageUrls?.[0] && (
-                  <Image src={selectedBoat.imageUrls[0]} alt={selectedBoat.name} fill className="object-cover" />
-                )}
-                <Button size="icon" variant="secondary" className="absolute top-4 right-4 h-9 w-9 rounded-full bg-white text-black shadow-md border border-gray-200 hover:scale-110 transition-transform" onClick={() => setSelectedBoat(null)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-
-              {/* 2. MAIN CONTENT - Compact */}
-              <div className="flex-1 px-6 py-6 space-y-6">
-
-                {/* Headline */}
-                <div className="space-y-2">
-                  <h2 className="text-2xl font-black text-[#010a1f] tracking-tight">{selectedBoat.name}</h2>
-                  <div className="flex items-center gap-4 text-sm font-medium text-gray-700">
-                    <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-green-50 text-green-700 border border-green-100">
-                      <Users className="w-4 h-4" /> {selectedBoat.optimalCapacity}-{selectedBoat.maximumCapacity} Guests
-                    </span>
-                    <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-100">
-                      <BedDouble className="w-4 h-4" /> {selectedBoat.bedrooms} Cabins
-                    </span>
-                  </div>
-                </div>
-
-                <div className="h-px bg-gray-200 w-full" />
-
-                {/* Description */}
-                <div>
-                  <p className="text-gray-700 leading-relaxed text-[15px] font-normal">
-                    {selectedBoat.description || "Experience the freedom of navigating the Great Lake of Alqueva. This boat features modern amenities, a fully equipped kitchen, and a spacious sun deck perfect for relaxing afternoons."}
-                  </p>
-                </div>
-
-                {/* SLEEPING ARRANGEMENTS - Dynamic */}
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3">Sleeping Arrangements</h3>
-                  <div className="flex flex-col gap-3">
-                    {/* Double Beds */}
-                    {(selectedBoat.doubleBeds || 0) > 0 && (
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-700 shadow-sm shrink-0">
-                          <BedDouble className="w-4 h-4" />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-gray-900">
-                            {selectedBoat.doubleBeds} {selectedBoat.doubleBeds! > 1 ? 'Double Beds' : 'Double Bed'}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                    {/* Single Beds */}
-                    {(selectedBoat.singleBeds || 0) > 0 && (
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-700 shadow-sm shrink-0">
-                          <Bed className="w-4 h-4" />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-gray-900">
-                            {selectedBoat.singleBeds} {selectedBoat.singleBeds! > 1 ? 'Single Beds' : 'Single Bed'}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                    {/* Convertible Living Room Bed */}
-                    {showConvertibleBed && (
-                      <div className="flex items-center gap-3 animate-in fade-in slide-in-from-top-1 duration-500">
-                        <div className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-700 shadow-sm shrink-0">
-                          <Sofa className="w-4 h-4" />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-gray-900">Convertible Table Bed</span>
-                          <span className="text-xs text-green-600 font-bold">Living Room</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Highlights */}
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3">Amenities</h3>
-                  <div className="flex flex-wrap gap-2">
-                    <div className="px-3 py-1.5 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-700 flex items-center gap-2 shadow-sm">
-                      <Utensils className="w-3.5 h-3.5" /> Full Kitchen
-                    </div>
-                    <div className="px-3 py-1.5 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-700 flex items-center gap-2 shadow-sm">
-                      <Wifi className="w-3.5 h-3.5" /> Free WiFi
-                    </div>
-                    <div className="px-3 py-1.5 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-700 flex items-center gap-2 shadow-sm">
-                      <Droplets className="w-3.5 h-3.5" /> Private Bathroom
-                    </div>
-                    <div className="px-3 py-1.5 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-700 flex items-center gap-2 shadow-sm">
-                      <MapPin className="w-3.5 h-3.5" /> GPS Navigation
-                    </div>
-                  </div>
-                </div>
-
-                {/* Pricing Card */}
-                <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200">
-                  <div className="flex items-center gap-2 mb-4">
-                    <CreditCard className="w-4 h-4 text-[#010a1f]" />
-                    <h3 className="text-sm font-bold text-[#010a1f] uppercase tracking-wider">Trip Summary</h3>
-                  </div>
-
-                  <div className="space-y-2">
-                    {selectedBoat.breakdown ? (
-                      <>
-                        {/* Weekdays */}
-                        {selectedBoat.breakdown.weekdayNights > 0 && (
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-gray-600">Weekdays <span className="text-xs bg-white px-1.5 py-0.5 rounded border border-gray-200 ml-1 font-medium">x{selectedBoat.breakdown.weekdayNights}</span></span>
-                            <span className="font-bold text-gray-900">€{selectedBoat.breakdown.weekdayPrice * selectedBoat.breakdown.weekdayNights}</span>
-                          </div>
-                        )}
-                        {/* Weekends */}
-                        {selectedBoat.breakdown.weekendNights > 0 && (
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-gray-600">Weekends <span className="text-xs bg-white px-1.5 py-0.5 rounded border border-gray-200 ml-1 font-medium">x{selectedBoat.breakdown.weekendNights}</span></span>
-                            <span className="font-bold text-gray-900">€{selectedBoat.breakdown.weekendPrice * selectedBoat.breakdown.weekendNights}</span>
-                          </div>
-                        )}
-
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-gray-600">Preparation Fee</span>
-                          <span className="font-bold text-gray-900">€{selectedBoat.breakdown.preparationFee}</span>
-                        </div>
-
-                        <div className="border-t border-slate-200 my-3" />
-
-                        <div className="flex justify-between items-center">
-                          <span className="font-bold text-[#010a1f]">Grand Total</span>
-                          <span className="font-black text-xl text-[#010a1f]">
-                            €{selectedBoat.breakdown.total.toLocaleString()}
-                          </span>
-                        </div>
-                      </>
-                    ) : (
-                      <p className="text-sm text-gray-500 italic">Add dates to see the full price breakdown.</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* 3. STICKY BOOKING FOOTER */}
-              <div className="px-6 py-5 border-t border-gray-200 bg-white/90 backdrop-blur-md sticky bottom-0 z-10 flex items-center justify-between">
-                <div className="flex flex-col">
-                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">Due Now (30%)</span>
-                  <span className="text-2xl font-black text-green-600 leading-none">
-                    {selectedBoat.breakdown ? `€${selectedBoat.breakdown.deposit.toLocaleString()}` : `€${selectedBoat.pricePerNight}`}
-                  </span>
-                </div>
-                <Button asChild size="lg" className="rounded-full px-8 h-12 font-bold bg-[#010a1f] text-white hover:bg-green-600 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 flex items-center gap-2">
-                  {/* Use ID as fallback to prevent 404, and include search params */}
-                  <Link href={getReserveLink(selectedBoat)}>
-                    Reserve Boat <ArrowRight className="w-4 h-4 ml-1" />
-                  </Link>
-                </Button>
-              </div>
-
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
 
     </div>
   );

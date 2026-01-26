@@ -80,9 +80,9 @@ export default function Header({
   return (
     <header
       className={cn(
-        'z-[9999] w-[95%] max-w-6xl transition-all duration-300',
+        'z-40 w-[95%] max-w-6xl transition-all duration-300',
         (isFixed && isScrolled)
-          ? 'fixed top-4 left-1/2 -translate-x-1/2 bg-white rounded-full shadow-md'
+          ? 'fixed top-4 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-xl rounded-full shadow-[0_0_50px_5px_rgba(0,0,0,0.2)]'
           : 'absolute top-4 left-1/2 -translate-x-1/2 bg-white rounded-full shadow-md'
       )}
     >
@@ -104,7 +104,7 @@ export default function Header({
                   className="h-14 w-auto object-contain"
                 />
               ) : (
-                <span className="text-2xl font-semibold text-black">
+                <span className="text-2xl font-semibold text-[#18230F]">
                   {websiteSettings?.companyName || 'Amieira'}
                 </span>
               )}
@@ -123,13 +123,13 @@ export default function Header({
                   className={cn(
                     'px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 flex items-center gap-2 border whitespace-nowrap',
                     isActive
-                      ? 'bg-[#34C759] text-black border-[#34C759]'
-                      : 'bg-white text-black border-gray-100 hover:bg-gray-50'
+                      ? 'bg-[#34C759] text-[#18230F] border-[#34C759]'
+                      : 'bg-white text-[#18230F] border-gray-100 hover:bg-gray-50'
                   )}
                 >
                   <IconComponent className={cn(
                     'h-5 w-5',
-                    isActive ? 'text-black' : 'text-black'
+                    isActive ? 'text-[#18230F]' : 'text-[#18230F]'
                   )} />
                   {tab.label}
                 </button>
@@ -143,7 +143,7 @@ export default function Header({
             {/* Auth Buttons - Desktop */}
             <div className="hidden lg:flex items-center gap-2">
               {mounted && !user ? (
-                <Button asChild variant="ghost" size="sm" className="bg-gray-100 text-black hover:bg-gray-200 rounded-full h-10 px-5 text-sm font-medium transition-all border-none shadow-none">
+                <Button asChild variant="ghost" size="sm" className="bg-gray-100 text-[#18230F] hover:bg-gray-200 rounded-full h-10 px-5 text-sm font-medium transition-all border-none shadow-none">
                   <Link href="/login">
                     <LogIn className="h-4 w-4 mr-2" />
                     Sign in
@@ -151,7 +151,7 @@ export default function Header({
                 </Button>
               ) : mounted && user ? (
                 <>
-                  <Button asChild variant="ghost" size="icon" className="bg-gray-100 text-black hover:bg-gray-200 rounded-full h-10 w-10 transition-all border-none shadow-none">
+                  <Button asChild variant="ghost" size="icon" className="bg-gray-100 text-[#18230F] hover:bg-gray-200 rounded-full h-10 w-10 transition-all border-none shadow-none">
                     <Link href="/dashboard" title="Dashboard">
                       <User className="h-5 w-5" />
                     </Link>
@@ -160,7 +160,7 @@ export default function Header({
                     variant="ghost"
                     size="sm"
                     onClick={handleSignOut}
-                    className="bg-gray-100 text-black hover:bg-gray-200 rounded-full h-10 px-5 text-sm font-medium transition-all border-none shadow-none"
+                    className="bg-gray-100 text-[#18230F] hover:bg-gray-200 rounded-full h-10 px-5 text-sm font-medium transition-all border-none shadow-none"
                   >
                     <LogOut className="h-4 w-4 mr-2" />
                     Sign out
@@ -196,7 +196,7 @@ export default function Header({
                           className={cn(
                             'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors w-full text-left',
                             isActive
-                              ? 'bg-[#34C759] text-black'
+                              ? 'bg-[#34C759] text-[#18230F]'
                               : 'text-gray-700 hover:bg-gray-100'
                           )}
                         >
@@ -209,7 +209,7 @@ export default function Header({
                   <div className="my-4 border-t border-gray-100" />
                   {mounted && (!user ? (
                     <SheetClose asChild>
-                      <Button asChild className="w-full bg-[#34C759] text-black hover:bg-[#2DA64D] rounded-lg">
+                      <Button asChild className="w-full bg-[#34C759] text-[#18230F] hover:bg-[#2DA64D] rounded-lg">
                         <Link href="/login">
                           <LogIn className="h-4 w-4 mr-2" /> Sign In
                         </Link>

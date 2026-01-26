@@ -8,7 +8,7 @@ import { eachDayOfInterval, format, differenceInCalendarDays, parseISO, getDay }
 import type { DateRange } from 'react-day-picker';
 import { useAuth, useSupabase } from '@/components/providers/supabase-provider';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users, BedDouble, DoorClosed, Bath, CookingPot, Check, ArrowLeft, CreditCard, X, ChevronLeft, ChevronRight, Anchor, Fuel, Clock, ShieldCheck, CalendarDays, MapPin } from 'lucide-react';
+import { Users, BedDouble, DoorClosed, Bath, CookingPot, Check, ArrowLeft, CreditCard, X, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Anchor, Fuel, Clock, ShieldCheck, CalendarDays, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -71,6 +71,7 @@ function HouseboatDetailContent({ slug: modelId }: { slug: string }) {
     const [bookingCost, setBookingCost] = useState<{ total: number; weekdayNights: number; weekendNights: number; weekdayPrice: number; weekendPrice: number; preparationFee: number; deposit: number; extrasTotal: number } | null>(null);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const [clientDetails, setClientDetails] = useState({ name: '', email: '', phone: '' });
+    const [isBookBarExpanded, setIsBookBarExpanded] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -153,15 +154,16 @@ function HouseboatDetailContent({ slug: modelId }: { slug: string }) {
 
             <div className="bg-white min-h-screen pt-[72px]">
                 <div className="container mx-auto max-w-7xl px-4 py-6">
-                    <Link href="/houseboats" className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-primary font-medium mb-4">
+                    <Link href="/houseboats" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-[#34C759] font-bold mb-4 transition-colors">
                         <ArrowLeft className="w-4 h-4" /> Back to Houseboats
                     </Link>
 
-                    {/* Hero: Photos + Booking Card */}
-                    <div className="grid lg:grid-cols-3 gap-6 mb-8">
-                        {/* Photos */}
-                        <div className="lg:col-span-2 space-y-4">
-                            <div className="relative aspect-[16/9] rounded-2xl overflow-hidden cursor-pointer shadow-lg" onClick={() => openLightbox(0)}>
+                    {/* Hero: Photos */}
+                    {/* Top Section: Photos & Features Split */}
+                    <div className="grid lg:grid-cols-[1.5fr,1fr] gap-8 mb-12">
+                        {/* Left Column: Photos */}
+                        <div className="space-y-4">
+                            <div className="relative aspect-[3/2] rounded-2xl overflow-hidden cursor-pointer shadow-lg" onClick={() => openLightbox(0)}>
                                 {images[0] ? <Image src={images[0]} alt={name} fill className="object-cover hover:scale-105 transition-transform duration-500" priority /> : <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400">No Image</div>}
                             </div>
                             <div className="grid grid-cols-5 gap-3">
@@ -174,238 +176,359 @@ function HouseboatDetailContent({ slug: modelId }: { slug: string }) {
                             </div>
                         </div>
 
-                        {/* Booking Card - Redesigned (Screenshot 1) */}
-                        <div className="lg:col-span-1">
-                            <div className="bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden sticky top-24">
-                                <div className="bg-[#0B1120] text-white p-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center"><Anchor className="w-5 h-5 text-white" /></div>
-                                        <div>
-                                            <p className="text-[10px] uppercase tracking-wider opacity-60 font-semibold">BOOK YOUR STAY</p>
-                                            <p className="text-xl font-bold">{name}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="p-4 space-y-4">
-                                    {/* Booking Card - Refined Styles */}
-                                    <div className="grid grid-cols-2 gap-3 mb-4">
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <button className="flex flex-col items-start p-3 bg-white rounded-lg border border-gray-200 hover:border-blue-500 transition-all text-left shadow-sm">
-                                                    <span className="text-[10px] text-gray-400 uppercase font-extrabold tracking-widest mb-1.5">CHECK-IN</span>
-                                                    <span className="text-base font-bold text-gray-900">{selectedDateRange?.from ? format(selectedDateRange.from, 'MMM d') : 'Select'}</span>
-                                                </button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start"><CalendarPicker mode="range" selected={selectedDateRange} onSelect={setSelectedDateRange} disabled={(d) => d < new Date()} /></PopoverContent>
-                                        </Popover>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <button className="flex flex-col items-start p-3 bg-white rounded-lg border border-gray-200 hover:border-blue-500 transition-all text-left shadow-sm">
-                                                    <span className="text-[10px] text-gray-400 uppercase font-extrabold tracking-widest mb-1.5">CHECK-OUT</span>
-                                                    <span className="text-base font-bold text-gray-900">{selectedDateRange?.to ? format(selectedDateRange.to, 'MMM d') : 'Select'}</span>
-                                                </button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start"><CalendarPicker mode="range" selected={selectedDateRange} onSelect={setSelectedDateRange} disabled={(d) => d < new Date()} /></PopoverContent>
-                                        </Popover>
-                                    </div>
-
-                                    <div className="mb-4">
-                                        <Select value={String(numGuests)} onValueChange={val => setNumGuests(Number(val))}>
-                                            <SelectTrigger className="w-full h-[52px] bg-white border-gray-200 rounded-lg text-gray-700 font-medium px-4 shadow-sm hover:border-blue-500 transition-all">
-                                                <div className="flex items-center gap-3 w-full">
-                                                    <Users className="w-5 h-5 text-gray-400" />
-                                                    <span className="text-base">{numGuests} Guest{numGuests > 1 ? 's' : ''}</span>
-                                                </div>
-                                            </SelectTrigger>
-                                            <SelectContent>{[...Array(maximum_capacity || 6)].map((_, i) => <SelectItem key={i + 1} value={String(i + 1)}>{i + 1} Guest{i > 0 ? 's' : ''}</SelectItem>)}</SelectContent>
-                                        </Select>
-
-                                        {/* Extra Bed Warning - Immediately below Guests */}
-                                        {numGuests > (Number(optimal_capacity) || 2) && numGuests <= (Number(maximum_capacity) || 6) && (
-                                            <div className="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-lg flex items-start gap-3">
-                                                <div className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
-                                                    <span className="text-amber-600 font-bold text-xs">!</span>
-                                                </div>
-                                                <p className="text-xs text-amber-800 leading-snug">
-                                                    <span className="font-bold">Note:</span> For {numGuests} guests, an extra bed will be made in the living room table area.
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Price List - Cleaner Styles */}
-                                    <div className="bg-white rounded-lg border border-gray-100 overflow-hidden mb-6 shadow-sm">
-                                        {bookingCost ? (
-                                            <>
-                                                <div className="p-5 space-y-3 bg-gray-50/50">
-                                                    {bookingCost.weekdayNights > 0 && (
-                                                        <div className="flex justify-between items-center">
-                                                            <span className="text-gray-500 text-sm font-medium">{bookingCost.weekdayNights} × €{bookingCost.weekdayPrice} weekday</span>
-                                                            <span className="font-bold text-gray-900 text-base">€{bookingCost.weekdayNights * bookingCost.weekdayPrice}</span>
-                                                        </div>
-                                                    )}
-                                                    {bookingCost.weekendNights > 0 && (
-                                                        <div className="flex justify-between items-center">
-                                                            <span className="text-gray-500 text-sm font-medium">{bookingCost.weekendNights} × €{bookingCost.weekendPrice} weekend</span>
-                                                            <span className="font-bold text-gray-900 text-base">€{bookingCost.weekendNights * bookingCost.weekendPrice}</span>
-                                                        </div>
-                                                    )}
-                                                    <div className="flex justify-between items-center pt-3 border-t border-gray-100">
-                                                        <span className="text-gray-500 text-sm font-medium">Prep & Taxes</span>
-                                                        <span className="font-bold text-gray-900 text-base">€{bookingCost.preparationFee}</span>
-                                                    </div>
-                                                    {bookingCost.extrasTotal > 0 && (
-                                                        <div className="flex justify-between items-center">
-                                                            <span className="text-gray-500 text-sm font-medium">Extras</span>
-                                                            <span className="font-bold text-emerald-600 text-base">+€{bookingCost.extrasTotal}</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="bg-[#0B1120] px-5 py-4 flex justify-between items-center text-white">
-                                                    <span className="font-bold text-lg">Total</span>
-                                                    <span className="font-black text-2xl tracking-tight">€{bookingCost.total}</span>
-                                                </div>
-                                                <div className="bg-[#ECFDF5] px-5 py-3 text-center border-t border-emerald-100">
-                                                    <p className="text-xs text-[#059669] font-bold uppercase tracking-wide">Min. €{bookingCost.deposit} deposit (30%) to confirm</p>
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <div className="p-8 text-center bg-gray-50/30">
-                                                <CalendarDays className="w-10 h-10 mx-auto text-gray-300 mb-3" />
-                                                <p className="text-sm text-gray-500 font-medium">Select dates to see pricing</p>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <Button
-                                        onClick={handleRequestBooking}
-                                        className="w-full h-14 font-bold text-lg rounded-xl bg-[#34D399] hover:bg-[#10B981] text-white shadow-lg shadow-green-200 transition-all active:scale-[0.98]"
-                                        disabled={!selectedDateRange?.from || !selectedDateRange?.to}
-                                    >
-                                        Request a Reservation
-                                    </Button>
-                                    <p className="text-center text-[11px] text-gray-400 font-medium mt-3">No charge until confirmation</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Content Section - 2 Columns */}
-                    <div className="grid lg:grid-cols-2 gap-8 mb-5">
-                        {/* Left Column: Features */}
-                        <div>
-                            <div className="flex items-center gap-3 mb-4">
-                                <h3 className="font-bold text-gray-900 text-sm uppercase tracking-wider">BOAT FEATURES</h3>
-                                <div className="h-px bg-gray-200 flex-1"></div>
-                            </div>
-
-                            <div className="flex gap-2 w-full overflow-x-auto pb-4 scrollbar-hide">
-                                <div className="bg-white border border-gray-200 rounded-xl p-3 min-w-[90px] text-center flex-1 shadow-sm hover:shadow-md transition-all">
-                                    <Users className="w-6 h-6 mx-auto text-gray-800 mb-2 stroke-[1.5]" />
-                                    <p className="font-bold text-gray-900 text-sm leading-none mb-1">{optimal_capacity}-{maximum_capacity}</p>
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">GUESTS</p>
-                                </div>
-                                <div className="bg-white border border-gray-200 rounded-xl p-3 min-w-[90px] text-center flex-1 shadow-sm hover:shadow-md transition-all">
-                                    <DoorClosed className="w-6 h-6 mx-auto text-gray-800 mb-2 stroke-[1.5]" />
-                                    <p className="font-bold text-gray-900 text-sm leading-none mb-1">{bedrooms}</p>
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">CABINS</p>
-                                </div>
-
-                                {/* Beds Feature - FIXED: Shows Type Directly */}
-                                <div className="bg-white border border-gray-200 rounded-xl p-3 min-w-[90px] text-center flex-1 shadow-sm hover:shadow-md transition-all">
-                                    <BedDouble className="w-6 h-6 mx-auto text-gray-800 mb-2 stroke-[1.5]" />
-                                    <p className="font-bold text-gray-900 text-xs leading-none mb-1 line-clamp-1">
-                                        {double_beds > 0 ? `${double_beds} Double` : (single_beds > 0 ? `${single_beds} Single` : `${totalBeds} Beds`)}
-                                    </p>
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">BED</p>
-                                </div>
-
-                                <div className="bg-white border border-gray-200 rounded-xl p-3 min-w-[90px] text-center flex-1 shadow-sm hover:shadow-md transition-all">
-                                    <Bath className="w-6 h-6 mx-auto text-gray-800 mb-2 stroke-[1.5]" />
-                                    <p className="font-bold text-gray-900 text-sm leading-none mb-1">{bathrooms}</p>
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">BATHS</p>
-                                </div>
-                                <div className="bg-white border border-gray-200 rounded-xl p-3 min-w-[90px] text-center flex-1 shadow-sm hover:shadow-md transition-all">
-                                    <CookingPot className="w-6 h-6 mx-auto text-gray-800 mb-2 stroke-[1.5]" />
-                                    <p className="font-bold text-gray-900 text-sm leading-none mb-1">{kitchens}</p>
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">KITCHEN</p>
-                                </div>
-                            </div>
-
+                        {/* Right Column: About, Features & Policies */}
+                        <div className="flex flex-col">
                             {/* About Section */}
-                            <div className="mt-6 space-y-4">
-                                <div className="prose prose-sm max-w-none text-gray-600">
+                            <div className="mb-8">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <h3 className="font-display text-3xl text-[#18230F] tracking-tight">About This Boat</h3>
+                                    <div className="h-px bg-gray-100 flex-1"></div>
+                                </div>
+                                <div className="prose prose-sm max-w-none text-gray-600 leading-relaxed font-medium">
                                     <p>{description || "Experience the Alqueva Lake like never before aboard this stunning houseboat."}</p>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Right Column: Policies (Screenshot 2, grid layout) */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="bg-blue-50/50 rounded-xl p-4 border border-blue-100 hover:border-blue-200 transition-colors">
-                                <div className="flex items-center gap-2.5 mb-2.5">
-                                    <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center"><CreditCard className="w-4 h-4" /></div>
-                                    <h4 className="font-bold text-gray-900 text-sm">Payment</h4>
+                            {/* Features Section */}
+                            <div className="mb-8">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <h3 className="font-display text-3xl text-[#18230F] tracking-tight">Boat Features</h3>
+                                    <div className="h-px bg-gray-100 flex-1"></div>
                                 </div>
-                                <p className="text-xs text-gray-600 leading-relaxed">Minimum 30% deposit to confirm your booking (or pay full amount). Remaining balance due at check-in.</p>
-                            </div>
-                            <div className="bg-yellow-50/50 rounded-xl p-4 border border-yellow-100 hover:border-yellow-200 transition-colors">
-                                <div className="flex items-center gap-2.5 mb-2.5">
-                                    <div className="w-8 h-8 rounded-lg bg-yellow-100 text-yellow-600 flex items-center justify-center"><Fuel className="w-4 h-4" /></div>
-                                    <h4 className="font-bold text-gray-900 text-sm">Fuel</h4>
+
+                                <div className="flex items-center gap-2 overflow-x-auto pb-4 scrollbar-hide">
+                                    <div className="bg-white border border-gray-100 rounded-xl p-3 text-center shadow-sm hover:border-[#34C759]/30 transition-all min-w-[85px] flex-1">
+                                        <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-2">
+                                            <Users className="w-4 h-4 text-[#34C759] stroke-[1.5]" />
+                                        </div>
+                                        <p className="font-bold text-xl text-[#18230F] leading-none mb-1">{optimal_capacity}</p>
+                                        <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest">GUESTS</p>
+                                    </div>
+                                    <div className="bg-white border border-gray-100 rounded-xl p-3 text-center shadow-sm hover:border-[#34C759]/30 transition-all min-w-[85px] flex-1">
+                                        <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-2">
+                                            <DoorClosed className="w-4 h-4 text-[#34C759] stroke-[1.5]" />
+                                        </div>
+                                        <p className="font-bold text-xl text-[#18230F] leading-none mb-1">{bedrooms}</p>
+                                        <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest">CABINS</p>
+                                    </div>
+
+                                    <div className="bg-white border border-gray-100 rounded-xl p-3 text-center shadow-sm hover:border-[#34C759]/30 transition-all min-w-[85px] flex-1">
+                                        <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-2">
+                                            <BedDouble className="w-4 h-4 text-[#34C759] stroke-[1.5]" />
+                                        </div>
+                                        <p className="font-bold text-base text-[#18230F] leading-none mb-1 line-clamp-1 whitespace-nowrap">
+                                            {double_beds > 0 ? `${double_beds} Double` : (single_beds > 0 ? `${single_beds} Single` : `${totalBeds} Beds`)}
+                                        </p>
+                                        <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest">BED</p>
+                                    </div>
+
+                                    <div className="bg-white border border-gray-100 rounded-xl p-3 text-center shadow-sm hover:border-[#34C759]/30 transition-all min-w-[85px] flex-1">
+                                        <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-2">
+                                            <Bath className="w-4 h-4 text-[#34C759] stroke-[1.5]" />
+                                        </div>
+                                        <p className="font-bold text-xl text-[#18230F] leading-none mb-1">{bathrooms}</p>
+                                        <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest">BATHS</p>
+                                    </div>
+                                    <div className="bg-white border border-gray-100 rounded-xl p-3 text-center shadow-sm hover:border-[#34C759]/30 transition-all min-w-[85px] flex-1">
+                                        <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-2">
+                                            <CookingPot className="w-4 h-4 text-[#34C759] stroke-[1.5]" />
+                                        </div>
+                                        <p className="font-bold text-xl text-[#18230F] leading-none mb-1">{kitchens}</p>
+                                        <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest">KITCHEN</p>
+                                    </div>
                                 </div>
-                                <p className="text-xs text-gray-600 leading-relaxed">Boats are delivered with a full tank. At check-out, fuel consumption is calculated and charged accordingly.</p>
                             </div>
-                            <div className="bg-green-50/50 rounded-xl p-4 border border-green-100 hover:border-green-200 transition-colors">
-                                <div className="flex items-center gap-2.5 mb-2.5">
-                                    <div className="w-8 h-8 rounded-lg bg-green-100 text-green-600 flex items-center justify-center"><ShieldCheck className="w-4 h-4" /></div>
-                                    <h4 className="font-bold text-gray-900 text-sm">Responsibility</h4>
+
+                            {/* Policies Section */}
+                            <div className="mb-10">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <h3 className="font-display text-3xl text-[#18230F] tracking-tight">Houseboat Policies</h3>
+                                    <div className="h-px bg-gray-100 flex-1"></div>
                                 </div>
-                                <p className="text-xs text-gray-600 leading-relaxed">A responsibility term is signed at check-in. Boat must be returned clean. Any damages will be charged accordingly.</p>
-                            </div>
-                            <div className="bg-purple-50/50 rounded-xl p-4 border border-purple-100 hover:border-purple-200 transition-colors">
-                                <div className="flex items-center gap-2.5 mb-2.5">
-                                    <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center"><Clock className="w-4 h-4" /></div>
-                                    <h4 className="font-bold text-gray-900 text-sm">Check-in/out</h4>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:border-[#34C759]/30 transition-all group">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-[#34C759] flex items-center justify-center group-hover:bg-[#34C759] group-hover:text-white transition-colors"><CreditCard className="w-4 h-4" /></div>
+                                            <h4 className="font-black text-[#18230F] text-xs uppercase tracking-wider">Payment</h4>
+                                        </div>
+                                        <p className="text-[10px] text-gray-500 leading-relaxed font-medium">30% deposit to confirm. Balance at check-in.</p>
+                                    </div>
+                                    <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:border-[#34C759]/30 transition-all group">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-[#34C759] flex items-center justify-center group-hover:bg-[#34C759] group-hover:text-white transition-colors"><Fuel className="w-4 h-4" /></div>
+                                            <h4 className="font-black text-[#18230F] text-xs uppercase tracking-wider">Fuel</h4>
+                                        </div>
+                                        <p className="text-[10px] text-gray-500 leading-relaxed font-medium">Boats full. Consumption charged at check-out.</p>
+                                    </div>
+                                    <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:border-[#34C759]/30 transition-all group">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-[#34C759] flex items-center justify-center group-hover:bg-[#34C759] group-hover:text-white transition-colors"><ShieldCheck className="w-4 h-4" /></div>
+                                            <h4 className="font-black text-[#18230F] text-xs uppercase tracking-wider">Security</h4>
+                                        </div>
+                                        <p className="text-[10px] text-gray-500 leading-relaxed font-medium">Term signed at check-in. Damages charged accordingly.</p>
+                                    </div>
+                                    <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:border-[#34C759]/30 transition-all group">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-[#34C759] flex items-center justify-center group-hover:bg-[#34C759] group-hover:text-white transition-colors"><Clock className="w-4 h-4" /></div>
+                                            <h4 className="font-black text-[#18230F] text-xs uppercase tracking-wider">Check-in</h4>
+                                        </div>
+                                        <p className="text-[10px] text-gray-500 leading-relaxed font-medium">Based on availability. Late check-out possible.</p>
+                                    </div>
                                 </div>
-                                <p className="text-xs text-gray-600 leading-relaxed">Times are based on staff availability. Late check-out is possible with additional fees upon request.</p>
                             </div>
+
+                            {/* Relocated Extras Section */}
+                            {extras.length > 0 && (
+                                <div>
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <h3 className="font-display text-3xl text-[#18230F] tracking-tight">Add Extras to Your Trip</h3>
+                                        <div className="h-px bg-gray-100 flex-1"></div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {extras.map(extra => (
+                                            <div key={extra.id} className={cn("p-3 rounded-2xl border cursor-pointer transition-all flex items-center justify-between", selectedExtras.includes(extra.id) ? "bg-emerald-50 border-[#34C759] shadow-sm" : "bg-white border-gray-100 hover:border-[#34C759]/30")} onClick={() => setSelectedExtras(prev => prev.includes(extra.id) ? prev.filter(e => e !== extra.id) : [...prev, extra.id])}>
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-sm text-[#18230F]">{extra.name}</span>
+                                                    <p className="text-[#34C759] font-black text-xs">€{extra.price}</p>
+                                                </div>
+                                                <div className={cn("w-5 h-5 rounded-full border flex items-center justify-center transition-colors", selectedExtras.includes(extra.id) ? "bg-[#34C759] border-[#34C759]" : "bg-gray-50 border-gray-100")}>
+                                                    {selectedExtras.includes(extra.id) && <Check className="w-3 h-3 text-white" />}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    {/* Extras */}
-                    {extras.length > 0 && (
-                        <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm mb-8">
-                            <h2 className="font-bold text-gray-900 mb-3">Add Extras to Your Trip</h2>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                {extras.map(extra => (
-                                    <div key={extra.id} className={cn("p-3 rounded-xl border cursor-pointer transition-all", selectedExtras.includes(extra.id) ? "bg-primary/5 border-primary shadow-sm" : "bg-gray-50 border-gray-200 hover:border-gray-300")} onClick={() => setSelectedExtras(prev => prev.includes(extra.id) ? prev.filter(e => e !== extra.id) : [...prev, extra.id])}>
-                                        <div className="flex items-center justify-between mb-1"><span className="font-semibold text-sm text-gray-900">{extra.name}</span>{selectedExtras.includes(extra.id) && <Check className="w-4 h-4 text-primary" />}</div>
-                                        <p className="text-[11px] text-gray-500 mb-1">{extra.description}</p>
-                                        <p className="text-primary font-bold">€{extra.price}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
                 </div>
-
-                {/* Footer is now handled by the global AppLayout which uses the updated Footer component */}
             </div>
 
             {/* Booking Dialog */}
             <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
                 <DialogContent className="sm:max-w-md">
-                    <DialogHeader><DialogTitle>Confirm Your Booking</DialogTitle><DialogDescription>Enter your details to complete the reservation.</DialogDescription></DialogHeader>
+                    <DialogHeader>
+                        <DialogTitle>Confirm Your Booking</DialogTitle>
+                        <DialogDescription>Enter your details to complete the reservation.</DialogDescription>
+                    </DialogHeader>
                     <div className="space-y-3 py-4">
                         {user && <div className="bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-green-700"><span className="font-semibold">Welcome back!</span> Your details are prefilled.</div>}
                         <div><Label className="text-xs font-medium text-gray-600">Full Name</Label><Input value={clientDetails.name} onChange={e => setClientDetails(p => ({ ...p, name: e.target.value }))} placeholder="Your name" className="mt-1" /></div>
                         <div><Label className="text-xs font-medium text-gray-600">Email</Label><Input type="email" value={clientDetails.email} onChange={e => setClientDetails(p => ({ ...p, email: e.target.value }))} placeholder="your@email.com" className="mt-1" /></div>
                         <div><Label className="text-xs font-medium text-gray-600">Phone</Label><Input value={clientDetails.phone} onChange={e => setClientDetails(p => ({ ...p, phone: e.target.value }))} placeholder="+351 XXX XXX XXX" className="mt-1" /></div>
                     </div>
-                    <DialogFooter className="flex-row gap-2"><Button variant="outline" onClick={() => setIsConfirmOpen(false)} className="flex-1">Cancel</Button><Button onClick={handleConfirmBooking} disabled={isSubmitting} className="flex-1">{isSubmitting ? "Processing..." : "Confirm"}</Button></DialogFooter>
+                    <DialogFooter className="flex-row gap-2">
+                        <Button variant="outline" onClick={() => setIsConfirmOpen(false)} className="flex-1">Cancel</Button>
+                        <Button onClick={handleConfirmBooking} disabled={isSubmitting} className="flex-1">{isSubmitting ? "Processing..." : "Confirm"}</Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Sticky Bottom Booking Bar */}
+            <div className="fixed bottom-0 left-0 right-0 z-[50] pb-[env(safe-area-inset-bottom)]">
+                <AnimatePresence>
+                    {isBookBarExpanded && (
+                        <motion.div
+                            initial={{ y: "100%" }}
+                            animate={{ y: 0 }}
+                            exit={{ y: "100%" }}
+                            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                            className="bg-white border-t border-gray-100 shadow-[0_-15px_50px_rgba(0,0,0,0.1)] overflow-hidden rounded-t-[40px]"
+                        >
+                            <div className="bg-white border-b border-gray-100 p-6 flex items-center justify-between">
+                                <div>
+                                    <p className="text-[10px] tracking-[0.25em] font-medium text-gray-400">Plan your stay</p>
+                                    <p className="text-3xl font-display font-bold text-[#18230F]">{name}</p>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-gray-300 hover:text-[#18230F] hover:bg-gray-50 rounded-full h-12 w-12"
+                                    onClick={() => setIsBookBarExpanded(false)}
+                                >
+                                    <ChevronDown className="w-7 h-7" />
+                                </Button>
+                            </div>
+
+                            <div className="max-w-7xl mx-auto p-6 lg:p-8 grid md:grid-cols-2 gap-8">
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <button className="flex flex-col items-start p-5 bg-gray-50 rounded-2xl border border-transparent hover:border-[#34C759]/40 hover:bg-white transition-all text-left group shadow-sm">
+                                                    <span className="text-xs text-gray-400 font-medium mb-2 group-hover:text-[#34C759] transition-colors">Check-in</span>
+                                                    <span className="text-lg font-black text-[#18230F]">{selectedDateRange?.from ? format(selectedDateRange.from, 'MMM d, yyyy') : 'Select date'}</span>
+                                                </button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0 border-none shadow-2xl rounded-3xl overflow-hidden" align="start">
+                                                <CalendarPicker mode="range" selected={selectedDateRange} onSelect={setSelectedDateRange} disabled={(d) => d < new Date()} />
+                                            </PopoverContent>
+                                        </Popover>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <button className="flex flex-col items-start p-5 bg-gray-50 rounded-2xl border border-transparent hover:border-[#34C759]/40 hover:bg-white transition-all text-left group shadow-sm">
+                                                    <span className="text-xs text-gray-400 font-medium mb-2 group-hover:text-[#34C759] transition-colors">Check-out</span>
+                                                    <span className="text-lg font-black text-[#18230F]">{selectedDateRange?.to ? format(selectedDateRange.to, 'MMM d, yyyy') : 'Select date'}</span>
+                                                </button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0 border-none shadow-2xl rounded-3xl overflow-hidden" align="start">
+                                                <CalendarPicker mode="range" selected={selectedDateRange} onSelect={setSelectedDateRange} disabled={(d) => d < new Date()} />
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+
+                                    <div>
+                                        <Label className="text-xs text-gray-400 font-medium mb-3 block px-1">Guests</Label>
+                                        <Select value={String(numGuests)} onValueChange={val => setNumGuests(Number(val))}>
+                                            <SelectTrigger className="w-full h-[64px] bg-gray-50 border-transparent rounded-2xl text-[#18230F] font-black px-6 hover:border-[#34C759]/40 hover:bg-white transition-all shadow-sm">
+                                                <div className="flex items-center gap-4">
+                                                    <Users className="w-5 h-5 text-[#34C759]" />
+                                                    <span className="text-lg">{numGuests} Guest{numGuests > 1 ? 's' : ''}</span>
+                                                </div>
+                                            </SelectTrigger>
+                                            <SelectContent className="rounded-2xl border-gray-100 shadow-xl">
+                                                {[...Array(maximum_capacity || 6)].map((_, i) => (
+                                                    <SelectItem key={i + 1} value={String(i + 1)} className="font-bold py-3 hover:bg-emerald-50 focus:bg-emerald-50">{i + 1} Guest{i > 0 ? 's' : ''}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+
+                                        {numGuests > (Number(optimal_capacity) || 2) && (
+                                            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mt-4 p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-4">
+                                                <div className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
+                                                    <span className="text-amber-600 font-black text-sm">!</span>
+                                                </div>
+                                                <p className="text-sm text-amber-900 leading-relaxed font-medium">
+                                                    For {numGuests} guests, an extra bed will be made in the living room table area.
+                                                </p>
+                                            </motion.div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col justify-between">
+                                    <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
+                                        <div className="p-6 md:p-7 space-y-4">
+                                            {bookingCost ? (
+                                                <>
+                                                    {bookingCost.weekdayNights > 0 && (
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-gray-400 font-medium text-[10px] tracking-widest">{bookingCost.weekdayNights} × €{bookingCost.weekdayPrice} Weekday</span>
+                                                            <span className="font-black text-[#18230F]">€{bookingCost.weekdayNights * bookingCost.weekdayPrice}</span>
+                                                        </div>
+                                                    )}
+                                                    {bookingCost.weekendNights > 0 && (
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-gray-400 font-medium text-[10px] tracking-widest">{bookingCost.weekendNights} × €{bookingCost.weekendPrice} Weekend</span>
+                                                            <span className="font-black text-[#18230F]">€{bookingCost.weekendNights * bookingCost.weekendPrice}</span>
+                                                        </div>
+                                                    )}
+                                                    <div className="flex justify-between items-center pt-4 border-t border-gray-50">
+                                                        <span className="text-gray-400 font-medium text-[10px] tracking-widest">Prep & taxes</span>
+                                                        <span className="font-black text-[#18230F]">€{bookingCost.preparationFee}</span>
+                                                    </div>
+                                                    {bookingCost.extrasTotal > 0 && (
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-gray-400 font-medium text-[10px] tracking-widest">Extras</span>
+                                                            <span className="font-black text-[#34C759]">+{bookingCost.extrasTotal}€</span>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <div className="py-12 text-center bg-gray-50/50 border border-dashed border-gray-100 rounded-3xl">
+                                                    <CalendarDays className="w-10 h-10 mx-auto text-gray-200 mb-3 stroke-[1.5]" />
+                                                    <p className="text-xs text-gray-400 font-black uppercase tracking-widest">Select dates to calculate price</p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {bookingCost && (
+                                            <div className="bg-[#18230F] p-6 md:p-7">
+                                                <div className="flex justify-between items-end text-white mb-4">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] tracking-[0.2em] font-medium opacity-50 mb-1">Total amount</span>
+                                                        <span className="font-black text-4xl">€{bookingCost.total}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="bg-[#34C759]/10 border border-[#34C759]/20 rounded-xl py-3 px-4 text-center">
+                                                    <p className="text-[10px] text-[#34C759] font-black uppercase tracking-widest">SECURE WITH MINI. €{bookingCost.deposit} DEPOSIT (30%)</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="mt-8">
+                                        <Button
+                                            onClick={handleRequestBooking}
+                                            className="w-full h-12 md:h-14 font-display text-lg md:text-xl font-bold rounded-full bg-[#34C759] hover:bg-[#2DA64D] text-[#18230F] shadow-xl transition-all active:scale-[0.98] disabled:opacity-50"
+                                            disabled={!selectedDateRange?.from || !selectedDateRange?.to}
+                                        >
+                                            {isSubmitting ? "Processing..." : "Request a Reservation"}
+                                        </Button>
+                                        <div className="flex items-center justify-center gap-2 mt-5">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                            <p className="text-center text-[10px] text-gray-400 font-medium tracking-widest">No charge until confirmation • Free cancellation</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Collapsed Bar - Always Visible */}
+                <div className="bg-white border-t border-gray-100 px-6 md:px-12 lg:px-20 py-3 md:py-4 shadow-[0_-15px_50px_rgba(0,0,0,0.08)] relative z-10">
+                    <div className="max-w-7xl mx-auto flex items-center justify-between">
+                        {/* Left Side: Segments */}
+                        <div className="flex items-center gap-8 lg:gap-12">
+                            <h4 className="font-display text-2xl md:text-3xl font-bold text-[#18230F] whitespace-nowrap tracking-tight leading-tight">{name}</h4>
+
+                            <div className="h-12 w-px bg-gray-100 hidden sm:block" />
+
+                            <div className="hidden sm:flex flex-col group cursor-pointer" onClick={() => setIsBookBarExpanded(true)}>
+                                <span className="text-sm text-gray-500 font-medium mb-1 group-hover:text-[#34C759] transition-colors">Dates</span>
+                                <span className="text-base font-black text-[#18230F] whitespace-nowrap">
+                                    {selectedDateRange?.from ? format(selectedDateRange.from, 'MMM d') : 'Add dates'}
+                                    {selectedDateRange?.to ? ` - ${format(selectedDateRange.to, 'MMM d')}` : ''}
+                                </span>
+                            </div>
+
+                            <div className="h-12 w-px bg-gray-100 hidden md:block" />
+
+                            <div className="hidden md:flex flex-col group cursor-pointer" onClick={() => setIsBookBarExpanded(true)}>
+                                <span className="text-sm text-gray-500 font-medium mb-1 group-hover:text-[#34C759] transition-colors">Guests</span>
+                                <span className="text-base font-black text-[#18230F] whitespace-nowrap">
+                                    {numGuests} Guest{numGuests > 1 ? 's' : ''}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Right Side: Total & Button */}
+                        <div className="flex items-center gap-8 lg:gap-12">
+                            <div className="flex flex-col items-end">
+                                <span className="text-2xl md:text-4xl font-black text-[#18230F]">
+                                    {bookingCost ? `${bookingCost.total}€` : (houseboat?.starting_price ? `${houseboat.starting_price}€` : '150€')}
+                                </span>
+                                <button
+                                    onClick={() => setIsBookBarExpanded(!isBookBarExpanded)}
+                                    className="text-xs font-black text-[#34C759] hover:text-[#2DA64D] hover:underline transition-all cursor-pointer mt-0.5"
+                                >
+                                    {isBookBarExpanded ? 'Hide info' : 'Detailed price'}
+                                </button>
+                            </div>
+
+                            <Button
+                                onClick={handleRequestBooking}
+                                className="h-12 md:h-14 px-8 md:px-12 font-display text-lg md:text-xl font-bold rounded-full bg-[#34C759] hover:bg-[#2DA64D] text-[#18230F] shadow-lg shadow-emerald-500/10 transition-all active:scale-[0.98] shrink-0"
+                                disabled={!selectedDateRange?.from || !selectedDateRange?.to}
+                            >
+                                Request Reservation
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </>
     );
 }
@@ -413,9 +536,15 @@ function HouseboatDetailContent({ slug: modelId }: { slug: string }) {
 function HouseboatDetailSkeleton() {
     return (
         <div className="min-h-screen pt-20 container mx-auto px-4 max-w-7xl">
-            <div className="grid lg:grid-cols-3 gap-6 mb-8">
-                <div className="lg:col-span-2 space-y-4"><Skeleton className="aspect-[16/9] rounded-2xl" /><div className="grid grid-cols-5 gap-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="aspect-square rounded-xl" />)}</div></div>
-                <Skeleton className="h-[500px] rounded-2xl" />
+            <div className="space-y-4 mb-8">
+                <Skeleton className="aspect-[16/9] rounded-2xl" />
+                <div className="grid grid-cols-5 gap-3">
+                    {[...Array(5)].map((_, i) => <Skeleton key={i} className="aspect-square rounded-xl" />)}
+                </div>
+            </div>
+            <div className="grid lg:grid-cols-2 gap-8">
+                <Skeleton className="h-[200px] rounded-2xl" />
+                <Skeleton className="h-[200px] rounded-2xl" />
             </div>
         </div>
     );

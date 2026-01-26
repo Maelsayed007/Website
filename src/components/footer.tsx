@@ -89,7 +89,7 @@ export default function Footer({ dictionary }: FooterProps) {
 
           {/* Explore Section */}
           <div>
-            <h4 className="font-display text-2xl font-normal text-black mb-8 tracking-wide">Explore</h4>
+            <h4 className="font-display text-2xl font-normal text-[#18230F] mb-8 tracking-wide">Explore</h4>
             <ul className="space-y-4">
               {[
                 { label: 'Home', href: '/' },
@@ -98,7 +98,7 @@ export default function Footer({ dictionary }: FooterProps) {
                 { label: 'Gallery', href: '/gallery' }
               ].map((item, idx) => (
                 <li key={idx}>
-                  <Link href={item.href} className="text-gray-700 hover:text-black text-base font-medium transition-colors flex items-center gap-2 group">
+                  <Link href={item.href} className="text-gray-700 hover:text-[#18230F] text-base font-medium transition-colors flex items-center gap-2 group">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#34C759] scale-0 group-hover:scale-100 transition-transform shadow-[0_0_8px_rgba(52,199,89,0.8)]" />
                     {item.label}
                   </Link>
@@ -109,7 +109,7 @@ export default function Footer({ dictionary }: FooterProps) {
 
           {/* Legal Section */}
           <div>
-            <h4 className="font-display text-2xl font-normal text-black mb-8 tracking-wide">Legal</h4>
+            <h4 className="font-display text-2xl font-normal text-[#18230F] mb-8 tracking-wide">Legal</h4>
             <ul className="space-y-4">
               {[
                 { label: 'Contact Us', href: '/contact' },
@@ -117,7 +117,7 @@ export default function Footer({ dictionary }: FooterProps) {
                 { label: 'Terms of Service', href: '/terms' }
               ].map((item, idx) => (
                 <li key={idx}>
-                  <Link href={item.href} className="text-gray-700 hover:text-black text-base font-medium transition-colors flex items-center gap-2 group">
+                  <Link href={item.href} className="text-gray-700 hover:text-[#18230F] text-base font-medium transition-colors flex items-center gap-2 group">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#34C759] scale-0 group-hover:scale-100 transition-transform shadow-[0_0_8px_rgba(52,199,89,0.8)]" />
                     {item.label}
                   </Link>
@@ -128,7 +128,7 @@ export default function Footer({ dictionary }: FooterProps) {
 
           {/* Contact Section */}
           <div>
-            <h4 className="font-display text-2xl font-normal text-black mb-8 tracking-wide">Get in Touch</h4>
+            <h4 className="font-display text-2xl font-normal text-[#18230F] mb-8 tracking-wide">Get in Touch</h4>
             <ul className="space-y-6">
               {websiteSettings?.address && (
                 <li className="flex items-start gap-4 text-gray-700 group font-medium">
@@ -159,7 +159,7 @@ export default function Footer({ dictionary }: FooterProps) {
         </div>
 
         <div className="mt-12 pt-10 border-t border-black/10 flex justify-center">
-          <p className="text-black text-sm font-semibold italic">
+          <p className="text-[#18230F] text-sm font-semibold italic">
             &copy; {new Date().getFullYear()} {websiteSettings?.company_name || 'Amieira Marina'}. All rights reserved.
           </p>
         </div>
