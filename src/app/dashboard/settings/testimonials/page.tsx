@@ -1,13 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import {
-  collection,
-  doc,
-  deleteDoc,
-  addDoc,
-  setDoc,
-} from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { useSupabase } from '@/components/providers/supabase-provider';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -23,7 +17,6 @@ import {
   DialogTitle,
   DialogClose,
   DialogFooter,
-  DialogDescription,
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -49,36 +42,50 @@ import {
 } from '@/components/ui/select';
 import { PlusCircle, Trash2, Pencil, Star } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCollection, useFirestore } from '@/firebase';
 
 // Type
 type Testimonial = {
   id?: string;
   name: string;
-  quote: string;
+  content: string;
   rating: number;
 };
 
 const DEFAULT_TESTIMONIAL: Testimonial = {
   name: '',
-  quote: '',
+  content: '',
   rating: 5,
 };
 
 export default function TestimonialsSettingsPage() {
   const { toast } = useToast();
-  const firestore = useFirestore();
+  const { supabase } = useSupabase();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTestimonial, setEditingTestimonial] = useState<Testimonial | null>(null);
   const [testimonialState, setTestimonialState] = useState<Testimonial>(DEFAULT_TESTIMONIAL);
 
-  const testimonialsQuery = useMemo(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'testimonials');
-  }, [firestore]);
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const { data: testimonials, isLoading } = useCollection<Testimonial>(testimonialsQuery);
+  const fetchTestimonials = async () => {
+    if (!supabase) return;
+    setIsLoading(true);
+    const { data } = await supabase.from('testimonials').select('*').order('created_at', { ascending: false });
+    if (data) setTestimonials(data as Testimonial[]);
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    fetchTestimonials();
+
+    if (!supabase) return;
+    const channel = supabase.channel('testimonials_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'testimonials' }, () => fetchTestimonials())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [supabase]);
 
   const openNewDialog = () => {
     setEditingTestimonial(null);
@@ -93,9 +100,10 @@ export default function TestimonialsSettingsPage() {
   };
 
   const handleDelete = async (testimonialId: string) => {
-    if (!firestore) return;
+    if (!supabase) return;
     try {
-      await deleteDoc(doc(firestore, 'testimonials', testimonialId));
+      const { error } = await supabase.from('testimonials').delete().eq('id', testimonialId);
+      if (error) throw error;
       toast({ title: 'Success', description: 'Testimonial deleted.' });
     } catch (error) {
       toast({
@@ -107,7 +115,7 @@ export default function TestimonialsSettingsPage() {
   };
 
   const handleSave = async () => {
-    if (!firestore || !testimonialState.name || !testimonialState.quote) {
+    if (!supabase || !testimonialState.name || !testimonialState.content) {
       toast({
         variant: 'destructive',
         title: 'Validation Error',
@@ -118,11 +126,12 @@ export default function TestimonialsSettingsPage() {
 
     try {
       if (editingTestimonial?.id) {
-        const testimonialRef = doc(firestore, 'testimonials', editingTestimonial.id);
-        await setDoc(testimonialRef, testimonialState);
+        const { error } = await supabase.from('testimonials').update(testimonialState).eq('id', editingTestimonial.id);
+        if (error) throw error;
         toast({ title: 'Success', description: 'Testimonial updated.' });
       } else {
-        await addDoc(collection(firestore, 'testimonials'), testimonialState);
+        const { error } = await supabase.from('testimonials').insert([testimonialState]);
+        if (error) throw error;
         toast({ title: 'Success', description: 'Testimonial created.' });
       }
       setIsDialogOpen(false);
@@ -165,7 +174,7 @@ export default function TestimonialsSettingsPage() {
             <Skeleton className="h-24 w-full" />
           ) : (
             <div className="space-y-4">
-              {testimonials?.map(testimonial => (
+              {testimonials.map(testimonial => (
                 <Card key={testimonial.id} className="flex items-start p-4 transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1">
                   <div className="flex items-center pr-4">
                     {[...Array(5)].map((_, i) => (
@@ -173,7 +182,7 @@ export default function TestimonialsSettingsPage() {
                     ))}
                   </div>
                   <div className="flex-grow">
-                    <p className="italic text-muted-foreground">"{testimonial.quote}"</p>
+                    <p className="italic text-muted-foreground">"{testimonial.content}"</p>
                     <p className="mt-2 font-semibold text-sm">- {testimonial.name}</p>
                   </div>
                   <div className="flex items-center gap-2 pl-4">
@@ -211,7 +220,7 @@ export default function TestimonialsSettingsPage() {
                   </div>
                 </Card>
               ))}
-              {testimonials?.length === 0 && (
+              {testimonials.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-48 bg-muted/50 rounded-lg border-2 border-dashed text-center">
                   <Star className="h-10 w-10 text-muted-foreground mb-2" />
                   <p className="text-lg font-semibold text-muted-foreground">
@@ -226,7 +235,7 @@ export default function TestimonialsSettingsPage() {
           )}
         </CardContent>
       </Card>
-      
+
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -244,31 +253,31 @@ export default function TestimonialsSettingsPage() {
                 placeholder="e.g., Jane Doe"
               />
             </div>
-             <div className="space-y-2">
+            <div className="space-y-2">
               <Label htmlFor="testimonial-quote">Quote</Label>
               <Textarea
                 id="testimonial-quote"
-                value={testimonialState.quote}
-                onChange={e => handleInputChange('quote', e.target.value)}
+                value={testimonialState.content}
+                onChange={e => handleInputChange('content', e.target.value)}
                 placeholder="A short, glowing review from the customer."
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="testimonial-rating">Rating (1-5)</Label>
               <Select
-                  value={String(testimonialState.rating)}
-                  onValueChange={(value) => handleInputChange('rating', Number(value))}
+                value={String(testimonialState.rating)}
+                onValueChange={(value) => handleInputChange('rating', Number(value))}
               >
-                  <SelectTrigger id="testimonial-rating">
-                      <SelectValue placeholder="Select rating" />
-                  </SelectTrigger>
-                  <SelectContent>
-                      <SelectItem value="1">1 Star</SelectItem>
-                      <SelectItem value="2">2 Stars</SelectItem>
-                      <SelectItem value="3">3 Stars</SelectItem>
-                      <SelectItem value="4">4 Stars</SelectItem>
-                      <SelectItem value="5">5 Stars</SelectItem>
-                  </SelectContent>
+                <SelectTrigger id="testimonial-rating">
+                  <SelectValue placeholder="Select rating" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 Star</SelectItem>
+                  <SelectItem value="2">2 Stars</SelectItem>
+                  <SelectItem value="3">3 Stars</SelectItem>
+                  <SelectItem value="4">4 Stars</SelectItem>
+                  <SelectItem value="5">5 Stars</SelectItem>
+                </SelectContent>
               </Select>
             </div>
           </div>

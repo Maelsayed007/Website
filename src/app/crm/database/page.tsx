@@ -1,12 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import {
-  collection, query, where, orderBy, onSnapshot,
-  doc, updateDoc, deleteDoc, serverTimestamp, arrayUnion
-} from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { firestore, storage, useAuth } from '@/firebase';
+import { useSupabase, useAuth } from '@/components/providers/supabase-provider';
 import { format } from 'date-fns';
 import {
   Card, CardContent, CardHeader, CardTitle, CardDescription
@@ -27,7 +22,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import {
-  Users, Search, Filter, MoreVertical, Tag, Upload, 
+  Users, Search, Filter, MoreVertical, Tag, Upload,
   FileText, Download, Trash2, Eye, Star, Ban, Target,
   Mail, Phone, Calendar, DollarSign, Clock, MessageSquare,
   ChevronRight, X, Plus, History
@@ -42,29 +37,31 @@ type Client = {
   name: string;
   email: string;
   phone: string;
-  createdAt: any;
-  lastModified: any;
+  created_at: string;
+  updated_at: string;
   source: string;
-  currentLocation: 'database' | 'active-reservations' | 'potential-clients';
+  current_location: 'database' | 'active-reservations' | 'potential-clients';
   status: 'needs-followup' | 'waiting-payment' | 'offer-sent' | 'canceled' | 'confirmed' | 'pending' | null;
-  leadStatus: 'lead-sent' | 'waiting-confirmation' | 'waiting-payment' | 'converted' | 'lost' | null;
+  lead_status: 'lead-sent' | 'waiting-confirmation' | 'waiting-payment' | 'converted' | 'lost' | null;
   tags: string[];
-  hasActiveReservation: boolean;
-  bookingId: string;
-  bookingDate: any;
-  bookingType: 'houseboat' | 'restaurant' | 'travel';
-  bookingAmount: number;
-  paymentStatus: 'paid' | 'partial' | 'pending';
-  processLogs: any[];
+  has_active_reservation: boolean;
+  booking_id: string;
+  booking_date: string;
+  booking_type: 'houseboat' | 'restaurant' | 'travel';
+  booking_amount: number;
+  payment_status: 'paid' | 'partial' | 'pending';
+  process_logs: any[];
   files: any[];
   notes: string;
-  totalRevenue: number;
-  bookingCount: number;
+  total_revenue: number;
+  booking_count: number;
 }
 
 export default function DatabasePage() {
   const { toast } = useToast();
+  const { supabase } = useSupabase();
   const { user } = useAuth();
+
   const [clients, setClients] = useState<Client[]>([]);
   const [filteredClients, setFilteredClients] = useState<Client[]>([]);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -77,25 +74,27 @@ export default function DatabasePage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Real-time listener for database clients
+  const fetchClients = async () => {
+    if (!supabase) return;
+    const { data } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('current_location', 'database')
+      .order('updated_at', { ascending: false });
+
+    if (data) setClients(data as Client[]);
+  };
+
   useEffect(() => {
-    if (!firestore) return;
-    const q = query(
-      collection(firestore, 'clients'),
-      where('currentLocation', '==', 'database'),
-      orderBy('lastModified', 'desc')
-    );
+    fetchClients();
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Client[];
-      setClients(data);
-    });
+    if (!supabase) return;
+    const channel = supabase.channel('clients_db_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clients', filter: 'current_location=eq.database' }, () => fetchClients())
+      .subscribe();
 
-    return () => unsubscribe();
-  }, [firestore]);
+    return () => { supabase.removeChannel(channel); };
+  }, [supabase]);
 
   // Filter clients
   useEffect(() => {
@@ -120,7 +119,7 @@ export default function DatabasePage() {
 
   // Toggle tag assignment
   const toggleTag = async (clientId: string, tag: string) => {
-    if (!firestore || !user) return;
+    if (!supabase || !user) return;
     const client = clients.find(c => c.id === clientId);
     if (!client) return;
 
@@ -129,53 +128,56 @@ export default function DatabasePage() {
     const newTags = isAdding
       ? [...currentTags, tag]
       : currentTags.filter(t => t !== tag);
-    
+
     const action = isAdding ? 'Tag Added' : 'Tag Removed';
     const details = `${tag} tag ${isAdding ? 'added' : 'removed'}`;
-    
+
+    const newLog = {
+      id: Date.now().toString(),
+      timestamp: new Date().toISOString(),
+      action: action,
+      details: details,
+      userId: user.id,
+      userName: user.email,
+    };
+
     let updates: any = {
-        tags: newTags,
-        lastModified: serverTimestamp(),
-        processLogs: arrayUnion({
-            id: Date.now().toString(),
-            timestamp: new Date().toISOString(),
-            action: action,
-            details: details,
-            userId: user.uid,
-            userName: user.email,
-        })
+      tags: newTags,
+      updated_at: new Date().toISOString(),
+      process_logs: [...(client.process_logs || []), newLog]
     };
 
     if (tag === 'potential' && isAdding) {
-      updates.currentLocation = 'potential-clients';
-      updates.leadStatus = 'lead-sent';
-      updates.processLogs = arrayUnion({
-            id: Date.now().toString(),
-            timestamp: new Date().toISOString(),
-            action: 'Moved to Potential Clients',
-            details: 'Tagged as potential client and moved to lead pipeline',
-            userId: user.uid,
-            userName: user.email,
-            previousLocation: 'database',
-            newLocation: 'potential-clients'
-      });
-      
+      updates.current_location = 'potential-clients';
+      updates.lead_status = 'lead-sent';
+      const moveLog = {
+        id: (Date.now() + 1).toString(),
+        timestamp: new Date().toISOString(),
+        action: 'Moved to Potential Clients',
+        details: 'Tagged as potential client and moved to lead pipeline',
+        userId: user.id,
+        userName: user.email,
+        previousLocation: 'database',
+        newLocation: 'potential-clients'
+      };
+      updates.process_logs.push(moveLog);
+
       toast({
         title: 'Client moved to Potential Clients',
         description: `${client.name} is now in the lead pipeline`
       });
 
-      setIsDetailOpen(false); // Close dialog as client is moved
+      setIsDetailOpen(false);
     } else {
-        toast({ title: `${action}: ${tag}` });
+      toast({ title: `${action}: ${tag}` });
     }
 
-    await updateDoc(doc(firestore, 'clients', clientId), updates);
+    await supabase.from('clients').update(updates).eq('id', clientId);
   };
-  
-    // Compress and upload files
+
+  // Compress and upload files
   const handleFileUpload = async () => {
-    if (!selectedClient || selectedFiles.length === 0 || !firestore || !storage || !user) return;
+    if (!selectedClient || selectedFiles.length === 0 || !supabase || !user) return;
 
     setIsUploading(true);
     const uploadedFiles: any[] = [];
@@ -194,7 +196,7 @@ export default function DatabasePage() {
             maxWidthOrHeight: 1920,
             useWebWorker: true,
           };
-          
+
           try {
             const compressedFile = await imageCompression(file, options);
             fileToUpload = compressedFile;
@@ -206,15 +208,22 @@ export default function DatabasePage() {
 
         const timestamp = Date.now();
         const fileName = `${timestamp}_${file.name}`;
-        const storageRef = ref(storage, `clients/${selectedClient.id}/${fileName}`);
-        
-        const snapshot = await uploadBytes(storageRef, fileToUpload);
-        const downloadUrl = await getDownloadURL(snapshot.ref);
+        const filePath = `${selectedClient.id}/${fileName}`;
+
+        const { data, error: uploadError } = await supabase.storage
+          .from('clients')
+          .upload(filePath, fileToUpload);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('clients')
+          .getPublicUrl(filePath);
 
         uploadedFiles.push({
           id: timestamp.toString(),
           name: file.name,
-          url: downloadUrl,
+          url: publicUrl,
           type: file.type.startsWith('image/') ? 'image' : 'pdf',
           size: file.size,
           compressedSize: compressedSize,
@@ -223,18 +232,20 @@ export default function DatabasePage() {
         });
       }
 
-      await updateDoc(doc(firestore, 'clients', selectedClient.id), {
-        files: arrayUnion(...uploadedFiles),
-        lastModified: serverTimestamp(),
-        processLogs: arrayUnion({
-          id: Date.now().toString(),
-          timestamp: new Date().toISOString(),
-          action: 'Files Uploaded',
-          details: `${uploadedFiles.length} file(s) uploaded`,
-          userId: user.uid,
-          userName: user.email,
-        })
-      });
+      const newLog = {
+        id: Date.now().toString(),
+        timestamp: new Date().toISOString(),
+        action: 'Files Uploaded',
+        details: `${uploadedFiles.length} file(s) uploaded`,
+        userId: user.id,
+        userName: user.email,
+      };
+
+      await supabase.from('clients').update({
+        files: [...(selectedClient.files || []), ...uploadedFiles],
+        updated_at: new Date().toISOString(),
+        process_logs: [...(selectedClient.process_logs || []), newLog]
+      }).eq('id', selectedClient.id);
 
       toast({
         title: 'Files uploaded successfully',
@@ -258,35 +269,40 @@ export default function DatabasePage() {
 
   // Add note
   const handleAddNote = async () => {
-    if (!selectedClient || !newNote.trim() || !firestore || !user) return;
+    if (!selectedClient || !newNote.trim() || !supabase || !user) return;
 
     const timestamp = new Date();
     const formattedTimestamp = format(timestamp, 'MMM dd, yyyy HH:mm');
+    const newNoteText = (selectedClient.notes || '') + `\n\n[${formattedTimestamp}] ${user.email}:\n${newNote}`;
 
-    await updateDoc(doc(firestore, 'clients', selectedClient.id), {
-      notes: (selectedClient.notes || '') + `\n\n[${formattedTimestamp}] ${user.email}:\n${newNote}`,
-      lastModified: serverTimestamp(),
-      processLogs: arrayUnion({
-        id: Date.now().toString(),
-        timestamp: timestamp.toISOString(),
-        action: 'Note Added',
-        details: newNote.substring(0, 100),
-        userId: user.uid,
-        userName: user.email
-      })
-    });
+    const newLog = {
+      id: Date.now().toString(),
+      timestamp: timestamp.toISOString(),
+      action: 'Note Added',
+      details: newNote.substring(0, 100),
+      userId: user.id,
+      userName: user.email
+    };
+
+    await supabase.from('clients').update({
+      notes: newNoteText,
+      updated_at: new Date().toISOString(),
+      process_logs: [...(selectedClient.process_logs || []), newLog]
+    }).eq('id', selectedClient.id);
 
     toast({ title: 'Note added successfully' });
     setNewNote('');
+    // Update local state if needed or let realtime handle it
+    setSelectedClient(prev => prev ? { ...prev, notes: newNoteText } : null);
   };
 
   // Delete client
   const handleDelete = async (clientId: string) => {
-    if (!confirm('Are you sure you want to delete this client? This cannot be undone.') || !firestore) {
+    if (!confirm('Are you sure you want to delete this client? This cannot be undone.') || !supabase) {
       return;
     }
 
-    await deleteDoc(doc(firestore, 'clients', clientId));
+    await supabase.from('clients').delete().eq('id', clientId);
     toast({ title: 'Client deleted' });
     setIsDetailOpen(false);
   };
@@ -295,7 +311,7 @@ export default function DatabasePage() {
     <div className="container mx-auto p-6 max-w-7xl">
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-3">
-          <Users className="h-8 w-8"/>
+          <Users className="h-8 w-8" />
           <div>
             <h1 className="text-3xl font-bold">Client Database</h1>
             <p className="text-muted-foreground">Complete client history and information</p>
@@ -321,7 +337,7 @@ export default function DatabasePage() {
                 className="pl-10"
               />
             </div>
-            
+
             <div className="flex gap-2">
               <Badge
                 variant={selectedTags.includes('VIP') ? 'default' : 'outline'}
@@ -344,7 +360,7 @@ export default function DatabasePage() {
               >
                 <Target className="h-3 w-3 mr-1" /> Potential
               </Badge>
-              
+
               {selectedTags.length > 0 && (
                 <Button variant="ghost" size="sm" onClick={() => setSelectedTags([])}>
                   Clear
@@ -397,7 +413,7 @@ export default function DatabasePage() {
                     </div>
                   </TableCell>
                   <TableCell>{client.source || '-'}</TableCell>
-                  <TableCell>€{client.totalRevenue || 0}</TableCell>
+                  <TableCell>€{client.total_revenue || 0}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <FileText className="h-4 w-4" />
@@ -405,7 +421,7 @@ export default function DatabasePage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    {client.lastModified ? format(new Date(client.lastModified.toDate()), 'MMM dd, yyyy') : '-'}
+                    {client.updated_at ? format(new Date(client.updated_at), 'MMM dd, yyyy') : '-'}
                   </TableCell>
                   <TableCell>
                     <Button variant="ghost" size="sm" onClick={() => { setSelectedClient(client); setIsDetailOpen(true); }}>
@@ -438,57 +454,57 @@ export default function DatabasePage() {
                   <TabsTrigger value="notes">Notes</TabsTrigger>
                 </TabsList>
                 <TabsContent value="info" className="space-y-4 pt-4">
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        <div><p className="text-sm text-muted-foreground">Email</p><p className="font-medium">{selectedClient.email}</p></div>
-                        <div><p className="text-sm text-muted-foreground">Phone</p><p className="font-medium">{selectedClient.phone || 'Not provided'}</p></div>
-                        <div><p className="text-sm text-muted-foreground">Source</p><p className="font-medium">{selectedClient.source || 'Unknown'}</p></div>
-                        <div><p className="text-sm text-muted-foreground">Total Revenue</p><p className="font-medium">€{selectedClient.totalRevenue || 0}</p></div>
-                        <div><p className="text-sm text-muted-foreground">Total Bookings</p><p className="font-medium">{selectedClient.bookingCount || 0}</p></div>
-                        <div><p className="text-sm text-muted-foreground">Created</p><p className="font-medium">{selectedClient.createdAt ? format(new Date(selectedClient.createdAt.toDate()), 'MMM dd, yyyy') : 'Unknown'}</p></div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div><p className="text-sm text-muted-foreground">Email</p><p className="font-medium">{selectedClient.email}</p></div>
+                    <div><p className="text-sm text-muted-foreground">Phone</p><p className="font-medium">{selectedClient.phone || 'Not provided'}</p></div>
+                    <div><p className="text-sm text-muted-foreground">Source</p><p className="font-medium">{selectedClient.source || 'Unknown'}</p></div>
+                    <div><p className="text-sm text-muted-foreground">Total Revenue</p><p className="font-medium">€{selectedClient.total_revenue || 0}</p></div>
+                    <div><p className="text-sm text-muted-foreground">Total Bookings</p><p className="font-medium">{selectedClient.booking_count || 0}</p></div>
+                    <div><p className="text-sm text-muted-foreground">Created</p><p className="font-medium">{selectedClient.created_at ? format(new Date(selectedClient.created_at), 'MMM dd, yyyy') : 'Unknown'}</p></div>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-2">Tags</p>
+                    <div className="flex gap-2">
+                      <Badge variant={selectedClient.tags?.includes('VIP') ? 'default' : 'outline'} className="cursor-pointer" onClick={() => toggleTag(selectedClient.id, 'VIP')}><Star className="h-3 w-3 mr-1" /> VIP</Badge>
+                      <Badge variant={selectedClient.tags?.includes('blacklist') ? 'destructive' : 'outline'} className="cursor-pointer" onClick={() => toggleTag(selectedClient.id, 'blacklist')}><Ban className="h-3 w-3 mr-1" /> Blacklist</Badge>
+                      <Badge variant={selectedClient.tags?.includes('potential') ? 'default' : 'outline'} className="cursor-pointer" onClick={() => toggleTag(selectedClient.id, 'potential')}><Target className="h-3 w-3 mr-1" /> Potential</Badge>
                     </div>
-                    <div>
-                        <p className="text-sm text-muted-foreground mb-2">Tags</p>
-                        <div className="flex gap-2">
-                            <Badge variant={selectedClient.tags?.includes('VIP') ? 'default' : 'outline'} className="cursor-pointer" onClick={() => toggleTag(selectedClient.id, 'VIP')}><Star className="h-3 w-3 mr-1" /> VIP</Badge>
-                            <Badge variant={selectedClient.tags?.includes('blacklist') ? 'destructive' : 'outline'} className="cursor-pointer" onClick={() => toggleTag(selectedClient.id, 'blacklist')}><Ban className="h-3 w-3 mr-1" /> Blacklist</Badge>
-                            <Badge variant={selectedClient.tags?.includes('potential') ? 'default' : 'outline'} className="cursor-pointer" onClick={() => toggleTag(selectedClient.id, 'potential')}><Target className="h-3 w-3 mr-1" /> Potential</Badge>
-                        </div>
-                    </div>
+                  </div>
                 </TabsContent>
                 <TabsContent value="files" className="space-y-4 pt-4">
-                    <Button onClick={() => setIsUploadOpen(true)}><Upload className="h-4 w-4 mr-2" /> Upload Files</Button>
-                     <div className="grid grid-cols-2 gap-2">
-                        {selectedClient.files?.map((file) => (
-                        <Card key={file.id} className="p-3">
-                            <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <FileText className="h-4 w-4" />
-                                <div>
-                                <p className="text-sm font-medium">{file.name}</p>
-                                <p className="text-xs text-muted-foreground">
-                                    {(file.size / 1024).toFixed(1)}KB
-                                    {file.compressedSize && file.compressedSize < file.size ? ` → ${(file.compressedSize / 1024).toFixed(1)}KB` : ''}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                    {format(new Date(file.uploadedAt), 'MMM dd, yyyy')}
-                                </p>
-                                </div>
+                  <Button onClick={() => setIsUploadOpen(true)}><Upload className="h-4 w-4 mr-2" /> Upload Files</Button>
+                  <div className="grid grid-cols-2 gap-2">
+                    {selectedClient.files?.map((file) => (
+                      <Card key={file.id} className="p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4" />
+                            <div>
+                              <p className="text-sm font-medium">{file.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {(file.size / 1024).toFixed(1)}KB
+                                {file.compressedSize && file.compressedSize < file.size ? ` → ${(file.compressedSize / 1024).toFixed(1)}KB` : ''}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {format(new Date(file.uploadedAt), 'MMM dd, yyyy')}
+                              </p>
                             </div>
-                            <Button variant="ghost" size="sm" onClick={() => window.open(file.url, '_blank')}>
-                                <Download className="h-4 w-4" />
-                            </Button>
-                            </div>
-                        </Card>
-                        ))}
-                    </div>
-                     {(!selectedClient.files || selectedClient.files.length === 0) && (
-                        <p className="text-center text-muted-foreground py-8">No files uploaded</p>
-                    )}
+                          </div>
+                          <Button variant="ghost" size="sm" onClick={() => window.open(file.url, '_blank')}>
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                  {(!selectedClient.files || selectedClient.files.length === 0) && (
+                    <p className="text-center text-muted-foreground py-8">No files uploaded</p>
+                  )}
                 </TabsContent>
                 <TabsContent value="history" className="pt-4">
                   <ScrollArea className="h-[400px]">
                     <div className="space-y-3">
-                      {selectedClient.processLogs?.sort((a:any, b:any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((log:any) => (
+                      {selectedClient.process_logs?.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((log: any) => (
                         <Card key={log.id} className="p-3">
                           <div className="flex items-start gap-3">
                             <History className="h-4 w-4 mt-1 text-muted-foreground" />
@@ -527,7 +543,7 @@ export default function DatabasePage() {
         </DialogContent>
       </Dialog>
 
-       <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+      <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Upload Files</DialogTitle>

@@ -1,15 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import {
-  collection,
-  doc,
-  deleteDoc,
-  addDoc,
-  setDoc,
-  query,
-  orderBy
-} from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { useSupabase } from '@/components/providers/supabase-provider';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -25,7 +17,6 @@ import {
   DialogTitle,
   DialogClose,
   DialogFooter,
-  DialogDescription,
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -51,13 +42,12 @@ import {
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
 } from '@/components/ui/popover';
 import { PlusCircle, Trash2, Pencil, Ticket, Calendar as CalendarIcon } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCollection, useFirestore } from '@/firebase';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
@@ -69,34 +59,49 @@ type Voucher = {
   id?: string;
   code: string;
   description: string;
-  type: 'percentage' | 'fixed';
+  discount_type: 'percentage' | 'fixed';
   value: number;
-  expiresAt?: string;
-  isActive: boolean;
+  expiry_date?: string | null;
+  active: boolean;
 };
 
 const DEFAULT_VOUCHER: Voucher = {
   code: '',
   description: '',
-  type: 'fixed',
+  discount_type: 'fixed',
   value: 0,
-  isActive: true,
+  active: true,
 };
 
 export default function VouchersSettingsPage() {
   const { toast } = useToast();
-  const firestore = useFirestore();
+  const { supabase } = useSupabase();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingVoucher, setEditingVoucher] = useState<Voucher | null>(null);
   const [voucherState, setVoucherState] = useState<Voucher>(DEFAULT_VOUCHER);
 
-  const vouchersQuery = useMemo(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'vouchers'), orderBy('code'));
-  }, [firestore]);
+  const [vouchers, setVouchers] = useState<Voucher[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const { data: vouchers, isLoading } = useCollection<Voucher>(vouchersQuery);
+  const fetchVouchers = async () => {
+    if (!supabase) return;
+    setIsLoading(true);
+    const { data } = await supabase.from('vouchers').select('*').order('code');
+    if (data) setVouchers(data as Voucher[]);
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    fetchVouchers();
+
+    if (!supabase) return;
+    const channel = supabase.channel('vouchers_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vouchers' }, () => fetchVouchers())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [supabase]);
 
   const openNewDialog = () => {
     setEditingVoucher(null);
@@ -111,9 +116,10 @@ export default function VouchersSettingsPage() {
   };
 
   const handleDelete = async (voucherId: string) => {
-    if (!firestore) return;
+    if (!supabase) return;
     try {
-      await deleteDoc(doc(firestore, 'vouchers', voucherId));
+      const { error } = await supabase.from('vouchers').delete().eq('id', voucherId);
+      if (error) throw error;
       toast({ title: 'Success', description: 'Voucher deleted.' });
     } catch (error) {
       toast({
@@ -125,7 +131,7 @@ export default function VouchersSettingsPage() {
   };
 
   const handleSave = async () => {
-    if (!firestore || !voucherState.code) {
+    if (!supabase || !voucherState.code) {
       toast({
         variant: 'destructive',
         title: 'Validation Error',
@@ -135,18 +141,19 @@ export default function VouchersSettingsPage() {
     }
 
     const dataToSave = {
-        ...voucherState,
-        code: voucherState.code.toUpperCase().trim(),
-        expiresAt: voucherState.expiresAt ? new Date(voucherState.expiresAt).toISOString() : null,
+      ...voucherState,
+      code: voucherState.code.toUpperCase().trim(),
+      expiry_date: voucherState.expiry_date || null,
     };
 
     try {
       if (editingVoucher?.id) {
-        const voucherRef = doc(firestore, 'vouchers', editingVoucher.id);
-        await setDoc(voucherRef, dataToSave);
+        const { error } = await supabase.from('vouchers').update(dataToSave).eq('id', editingVoucher.id);
+        if (error) throw error;
         toast({ title: 'Success', description: 'Voucher updated.' });
       } else {
-        await addDoc(collection(firestore, 'vouchers'), dataToSave);
+        const { error } = await supabase.from('vouchers').insert([dataToSave]);
+        if (error) throw error;
         toast({ title: 'Success', description: 'Voucher created.' });
       }
       setIsDialogOpen(false);
@@ -182,17 +189,17 @@ export default function VouchersSettingsPage() {
             <Skeleton className="h-24 w-full" />
           ) : (
             <div className="space-y-4">
-              {vouchers?.map(voucher => (
+              {vouchers.map(voucher => (
                 <Card key={voucher.id} className="flex items-center p-4 transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1">
                   <div className="flex-grow">
                     <div className="flex items-center gap-2">
-                        <CardTitle className="text-lg font-mono tracking-wider text-primary">{voucher.code}</CardTitle>
-                        <Badge variant={voucher.isActive ? 'default' : 'secondary'}>{voucher.isActive ? 'Active' : 'Inactive'}</Badge>
+                      <CardTitle className="text-lg font-mono tracking-wider text-primary">{voucher.code}</CardTitle>
+                      <Badge variant={voucher.active ? 'default' : 'secondary'}>{voucher.active ? 'Active' : 'Inactive'}</Badge>
                     </div>
                     <CardDescription>{voucher.description}</CardDescription>
                     <div className="text-sm mt-1">
-                        <span className="font-semibold">{voucher.type === 'fixed' ? `€${voucher.value}` : `${voucher.value}%`}</span> off
-                        {voucher.expiresAt && <span className="text-muted-foreground ml-2">(Expires {format(new Date(voucher.expiresAt), 'PPP')})</span>}
+                      <span className="font-semibold">{voucher.discount_type === 'fixed' ? `€${voucher.value}` : `${voucher.value}%`}</span> off
+                      {voucher.expiry_date && <span className="text-muted-foreground ml-2">(Expires {format(new Date(voucher.expiry_date), 'PPP')})</span>}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -231,7 +238,7 @@ export default function VouchersSettingsPage() {
                   </div>
                 </Card>
               ))}
-              {vouchers?.length === 0 && (
+              {vouchers.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-48 bg-muted/50 rounded-lg border-2 border-dashed text-center">
                   <Ticket className="h-10 w-10 text-muted-foreground mb-2" />
                   <p className="text-lg font-semibold text-muted-foreground">
@@ -246,7 +253,7 @@ export default function VouchersSettingsPage() {
           )}
         </CardContent>
       </Card>
-      
+
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -255,7 +262,7 @@ export default function VouchersSettingsPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-             <div className="space-y-2">
+            <div className="space-y-2">
               <Label htmlFor="voucher-code">Voucher Code</Label>
               <Input
                 id="voucher-code"
@@ -264,7 +271,7 @@ export default function VouchersSettingsPage() {
                 placeholder="e.g., SUMMER20"
               />
             </div>
-             <div className="space-y-2">
+            <div className="space-y-2">
               <Label htmlFor="voucher-desc">Description (for internal use)</Label>
               <Textarea
                 id="voucher-desc"
@@ -274,63 +281,63 @@ export default function VouchersSettingsPage() {
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-2">
-                    <Label htmlFor="voucher-type">Discount Type</Label>
-                     <Select
-                        value={voucherState.type}
-                        onValueChange={(value: 'percentage' | 'fixed') => setVoucherState(prev => ({ ...prev, type: value }))}
-                      >
-                        <SelectTrigger id="voucher-type">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="fixed">Fixed Amount (€)</SelectItem>
-                          <SelectItem value="percentage">Percentage (%)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                </div>
-                 <div className="space-y-2">
-                    <Label htmlFor="voucher-value">Value</Label>
-                    <Input
-                        id="voucher-value"
-                        type="number"
-                        value={voucherState.value}
-                        onChange={e => setVoucherState(prev => ({ ...prev, value: Number(e.target.value) }))}
-                    />
-                </div>
-            </div>
-             <div className="space-y-2">
-                <Label>Expiration Date (Optional)</Label>
-                <Popover>
-                    <PopoverTrigger asChild>
-                    <Button
-                        variant={"outline"}
-                        className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !voucherState.expiresAt && "text-muted-foreground"
-                        )}
-                    >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {voucherState.expiresAt ? format(new Date(voucherState.expiresAt), "PPP") : <span>Pick a date</span>}
-                    </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                    <Calendar
-                        mode="single"
-                        selected={voucherState.expiresAt ? new Date(voucherState.expiresAt) : undefined}
-                        onSelect={date => setVoucherState(prev => ({ ...prev, expiresAt: date?.toISOString() }))}
-                        initialFocus
-                    />
-                    </PopoverContent>
-                </Popover>
-            </div>
-             <div className="flex items-center space-x-2">
-                <Switch 
-                    id="is-active"
-                    checked={voucherState.isActive}
-                    onCheckedChange={checked => setVoucherState(prev => ({ ...prev, isActive: checked }))}
+              <div className="space-y-2">
+                <Label htmlFor="voucher-type">Discount Type</Label>
+                <Select
+                  value={voucherState.discount_type}
+                  onValueChange={(value: 'percentage' | 'fixed') => setVoucherState(prev => ({ ...prev, discount_type: value }))}
+                >
+                  <SelectTrigger id="voucher-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fixed">Fixed Amount (€)</SelectItem>
+                    <SelectItem value="percentage">Percentage (%)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="voucher-value">Value</Label>
+                <Input
+                  id="voucher-value"
+                  type="number"
+                  value={voucherState.value}
+                  onChange={e => setVoucherState(prev => ({ ...prev, value: Number(e.target.value) }))}
                 />
-                <Label htmlFor="is-active">Voucher is Active</Label>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Expiration Date (Optional)</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !voucherState.expiry_date && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {voucherState.expiry_date ? format(new Date(voucherState.expiry_date), "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={voucherState.expiry_date ? new Date(voucherState.expiry_date) : undefined}
+                    onSelect={date => setVoucherState(prev => ({ ...prev, expiry_date: date?.toISOString() }))}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="is-active"
+                checked={voucherState.active}
+                onCheckedChange={checked => setVoucherState(prev => ({ ...prev, active: checked }))}
+              />
+              <Label htmlFor="is-active">Voucher is Active</Label>
             </div>
           </div>
           <DialogFooter>

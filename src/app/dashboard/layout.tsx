@@ -130,14 +130,27 @@ export default function DashboardLayout({
         .limit(20);
 
       if (data) {
-        // Map Supabase fields if necessary, though type alias helps
         setNotifications(data as Booking[]);
       }
     };
 
     fetchNotifications();
 
-    // subscriptions could be added here for realtime updates
+    // Subscribe to realtime updates for bookings
+    const channel = supabase
+      .channel('pending_bookings_notifications')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'bookings', filter: 'status=eq.Pending' },
+        (payload) => {
+          fetchNotifications(); // Simple approach: re-fetch on change
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [supabase]);
 
   const unreadCount = notifications?.filter(n => !n.read && n.status === 'Pending').length || 0;

@@ -1,12 +1,11 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useCollection, useFirestore, useAuth } from '@/firebase';
-import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
-import { History, User, Clock, FileText } from 'lucide-react';
+import { useSupabase, useAuth } from '@/components/providers/supabase-provider';
+import { History, User, FileText } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -15,12 +14,11 @@ import { PageHeader } from '@/components/page-header';
 
 type ActivityLog = {
   id: string;
-  userId: string;
+  user_id: string;
   username: string;
   action: string;
   details: string;
-  timestamp: Timestamp;
-  path?: string;
+  timestamp: string;
 };
 
 const actionIcons: Record<string, React.ElementType> = {
@@ -31,15 +29,46 @@ const actionIcons: Record<string, React.ElementType> = {
 };
 
 export default function ActivityLogPage() {
-  const firestore = useFirestore();
+  const { supabase } = useSupabase();
   const { user } = useAuth();
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const logsQuery = useMemo(() => {
-    if (!firestore || !user) return null;
-    return query(collection(firestore, 'activity_logs'), orderBy('timestamp', 'desc'));
-  }, [firestore, user]);
+  const fetchLogs = async () => {
+    if (!supabase) return;
+    const { data, error } = await supabase
+      .from('activity_logs')
+      .select('*')
+      .order('timestamp', { ascending: false });
 
-  const { data: logs, isLoading } = useCollection<ActivityLog>(logsQuery);
+    if (data) {
+      setLogs(data as ActivityLog[]);
+    }
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    if (!supabase || !user) return;
+
+    fetchLogs();
+
+    // Subscribe to realtime changes
+    const channel = supabase
+      .channel('activity_logs_realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'activity_logs' },
+        (payload) => {
+          const newLog = payload.new as ActivityLog;
+          setLogs((prev) => [newLog, ...prev]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, user]);
 
   return (
     <div>
@@ -96,14 +125,14 @@ export default function ActivityLogPage() {
                         <TableCell>
                             <div className="flex items-center gap-3">
                                 <Avatar className="h-8 w-8">
-                                    <AvatarFallback>{log.username.charAt(0).toUpperCase()}</AvatarFallback>
+                                    <AvatarFallback>{log.username?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
                                 </Avatar>
                                 <span className="font-medium">{log.username}</span>
                             </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground">{log.details}</TableCell>
                         <TableCell className="text-right text-muted-foreground text-xs">
-                        {log.timestamp ? formatDistanceToNow(log.timestamp.toDate(), { addSuffix: true }) : ''}
+                        {log.timestamp ? formatDistanceToNow(new Date(log.timestamp), { addSuffix: true }) : ''}
                         </TableCell>
                     </TableRow>
                     )

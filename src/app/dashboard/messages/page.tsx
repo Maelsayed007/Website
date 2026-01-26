@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useCollection, useFirestore } from '@/firebase';
-import { collection, query, orderBy, updateDoc, doc, where } from 'firebase/firestore';
+import { useState, useMemo, useEffect } from 'react';
+import { useSupabase } from '@/components/providers/supabase-provider';
 import { PageHeader } from '@/components/page-header';
 import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
@@ -13,50 +12,73 @@ import {
   MailOpen,
   Inbox,
   ExternalLink,
-  Trash2
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 type Message = {
   id: string;
-  clientName: string;
-  clientEmail: string;
+  client_name: string;
+  client_email: string;
   notes?: string;
-  startTime: string; // This is used as createdAt for contact form submissions
+  start_time: string; // This is used as createdAt for contact form submissions
   read?: boolean;
   source: 'Website Contact Form';
 };
 
 export default function MessagesPage() {
-  const firestore = useFirestore();
+  const { supabase } = useSupabase();
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const messagesQuery = useMemo(() => {
-    if (!firestore) return null;
-    return query(
-      collection(firestore, 'bookings'),
-      where('source', '==', 'Website Contact Form'),
-      orderBy('startTime', 'desc')
-    );
-  }, [firestore]);
+  const fetchMessages = async () => {
+    if (!supabase) return;
+    setIsLoading(true);
+    const { data } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('source', 'Website Contact Form')
+      .order('start_time', { ascending: false });
 
-  const { data: messages, isLoading } = useCollection<Message>(messagesQuery);
+    if (data) {
+      setMessages(data as Message[]);
+    }
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    fetchMessages();
+
+    if (!supabase) return;
+    const channel = supabase.channel('messages_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: 'source=eq.Website Contact Form' }, () => {
+        fetchMessages();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [supabase]);
 
   const filteredMessages = useMemo(() => {
-    if (!messages) return [];
     if (filter === 'unread') {
       return messages.filter(m => !m.read);
     }
     return messages;
   }, [messages, filter]);
 
-  const unreadCount = messages?.filter(m => !m.read).length || 0;
+  const unreadCount = messages.filter(m => !m.read).length;
 
   const markAsRead = async (messageId: string) => {
-    if (!firestore) return;
-    const messageRef = doc(firestore, 'bookings', messageId);
-    await updateDoc(messageRef, { read: true });
+    if (!supabase) return;
+    const { error } = await supabase
+      .from('bookings')
+      .update({ read: true })
+      .eq('id', messageId);
+
+    if (!error) {
+      setMessages(prev => prev.map(m => m.id === messageId ? { ...m, read: true } : m));
+    }
   };
 
   return (
@@ -79,7 +101,7 @@ export default function MessagesPage() {
         >
           All Messages
           <Badge variant="secondary" className="ml-2">
-            {messages?.length || 0}
+            {messages.length}
           </Badge>
         </Button>
         <Button
@@ -136,15 +158,15 @@ export default function MessagesPage() {
                           "font-semibold truncate",
                           !message.read && "text-foreground"
                         )}>
-                          {message.clientName}
+                          {message.client_name}
                         </p>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {message.clientEmail}
+                        {message.client_email}
                       </p>
                     </div>
                     <p className="text-xs text-muted-foreground whitespace-nowrap">
-                      {formatDistanceToNow(new Date(message.startTime), { addSuffix: true })}
+                      {formatDistanceToNow(new Date(message.start_time), { addSuffix: true })}
                     </p>
                   </div>
 
@@ -169,7 +191,7 @@ export default function MessagesPage() {
                     variant="ghost"
                     size="sm"
                     className="h-8 w-8 p-0"
-                    onClick={() => window.open(`mailto:${message.clientEmail}`)}
+                    onClick={() => window.open(`mailto:${message.client_email}`)}
                   >
                     <ExternalLink className="h-4 w-4" />
                   </Button>

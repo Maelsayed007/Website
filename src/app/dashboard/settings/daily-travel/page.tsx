@@ -1,15 +1,8 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { useCollection, useFirestore } from '@/firebase';
-import {
-  collection,
-  doc,
-  deleteDoc,
-  addDoc,
-  setDoc,
-} from 'firebase/firestore';
+import { useSupabase } from '@/components/providers/supabase-provider';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -49,7 +42,6 @@ import {
   Camera,
   Pencil,
   Ship,
-  Users,
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -74,9 +66,9 @@ type Terms = { minimumPeople: number; conditions: string };
 type DailyTravelPackage = {
   id?: string;
   name: string;
-  boatId: string;
-  photoUrl: string;
-  durationHours: number;
+  boat_id: string;
+  photo_url: string;
+  duration_hours: number;
   destination: string;
   pricing: Pricing;
   terms: Terms;
@@ -85,9 +77,9 @@ type DailyBoat = { id: string; name: string; capacity: number };
 
 const DEFAULT_PACKAGE: DailyTravelPackage = {
   name: '',
-  boatId: '',
-  photoUrl: '',
-  durationHours: 1,
+  boat_id: '',
+  photo_url: '',
+  duration_hours: 1,
   destination: '',
   pricing: {
     type: 'per-person',
@@ -109,7 +101,7 @@ const DEFAULT_BOAT: Omit<DailyBoat, 'id'> = {
 
 export default function DailyTravelSettingsPage() {
   const { toast } = useToast();
-  const firestore = useFirestore();
+  const { supabase } = useSupabase();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isPackageDialogOpen, setIsPackageDialogOpen] = useState(false);
@@ -125,23 +117,45 @@ export default function DailyTravelSettingsPage() {
     DEFAULT_BOAT
   );
 
-  const packagesQuery = useMemo(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'daily_travel_packages');
-  }, [firestore]);
+  const [packages, setPackages] = useState<DailyTravelPackage[]>([]);
+  const [boats, setBoats] = useState<DailyBoat[]>([]);
+  const [isDataLoading, setIsDataLoading] = useState(true);
 
-  const boatsQuery = useMemo(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'daily_boats');
-  }, [firestore]);
+  const fetchPackages = async () => {
+    if (!supabase) return;
+    const { data } = await supabase.from('daily_travel_packages').select('*');
+    if (data) setPackages(data as DailyTravelPackage[]);
+  };
 
-  // Fetch data
-  const { data: packages, isLoading: isLoadingPackages } = useCollection<
-    DailyTravelPackage
-  >(packagesQuery);
+  const fetchBoats = async () => {
+    if (!supabase) return;
+    const { data } = await supabase.from('daily_boats').select('*');
+    if (data) setBoats(data as DailyBoat[]);
+  };
 
-  const { data: boats, isLoading: isLoadingBoats } =
-    useCollection<DailyBoat>(boatsQuery);
+  const fetchData = async () => {
+    setIsDataLoading(true);
+    await Promise.all([fetchPackages(), fetchBoats()]);
+    setIsDataLoading(false);
+  };
+
+  useEffect(() => {
+    fetchData();
+
+    if (!supabase) return;
+    const packagesChannel = supabase.channel('packages_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_travel_packages' }, () => fetchPackages())
+      .subscribe();
+
+    const boatsChannel = supabase.channel('boats_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_boats' }, () => fetchBoats())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(packagesChannel);
+      supabase.removeChannel(boatsChannel);
+    };
+  }, [supabase]);
 
   const openNewPackageDialog = () => {
     setEditingPackage(null);
@@ -168,9 +182,10 @@ export default function DailyTravelSettingsPage() {
   };
 
   const handleDeletePackage = async (packageId: string) => {
-    if (!firestore) return;
+    if (!supabase) return;
     try {
-      await deleteDoc(doc(firestore, 'daily_travel_packages', packageId));
+      const { error } = await supabase.from('daily_travel_packages').delete().eq('id', packageId);
+      if (error) throw error;
       toast({ title: 'Success', description: 'Package deleted.' });
     } catch (error) {
       toast({
@@ -182,9 +197,10 @@ export default function DailyTravelSettingsPage() {
   };
 
   const handleDeleteBoat = async (boatId: string) => {
-    if (!firestore) return;
+    if (!supabase) return;
     try {
-      await deleteDoc(doc(firestore, 'daily_boats', boatId));
+      const { error } = await supabase.from('daily_boats').delete().eq('id', boatId);
+      if (error) throw error;
       toast({ title: 'Success', description: 'Boat deleted.' });
     } catch (error) {
       toast({
@@ -196,7 +212,7 @@ export default function DailyTravelSettingsPage() {
   };
 
   const handleSavePackage = async () => {
-    if (!firestore || !packageState.name || !packageState.boatId) {
+    if (!supabase || !packageState.name || !packageState.boat_id) {
       toast({
         variant: 'destructive',
         title: 'Validation Error',
@@ -207,18 +223,12 @@ export default function DailyTravelSettingsPage() {
 
     try {
       if (editingPackage?.id) {
-        const packageRef = doc(
-          firestore,
-          'daily_travel_packages',
-          editingPackage.id
-        );
-        await setDoc(packageRef, packageState);
+        const { error } = await supabase.from('daily_travel_packages').update(packageState).eq('id', editingPackage.id);
+        if (error) throw error;
         toast({ title: 'Success', description: 'Package updated.' });
       } else {
-        await addDoc(
-          collection(firestore, 'daily_travel_packages'),
-          packageState
-        );
+        const { error } = await supabase.from('daily_travel_packages').insert([packageState]);
+        if (error) throw error;
         toast({ title: 'Success', description: 'Package created.' });
       }
       setIsPackageDialogOpen(false);
@@ -233,7 +243,7 @@ export default function DailyTravelSettingsPage() {
   };
 
   const handleSaveBoat = async () => {
-    if (!firestore || !boatState.name) {
+    if (!supabase || !boatState.name) {
       toast({
         variant: 'destructive',
         title: 'Validation Error',
@@ -244,11 +254,12 @@ export default function DailyTravelSettingsPage() {
 
     try {
       if (editingBoat?.id) {
-        const boatRef = doc(firestore, 'daily_boats', editingBoat.id);
-        await setDoc(boatRef, boatState);
+        const { error } = await supabase.from('daily_boats').update(boatState).eq('id', editingBoat.id);
+        if (error) throw error;
         toast({ title: 'Success', description: 'Boat updated.' });
       } else {
-        await addDoc(collection(firestore, 'daily_boats'), boatState);
+        const { error } = await supabase.from('daily_boats').insert([boatState]);
+        if (error) throw error;
         toast({ title: 'Success', description: 'Boat created.' });
       }
       setIsBoatDialogOpen(false);
@@ -269,7 +280,7 @@ export default function DailyTravelSettingsPage() {
     reader.onload = e => {
       setPackageState(prev => ({
         ...prev,
-        photoUrl: e.target?.result as string,
+        photo_url: e.target?.result as string,
       }));
     };
     reader.readAsDataURL(file);
@@ -290,7 +301,7 @@ export default function DailyTravelSettingsPage() {
   ) => {
     setPackageState(prev => ({
       ...prev,
-      [section]: { ...prev[section], [field]: value },
+      [section]: { ...prev[section], [field]: value } as any,
     }));
   };
 
@@ -341,15 +352,15 @@ export default function DailyTravelSettingsPage() {
               </Button>
             </CardHeader>
             <CardContent>
-              {isLoadingPackages ? (
+              {isDataLoading ? (
                 <Skeleton className="h-24 w-full" />
               ) : (
                 <div className="space-y-4">
-                  {packages?.map(pkg => (
+                  {packages.map(pkg => (
                     <Card key={pkg.id} className="flex items-center p-4 transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1">
                       <Image
                         src={
-                          pkg.photoUrl ||
+                          pkg.photo_url ||
                           'https://placehold.co/600x400/E2E8F0/A0AEC0?text=No+Image'
                         }
                         alt={pkg.name}
@@ -397,7 +408,7 @@ export default function DailyTravelSettingsPage() {
                       </div>
                     </Card>
                   ))}
-                  {packages?.length === 0 && !isLoadingPackages && (
+                  {packages.length === 0 && !isDataLoading && (
                     <div className="flex flex-col items-center justify-center h-48 bg-muted/50 rounded-lg border-2 border-dashed text-center">
                       <Calendar className="h-10 w-10 text-muted-foreground mb-2" />
                       <p className="text-lg font-semibold text-muted-foreground">
@@ -428,11 +439,11 @@ export default function DailyTravelSettingsPage() {
               </Button>
             </CardHeader>
             <CardContent>
-              {isLoadingBoats ? (
+              {isDataLoading ? (
                 <Skeleton className="h-24 w-full" />
               ) : (
                 <div className="space-y-4">
-                  {boats?.map(boat => (
+                  {boats.map(boat => (
                     <Card key={boat.id} className="flex items-center p-4 transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1">
                       <div className="flex-grow">
                         <CardTitle>{boat.name}</CardTitle>
@@ -476,9 +487,9 @@ export default function DailyTravelSettingsPage() {
                       </div>
                     </Card>
                   ))}
-                  {boats?.length === 0 && !isLoadingBoats && (
-                     <div className="flex flex-col items-center justify-center h-48 bg-muted/50 rounded-lg border-2 border-dashed text-center">
-                       <Ship className="h-10 w-10 text-muted-foreground mb-2"/>
+                  {boats.length === 0 && !isDataLoading && (
+                    <div className="flex flex-col items-center justify-center h-48 bg-muted/50 rounded-lg border-2 border-dashed text-center">
+                      <Ship className="h-10 w-10 text-muted-foreground mb-2" />
                       <p className="text-lg font-semibold text-muted-foreground">
                         No daily travel boats created yet.
                       </p>
@@ -520,21 +531,21 @@ export default function DailyTravelSettingsPage() {
                 <div className="space-y-2">
                   <Label htmlFor="pkg-boat">Boat</Label>
                   <Select
-                    value={packageState.boatId}
+                    value={packageState.boat_id}
                     onValueChange={value =>
-                      handlePackageInputChange('boatId', value)
+                      handlePackageInputChange('boat_id', value)
                     }
                   >
                     <SelectTrigger id="pkg-boat">
                       <SelectValue placeholder="Select a boat" />
                     </SelectTrigger>
                     <SelectContent>
-                      {isLoadingBoats ? (
+                      {isDataLoading ? (
                         <SelectItem value="loading" disabled>
                           Loading...
                         </SelectItem>
                       ) : (
-                        boats?.map(boat => (
+                        boats.map(boat => (
                           <SelectItem key={boat.id} value={boat.id}>
                             {boat.name} (Capacity: {boat.capacity})
                           </SelectItem>
@@ -558,10 +569,10 @@ export default function DailyTravelSettingsPage() {
                   <Input
                     id="pkg-duration"
                     type="number"
-                    value={packageState.durationHours}
+                    value={packageState.duration_hours}
                     onChange={e =>
                       handlePackageInputChange(
-                        'durationHours',
+                        'duration_hours',
                         Number(e.target.value)
                       )
                     }
@@ -573,7 +584,7 @@ export default function DailyTravelSettingsPage() {
                 <div className="flex items-center gap-4">
                   <Image
                     src={
-                      packageState.photoUrl ||
+                      packageState.photo_url ||
                       'https://placehold.co/600x400/E2E8F0/A0AEC0?text=Image'
                     }
                     alt="Package Photo"
@@ -798,10 +809,9 @@ export default function DailyTravelSettingsPage() {
                 onChange={e =>
                   setBoatState(prev => ({
                     ...prev,
-                    capacity: Number(e.target.value),
+                    capacity: Number(e.target.value) || 0,
                   }))
                 }
-                placeholder="e.g., 12"
               />
             </div>
           </div>
