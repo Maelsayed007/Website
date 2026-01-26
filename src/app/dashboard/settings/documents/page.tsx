@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useFirestore, useDoc } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { useSupabase } from '@/components/providers/supabase-provider';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -19,49 +18,59 @@ import { FileText } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 type WebsiteSettings = {
-  pdfTermsAndConditions?: string;
-  pdfOtherDetails?: string;
+  pdf_terms_and_conditions?: string;
+  pdf_other_details?: string;
 };
 
 const SETTINGS_DOC_ID = 'main';
 
 export default function DocumentsSettingsPage() {
   const { toast } = useToast();
-  const firestore = useFirestore();
+  const { supabase } = useSupabase();
 
   const [settings, setSettings] = useState<Partial<WebsiteSettings>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const settingsDocRef = useMemo(() => {
-    if (!firestore) return null;
-    return doc(firestore, 'website_settings', SETTINGS_DOC_ID);
-  }, [firestore]);
+  const fetchSettings = async () => {
+    if (!supabase) return;
+    setIsLoading(true);
+    const { data } = await supabase
+      .from('website_settings')
+      .select('*')
+      .eq('id', SETTINGS_DOC_ID)
+      .single();
 
-  const { data: fetchedSettings, isLoading } =
-    useDoc<WebsiteSettings>(settingsDocRef);
-
-  useEffect(() => {
-    if (fetchedSettings) {
+    if (data) {
       setSettings({
-        pdfTermsAndConditions: fetchedSettings.pdfTermsAndConditions || '',
-        pdfOtherDetails: fetchedSettings.pdfOtherDetails || ''
+        pdf_terms_and_conditions: data.pdf_terms_and_conditions || '',
+        pdf_other_details: data.pdf_other_details || ''
       });
     }
-  }, [fetchedSettings]);
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    fetchSettings();
+  }, [supabase]);
 
   const handleInputChange = (field: keyof WebsiteSettings, value: string) => {
     setSettings(prev => ({ ...prev, [field]: value }));
   };
-  
+
   const handleSave = async () => {
-    if (!firestore) return;
+    if (!supabase) return;
     setIsSaving(true);
     try {
-      await setDoc(
-        doc(firestore, 'website_settings', SETTINGS_DOC_ID),
-        settings,
-        { merge: true }
-      );
+      const { error } = await supabase
+        .from('website_settings')
+        .update({
+          ...settings,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', SETTINGS_DOC_ID);
+
+      if (error) throw error;
       toast({ title: 'Success', description: 'Document settings updated.' });
     } catch (error) {
       console.error('Failed to save settings:', error);
@@ -109,18 +118,18 @@ export default function DocumentsSettingsPage() {
           <Label htmlFor="pdf-terms">Terms &amp; Responsibility (for Check-in Manifest)</Label>
           <Textarea
             id="pdf-terms"
-            value={settings.pdfTermsAndConditions || ''}
-            onChange={(e) => handleInputChange('pdfTermsAndConditions', e.target.value)}
+            value={settings.pdf_terms_and_conditions || ''}
+            onChange={(e) => handleInputChange('pdf_terms_and_conditions', e.target.value)}
             placeholder="Enter the terms and conditions paragraph..."
             className="min-h-[150px]"
           />
         </div>
         <div className="space-y-2">
           <Label htmlFor="pdf-details">Other Details (for Financial Summary)</Label>
-           <Textarea
+          <Textarea
             id="pdf-details"
-            value={settings.pdfOtherDetails || ''}
-            onChange={(e) => handleInputChange('pdfOtherDetails', e.target.value)}
+            value={settings.pdf_other_details || ''}
+            onChange={(e) => handleInputChange('pdf_other_details', e.target.value)}
             placeholder="Enter any additional details or notes..."
             className="min-h-[100px]"
           />
