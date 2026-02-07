@@ -1,0 +1,850 @@
+<script>
+    // ==========================================
+    // CALENDAR & DRAG-AND-DROP STATE
+    // ==========================================
+    let travelCalendar;
+    let restaurantCalendar;
+    let calendarDisplayYear = new Date().getFullYear();
+    let lastHighlightedDate = null; // Track highlighted day
+
+    // Drag and drop state
+    let isDragging = false;
+    let isQuickAddPanelPersistent = false;
+    let dragStartCell = null;
+    let draggedReservation = null;
+    let draggedElement = null;
+    let dragMode = null; // 'move' or 'resize-start' or 'resize-end'
+    let dragGhost = null;
+    let resizeStartCell = null;
+    let resizeEndCell = null;
+    let currentContextReservationId = null;
+
+    /**
+     * Toggles a yellow highlight effect for a specific day's column in the calendar.
+     */
+    function toggleDayHighlight(dateStr) {
+        const gridContainer = document.getElementById('calendarYearGridContainer');
+        if (!gridContainer) return;
+
+        gridContainer.querySelectorAll('.highlighted-day').forEach(el => {
+            el.classList.remove('highlighted-day');
+        });
+
+        if (lastHighlightedDate === dateStr) {
+            lastHighlightedDate = null;
+            return;
+        }
+
+        const headers = gridContainer.querySelectorAll(`.calendar-dayname-header[data-date="${dateStr}"], .calendar-day-header-number[data-date="${dateStr}"]`);
+        const slots = gridContainer.querySelectorAll(`.calendar-slot-cell[data-date="${dateStr}"]`);
+
+        headers.forEach(header => header.classList.add('highlighted-day'));
+        slots.forEach(slot => slot.classList.add('highlighted-day'));
+
+        lastHighlightedDate = dateStr;
+    }
+
+    /**
+     * Calendar Fullscreen Toggle
+     */
+    function toggleCalendarFullscreen() {
+        const calendarView = document.getElementById('calendar-view');
+        const button = document.getElementById('calendarFullscreenBtn');
+        const maximizeIcon = button.querySelector('.icon-maximize');
+        const minimizeIcon = button.querySelector('.icon-minimize');
+        const buttonText = button.querySelector('span');
+
+        calendarView.classList.toggle('fullscreen');
+
+        if (calendarView.classList.contains('fullscreen')) {
+            maximizeIcon.classList.add('hidden');
+            minimizeIcon.classList.remove('hidden');
+            buttonText.textContent = _t('calendar.exitFullscreen');
+            document.addEventListener('keydown', handleEscKeyForCalendar);
+        } else {
+            maximizeIcon.classList.remove('hidden');
+            minimizeIcon.classList.add('hidden');
+            buttonText.textContent = _t('calendar.fullscreen');
+            document.removeEventListener('keydown', handleEscKeyForCalendar);
+        }
+    }
+
+    function handleEscKeyForCalendar(event) {
+        if (event.key === 'Escape') {
+            const calendarView = document.getElementById('calendar-view');
+            if (calendarView.classList.contains('fullscreen')) {
+                toggleCalendarFullscreen();
+            }
+        }
+    }
+
+    /**
+     * Initializes the yearly calendar view.
+     */
+    function initializeYearCalendar() {
+        const gridContainer = document.getElementById('calendarYearGridContainer');
+        const yearDisplayElement = document.getElementById('currentYearDisplay');
+
+        if (!yearDisplayElement || !gridContainer) {
+            console.error("Yearly calendar critical elements not found.");
+            return;
+        }
+
+        gridContainer.addEventListener('scroll', () => {
+            if (!isQuickAddPanelPersistent) closeQuickAddPanel();
+        });
+
+        document.getElementById('prevYearBtn')?.addEventListener('click', () => {
+            if (!isQuickAddPanelPersistent) closeQuickAddPanel();
+            calendarDisplayYear--;
+            renderYearCalendarGrid(calendarDisplayYear);
+        });
+
+        document.getElementById('nextYearBtn')?.addEventListener('click', () => {
+            if (!isQuickAddPanelPersistent) closeQuickAddPanel();
+            calendarDisplayYear++;
+            renderYearCalendarGrid(calendarDisplayYear);
+        });
+
+        document.getElementById('calendarSearchBtn')?.addEventListener('click', () => {
+            if (!isQuickAddPanelPersistent) closeQuickAddPanel();
+            searchCalendarByClient();
+        });
+
+        document.getElementById('findAvailabilityBtn')?.addEventListener('click', () => {
+            if (!isQuickAddPanelPersistent) closeQuickAddPanel();
+            highlightCalendarRange();
+        });
+
+        if (isInitialLoadComplete && ALL_RESERVATIONS && ALL_BOATS) {
+            renderYearCalendarGrid(calendarDisplayYear);
+        } else {
+            showLoading(true, "notifications.loading", { item: _t('nav.calendarView') });
+            fetchBoats(() => {
+                fetchReservations(() => {
+                    renderYearCalendarGrid(calendarDisplayYear);
+                    showLoading(false);
+                }, "Initial Calendar Load - Reservations");
+            });
+        }
+    }
+
+    function searchCalendarByClient() {
+        const clientNameInput = document.getElementById('calendarClientSearch');
+        const searchTerm = clientNameInput?.value?.trim().toLowerCase();
+
+        if (!searchTerm) {
+            showNotification(_t('notifications.info', { message: "Please enter a client name to search." }), "info");
+            return;
+        }
+
+        const foundReservation = ALL_RESERVATIONS.find(res => res.clientName && res.clientName.toLowerCase().includes(searchTerm) && res.status !== 'Cancelled');
+
+        if (foundReservation && foundReservation.checkInDate) {
+            const targetDate = getDateUTC(foundReservation.checkInDate, foundReservation.checkInTime || "00:00");
+            if (!targetDate) return;
+
+            const targetYear = targetDate.getUTCFullYear();
+            if (targetYear !== calendarDisplayYear) {
+                calendarDisplayYear = targetYear;
+                renderYearCalendarGrid(calendarDisplayYear);
+            }
+
+            setTimeout(() => {
+                const reservationBlock = document.querySelector(`.reservation-block[title*="ID: ${foundReservation.reservationId}"]`);
+                if (reservationBlock) {
+                    reservationBlock.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+                    reservationBlock.classList.add('highlight-search');
+                    setTimeout(() => reservationBlock.classList.remove('highlight-search'), 4500);
+                    showNotification(_t('notifications.success', { message: `Found reservation for ${foundReservation.clientName}.` }), "success");
+                } else {
+                    const dateCell = document.querySelector(`td[data-date="${foundReservation.checkInDate}"][data-slot-type="AM"]`);
+                    if (dateCell) dateCell.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+                }
+            }, 300);
+        } else {
+            showNotification(_t('notifications.info', { message: `No active reservations found for client name containing "${clientNameInput.value}".` }), "info");
+        }
+    }
+
+    function highlightCalendarRange() {
+        const checkInInput = document.getElementById('availabilityCheckIn');
+        const checkOutInput = document.getElementById('availabilityCheckOut');
+
+        if (!checkInInput.value || !checkOutInput.value) {
+            showNotification(_t('notifications.info', { message: "Please select both a check-in and check-out date to find availability." }), "info");
+            return;
+        }
+
+        const startDate = getDateUTC(checkInInput.value);
+        const endDate = getDateUTC(checkOutInput.value);
+
+        if (!startDate || !endDate || endDate < startDate) {
+            showNotification(_t('notifications.error', { message: "Please ensure check-out date is on or after check-in date." }), "error");
+            return;
+        }
+
+        const startYear = startDate.getUTCFullYear();
+        if (startYear !== calendarDisplayYear) {
+            calendarDisplayYear = startYear;
+            renderYearCalendarGrid(calendarDisplayYear, () => {
+                performHighlightAndScroll(checkInInput.value, checkOutInput.value);
+            });
+        } else {
+            performHighlightAndScroll(checkInInput.value, checkOutInput.value);
+        }
+    }
+
+    function renderYearCalendarGrid(year, onCompleteCallback) {
+        const gridContainer = document.getElementById('calendarYearGridContainer');
+        const yearDisplayElement = document.getElementById('currentYearDisplay');
+
+        if (!yearDisplayElement || !gridContainer) return;
+
+        if (gridContainer.dataset.renderedYear === String(year) && gridContainer.innerHTML.includes('calendar-slot-cell')) {
+            populateYearCalendarWithReservations(year);
+            if (typeof onCompleteCallback === 'function') onCompleteCallback();
+            return;
+        }
+
+        gridContainer.innerHTML = `<div class="p-8 text-center text-gray-500 flex items-center justify-center"><div class="pro-spinner !border-slate-500 !border-t-transparent mr-2 !w-6 !h-6"></div>${_t('calendar.loadingGrid')}</div>`;
+        yearDisplayElement.textContent = year;
+        gridContainer.dataset.renderedYear = year;
+
+        const monthShortNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const dayShortNames = _t('date.dayNamesShort');
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+        let tableHtml = '<table class="min-w-full divide-y divide-gray-300 border-collapse table-fixed">';
+        let headerRow1 = `<thead class="calendar-header-sticky"><tr class="border-b border-gray-300"><th class="px-2 py-1 text-left text-xs font-medium text-gray-500 calendar-boatname-sticky border-r w-32"></th>`;
+        let headerRow2 = `<tr class="border-b border-gray-300"><th class="px-2 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider calendar-boatname-sticky border-r">${_t('nav.boats')}</th>`;
+        let headerRow3 = `<tr class="border-b border-gray-300"><th class="px-2 py-1 text-left text-xs font-medium text-gray-500 calendar-boatname-sticky border-r"></th>`;
+        let headerRow4 = `<tr class="border-b border-gray-300"><th class="px-2 py-1 text-left text-xs font-medium text-gray-500 calendar-boatname-sticky border-r"></th>`;
+
+        for (let m = 0; m < 12; m++) {
+            const daysInMonth = new Date(year, m + 1, 0).getDate();
+            const monthBgClass = m % 2 === 0 ? 'month-bg-even' : 'month-bg-odd';
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const currentDateStr = `${year}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const currentDate = new Date(Date.UTC(year, m, d));
+                const dayName = dayShortNames[currentDate.getUTCDay()];
+                const isWeekend = currentDate.getUTCDay() === 0 || currentDate.getUTCDay() === 6;
+                const isCurrentDay = currentDateStr === todayStr;
+
+                let dayHeaderBaseClass = isWeekend ? 'bg-gray-200' : '';
+                let slotHeaderBaseClass = isWeekend ? 'bg-gray-100' : '';
+                if (isCurrentDay) {
+                    dayHeaderBaseClass = 'current-day-header';
+                    slotHeaderBaseClass = 'current-day-slot';
+                }
+
+                const isFirstDayOfMonth = d === 1;
+                const dayStartBorder = isFirstDayOfMonth ? 'border-l-4 border-indigo-400' : 'border-l border-gray-200';
+                const monthBgShade = isFirstDayOfMonth ? 'bg-indigo-50' : '';
+
+                headerRow1 += `<th colspan="2" class="px-0.5 py-1 text-center text-xs font-semibold text-gray-700 ${dayStartBorder} ${monthBgShade} ${dayHeaderBaseClass} ${monthBgClass}">${monthShortNames[m]}</th>`;
+                headerRow2 += `<th colspan="2" class="calendar-dayname-header px-0.5 py-1 text-center ${dayStartBorder} ${dayHeaderBaseClass} ${monthBgClass}" data-date="${currentDateStr}" onclick="toggleDayHighlight(this.dataset.date)">${dayName}</th>`;
+                headerRow3 += `<th colspan="2" class="calendar-day-header-number px-0.5 py-1 text-center text-xs font-medium text-gray-600 ${dayStartBorder} ${dayHeaderBaseClass} ${monthBgClass}" data-date="${currentDateStr}" onclick="toggleDayHighlight(this.dataset.date)">${d}</th>`;
+                headerRow4 += `<th class="calendar-slot-header px-0.5 py-1 text-center font-medium ${dayStartBorder} ${slotHeaderBaseClass} ${monthBgClass}" data-date-for-scroll="${currentDateStr}" data-slot-type-for-scroll="AM" onclick="highlightCalendarRange(this.dataset.dateForScroll, this.dataset.dateForScroll)">AM</th>`;
+                headerRow4 += `<th class="calendar-slot-header px-0.5 py-1 text-center font-medium border-l ${slotHeaderBaseClass} ${monthBgClass}" data-date-for-scroll="${currentDateStr}" data-slot-type-for-scroll="PM" onclick="highlightCalendarRange(this.dataset.dateForScroll, this.dataset.dateForScroll)">PM</th>`;
+            }
+        }
+
+        headerRow1 += `</tr>`; headerRow2 += `</tr>`; headerRow3 += `</tr>`; headerRow4 += `</tr></thead>`;
+        tableHtml += headerRow1 + headerRow2 + headerRow3 + headerRow4;
+        tableHtml += '<tbody class="bg-white divide-y divide-gray-200">';
+
+        if (!ALL_BOATS || ALL_BOATS.length === 0) {
+            const leapYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+            const totalCols = 1 + ((leapYear ? 366 : 365) * 2);
+            tableHtml += `<tr><td colspan="${totalCols}" class="text-center py-4">${_t('manageBoats.table.noBoats')}</td></tr>`;
+        } else {
+            ALL_BOATS.forEach(boat => {
+                tableHtml += `<tr class="hover:bg-gray-50"><td class="px-2 py-1 whitespace-nowrap text-xs font-medium text-gray-800 calendar-boatname-sticky border-r truncate w-32" title="${boat.boatName} (${boat.boatModel})">${boat.boatName}</td>`;
+                for (let m = 0; m < 12; m++) {
+                    const daysInMonth = new Date(year, m + 1, 0).getDate();
+                    const monthBgClass = m % 2 === 0 ? 'month-bg-even' : 'month-bg-odd';
+                    for (let d = 1; d <= daysInMonth; d++) {
+                        const dateStr = `${year}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                        const currentDate = new Date(Date.UTC(year, m, d));
+                        const isWeekend = currentDate.getUTCDay() === 0 || currentDate.getUTCDay() === 6;
+                        const weekendCellClass = isWeekend ? 'weekend-slot' : '';
+                        const dayStartBorder = 'border-l-2 border-gray-300';
+                        const cellIdAM = `cell-${boat.uniqueId}-${dateStr}-AM`;
+                        const cellIdPM = `cell-${boat.uniqueId}-${dateStr}-PM`;
+                        tableHtml += `<td id="${cellIdAM}" class="calendar-slot-cell ${dayStartBorder} ${monthBgClass} ${weekendCellClass}" data-boat-id="${boat.uniqueId}" data-date="${dateStr}" data-slot-type="AM"></td>`;
+                        tableHtml += `<td id="${cellIdPM}" class="calendar-slot-cell border-l ${monthBgClass} ${weekendCellClass}" data-boat-id="${boat.uniqueId}" data-date="${dateStr}" data-slot-type="PM"></td>`;
+                    }
+                }
+                tableHtml += `</tr>`;
+            });
+        }
+
+        tableHtml += '</tbody></table>';
+        gridContainer.innerHTML = tableHtml;
+        populateYearCalendarWithReservations(year);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        addDragToCreateListeners();
+        if (typeof onCompleteCallback === 'function') onCompleteCallback();
+    }
+
+    function performHighlightAndScroll(checkInDateStr, checkOutDateStr) {
+        const gridContainer = document.getElementById('calendarYearGridContainer');
+        if (!gridContainer) return;
+
+        gridContainer.querySelectorAll('.availability-highlight').forEach(el => el.classList.remove('availability-highlight'));
+        const styleEl = document.getElementById('availability-highlight-style');
+        if (styleEl) styleEl.remove();
+
+        const startDate = getDateUTC(checkInDateStr);
+        const endDate = getDateUTC(checkOutDateStr);
+        if (!startDate || !endDate) return;
+
+        const newStyleEl = document.createElement('style');
+        newStyleEl.id = 'availability-highlight-style';
+        newStyleEl.innerHTML = `.availability-highlight { background-color: rgba(74, 222, 128, 0.2) !important; box-shadow: inset 0 0 0 1px rgba(22, 163, 74, 0.4); }`;
+        document.head.appendChild(newStyleEl);
+
+        let currentDateIter = new Date(startDate.getTime());
+        const checkoutDateOnly = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate()));
+
+        while (currentDateIter <= checkoutDateOnly) {
+            const dateStr = `${currentDateIter.getUTCFullYear()}-${String(currentDateIter.getUTCMonth() + 1).padStart(2, '0')}-${String(currentDateIter.getUTCDate()).padStart(2, '0')}`;
+            gridContainer.querySelectorAll(`td.calendar-slot-cell[data-date="${dateStr}"]`).forEach(cell => {
+                cell.classList.add('availability-highlight');
+            });
+            currentDateIter.setUTCDate(currentDateIter.getUTCDate() + 1);
+        }
+
+        const firstHeaderCell = gridContainer.querySelector(`th.calendar-slot-header[data-date-for-scroll="${checkInDateStr}"]`);
+        if (firstHeaderCell) {
+            firstHeaderCell.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
+    }
+
+    function getDateUTC(dateStr, timeStr = "00:00") {
+        if (!dateStr) return null;
+        const [year, month, day] = dateStr.split('-').map(Number);
+        let hours = 0, minutes = 0;
+        if (timeStr && timeStr.includes(':')) {
+            [hours, minutes] = timeStr.split(':').map(Number);
+        }
+        if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hours) || isNaN(minutes)) {
+            console.warn("Invalid date/time string for getDateUTC:", dateStr, timeStr);
+            return null;
+        }
+        return new Date(Date.UTC(year, month - 1, day, hours, minutes));
+    }
+
+    function populateYearCalendarWithReservations(targetYear) {
+        const gridContainer = document.getElementById('calendarYearGridContainer');
+        if (!gridContainer) return;
+
+        const currentReservations = Array.isArray(ALL_RESERVATIONS) ? ALL_RESERVATIONS : [];
+        const allCells = gridContainer.getElementsByClassName('calendar-slot-cell');
+
+        for (let i = 0; i < allCells.length; i++) {
+            const cell = allCells[i];
+            cell.innerHTML = '';
+            cell.colSpan = 1;
+            cell.style.display = '';
+            cell.classList.remove('covered-by-colspan');
+            cell.title = cell.dataset.date && cell.dataset.slotType ? `${cell.dataset.date} ${cell.dataset.slotType}` : '';
+        }
+
+        currentReservations.forEach(res => {
+            if (!res.checkInDate || !res.checkOutDate || !res.boatUniqueId || res.status === 'Cancelled') return;
+
+            const ciDateTime = getDateUTC(res.checkInDate, res.checkInTime || "00:00");
+            const coDateTime = getDateUTC(res.checkOutDate, res.checkOutTime || "00:00");
+            if (!ciDateTime || !coDateTime || ciDateTime >= coDateTime) return;
+
+            let startCell = null;
+            let colspanCount = 0;
+            let currentIterDateTime = new Date(ciDateTime.getTime());
+
+            while (currentIterDateTime < coDateTime) {
+                const currentDateStr = `${currentIterDateTime.getUTCFullYear()}-${String(currentIterDateTime.getUTCMonth() + 1).padStart(2, '0')}-${String(currentIterDateTime.getUTCDate()).padStart(2, '0')}`;
+                const currentHour = currentIterDateTime.getUTCHours();
+                const currentSlotType = currentHour < 12 ? "AM" : "PM";
+
+                if (currentIterDateTime.getUTCFullYear() === targetYear) {
+                    const cellId = `cell-${res.boatUniqueId}-${currentDateStr}-${currentSlotType}`;
+                    const cell = document.getElementById(cellId);
+                    if (cell) {
+                        if (!startCell) startCell = cell;
+                        if (cell !== startCell) {
+                            cell.classList.add('covered-by-colspan');
+                            cell.innerHTML = '';
+                            cell.style.display = 'none';
+                        }
+                        colspanCount++;
+                    }
+                }
+
+                if (currentSlotType === "AM") currentIterDateTime.setUTCHours(12, 0, 0, 0);
+                else {
+                    currentIterDateTime.setUTCDate(currentIterDateTime.getUTCDate() + 1);
+                    currentIterDateTime.setUTCHours(0, 0, 0, 0);
+                }
+                if (colspanCount > 800) break;
+            }
+
+            if (startCell && colspanCount > 0) {
+                startCell.colSpan = colspanCount;
+                const clientNameToDisplay = res.clientName || `Booking: ${res.reservationId.slice(0, 8)}...`;
+                const reservationBlock = document.createElement('div');
+                reservationBlock.textContent = clientNameToDisplay;
+
+                let titleText = `${_t('viewReservations.table.client')}: ${res.clientName || 'N/A'}\n`;
+                titleText += `${_t('viewReservations.table.boat')}: ${res.boatNameAuto || 'N/A'}\n`;
+                titleText += `CI: ${res.checkInDate} ${res.checkInTime || ''}\nCO: ${res.checkOutDate} ${res.checkOutTime || ''}\n`;
+                titleText += `ID: ${res.reservationId}\n${_t('viewReservations.table.source')}: ${res.reservationSource || 'N/A'}`;
+                reservationBlock.title = titleText;
+                reservationBlock.classList.add('draggable');
+
+                let clickTimer = null;
+                reservationBlock.onmousedown = (e) => {
+                    if (e.button !== 0) return;
+                    clickTimer = setTimeout(() => { clickTimer = null; }, 200);
+                };
+                reservationBlock.onclick = (e) => {
+                    if (!clickTimer) return;
+                    clearTimeout(clickTimer);
+                    if (document.getElementById('calendar-view').classList.contains('fullscreen')) toggleCalendarFullscreen();
+                    showView('new-reservation', { mode: 'edit', reservationId: res.reservationId });
+                };
+                reservationBlock.oncontextmenu = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showReservationContextMenu(e, res.reservationId);
+                };
+
+                let blockClass = 'reservation-block';
+                const statusClean = res.status ? String(res.status).replace(/\s+/g, '') : 'Unknown';
+                const sourceClean = res.reservationSource ? String(res.reservationSource).replace(/\s+/g, '') : 'OTHER';
+
+                if (sourceClean === 'NICOLS') blockClass += ` source-NICOLS status-${statusClean}`;
+                else if (sourceClean === 'AMIEIRA') {
+                    if (statusClean === 'Confirmed') blockClass += ' source-AMIEIRA status-Confirmed';
+                    else if (statusClean === 'Pending') blockClass += ' source-AMIEIRA status-Pending';
+                    else blockClass += ` status-${statusClean}`;
+                } else blockClass += ` status-${statusClean}`;
+
+                reservationBlock.className = blockClass;
+                startCell.appendChild(reservationBlock);
+            }
+        });
+    }
+
+    // ==========================================
+    // DRAG-AND-DROP LOGIC (YEAR CALENDAR)
+    // ==========================================
+
+    function addDragToCreateListeners() {
+        const gridContainer = document.getElementById('calendarYearGridContainer');
+        if (!gridContainer) return;
+        gridContainer.addEventListener('mousedown', handleDragStart);
+        document.addEventListener('mouseup', handleDragEnd);
+        document.addEventListener('mousemove', handleDragMove);
+    }
+
+    function handleDragStart(e) {
+        if (e.target.tagName === 'TD' && e.target.classList.contains('calendar-slot-cell') && e.target.innerHTML.trim() === '' && e.button === 0) {
+            e.preventDefault();
+            isDragging = true;
+            dragStartCell = e.target;
+            const gridContainer = document.getElementById('calendarYearGridContainer');
+            gridContainer.classList.add('is-dragging');
+            gridContainer.querySelectorAll('.is-selecting').forEach(cell => cell.classList.remove('is-selecting'));
+            dragStartCell.classList.add('is-selecting');
+        }
+    }
+
+    function handleDragEnd(e) {
+        if (!isDragging || !dragStartCell) {
+            isDragging = false;
+            return;
+        }
+        isDragging = false;
+        const gridContainer = document.getElementById('calendarYearGridContainer');
+        gridContainer.classList.remove('is-dragging');
+
+        const selectedCells = Array.from(gridContainer.querySelectorAll('.is-selecting'));
+        if (selectedCells.length === 0) return;
+
+        const firstCell = selectedCells[0];
+        const lastCell = selectedCells[selectedCells.length - 1];
+
+        const boatId = firstCell.dataset.boatId;
+        const checkInDate = firstCell.dataset.date;
+        const checkInSlot = firstCell.dataset.slotType;
+        const checkOutDate = lastCell.dataset.date;
+        const checkOutSlot = lastCell.dataset.slotType;
+
+        const checkInTime = checkInSlot === 'AM' ? '09:00' : '14:00';
+        const checkOutTime = checkOutSlot === 'AM' ? '12:00' : '17:00';
+
+        openQuickAddPanel({
+            boatId, checkInDate, checkInTime, checkOutDate, checkOutTime, isPersistent: true
+        });
+    }
+
+    function handleDragMove(e) {
+        if (!isDragging || !dragStartCell) return;
+        e.preventDefault();
+
+        const currentCell = e.target.closest('td.calendar-slot-cell');
+        if (!currentCell) return;
+
+        const gridContainer = document.getElementById('calendarYearGridContainer');
+        const boatId = dragStartCell.dataset.boatId;
+        const allCellsForBoat = Array.from(gridContainer.querySelectorAll(`td.calendar-slot-cell[data-boat-id="${boatId}"]`));
+
+        const startIndex = allCellsForBoat.indexOf(dragStartCell);
+        const currentIndex = allCellsForBoat.indexOf(currentCell);
+
+        if (currentIndex === -1) return;
+
+        const start = Math.min(startIndex, currentIndex);
+        const end = Math.max(startIndex, currentIndex);
+
+        gridContainer.querySelectorAll('.is-selecting').forEach(cell => cell.classList.remove('is-selecting'));
+
+        for (let i = start; i <= end; i++) {
+            if (allCellsForBoat[i]) {
+                if (allCellsForBoat[i].innerHTML.trim() !== '' && allCellsForBoat[i] !== dragStartCell) {
+                    showNotification("Cannot select a range over an existing booking.", "error", 2000);
+                    return;
+                }
+                allCellsForBoat[i].classList.add('is-selecting');
+            }
+        }
+    }
+
+    // ==========================================
+    // RESERVATION DRAG-AND-DROP (MOVING/RESIZING)
+    // ==========================================
+
+    function initializeReservationDragDrop() {
+        const gridContainer = document.getElementById('calendarYearGridContainer');
+        if (!gridContainer) return;
+        gridContainer.addEventListener('mousedown', handleReservationMouseDown);
+        document.addEventListener('mousemove', handleReservationDrag);
+        document.addEventListener('mouseup', handleReservationDrop);
+    }
+
+    function handleReservationMouseDown(e) {
+        const resBlock = e.target.closest('.reservation-block');
+        if (!resBlock || e.button === 2) return;
+        if (e.target.closest('.close-btn') || document.getElementById('calendar-view').classList.contains('fullscreen')) return;
+
+        const titleText = resBlock.title || '';
+        const idMatch = titleText.match(/ID:\s*([^\n]+)/);
+        if (!idMatch) return;
+
+        const reservationId = idMatch[1].trim();
+        draggedReservation = ALL_RESERVATIONS.find(r => r.reservationId === reservationId);
+        if (!draggedReservation) return;
+
+        draggedElement = resBlock;
+        const rect = resBlock.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const edgeThreshold = 8;
+
+        resBlock.dataset.startX = e.clientX;
+        resBlock.dataset.startY = e.clientY;
+        resBlock.dataset.isDragging = 'false';
+
+        if (clickX < edgeThreshold) {
+            dragMode = 'resize-start';
+            resizeStartCell = resBlock.parentElement;
+            e.preventDefault(); e.stopPropagation();
+        } else if (clickX > rect.width - edgeThreshold) {
+            dragMode = 'resize-end';
+            resizeEndCell = resBlock.parentElement;
+            e.preventDefault(); e.stopPropagation();
+        } else {
+            dragMode = 'move';
+        }
+    }
+
+    function createDragGhost(e, reservation) {
+        dragGhost = document.createElement('div');
+        dragGhost.className = 'drag-ghost';
+        dragGhost.textContent = `${reservation.clientName} (${reservation.boatNameAuto})`;
+        dragGhost.style.left = e.clientX + 10 + 'px';
+        dragGhost.style.top = e.clientY + 10 + 'px';
+        document.body.appendChild(dragGhost);
+    }
+
+    function handleReservationDrag(e) {
+        if (!draggedReservation || !dragMode || !draggedElement) return;
+        e.preventDefault();
+
+        const startX = parseFloat(draggedElement.dataset.startX);
+        const startY = parseFloat(draggedElement.dataset.startY);
+        const distance = Math.sqrt(Math.pow(e.clientX - startX, 2) + Math.pow(e.clientY - startY, 2));
+
+        if (distance > 5) {
+            draggedElement.dataset.isDragging = 'true';
+            if (!draggedElement.classList.contains('dragging')) {
+                draggedElement.classList.add('dragging');
+                createDragGhost(e, draggedReservation);
+            }
+        } else return;
+
+        if (dragGhost) {
+            dragGhost.style.left = e.clientX + 10 + 'px';
+            dragGhost.style.top = e.clientY + 10 + 'px';
+        }
+
+        const targetCell = document.elementFromPoint(e.clientX, e.clientY)?.closest('.calendar-slot-cell');
+        document.querySelectorAll('.drop-zone-highlight, .drop-zone-valid, .drop-zone-invalid').forEach(el => {
+            el.classList.remove('drop-zone-highlight', 'drop-zone-valid', 'drop-zone-invalid');
+        });
+
+        if (targetCell) {
+            if (dragMode === 'move') targetCell.classList.add('drop-zone-valid');
+            else targetCell.classList.add('drop-zone-highlight');
+        }
+    }
+
+    function handleReservationDrop(e) {
+        if (!draggedReservation || !dragMode) {
+            resetDragState();
+            return;
+        }
+        e.preventDefault();
+
+        const targetCell = document.elementFromPoint(e.clientX, e.clientY)?.closest('.calendar-slot-cell');
+        if (!targetCell) {
+            resetDragState();
+            return;
+        }
+
+        const targetBoatId = targetCell.dataset.boatId;
+        const targetDate = targetCell.dataset.date;
+        const targetSlot = targetCell.dataset.slotType;
+
+        if (dragMode === 'move') {
+            if (draggedElement?.dataset?.isDragging === 'true') {
+                handleReservationMove(targetDate, targetSlot, targetBoatId);
+            } else {
+                resetDragState();
+                showView('new-reservation', { mode: 'edit', reservationId: draggedReservation.reservationId });
+                return;
+            }
+        } else if (dragMode === 'resize-start' || dragMode === 'resize-end') {
+            if (draggedElement?.dataset?.isDragging === 'true' && targetDate && targetSlot) {
+                handleReservationResize(targetDate, targetSlot, dragMode);
+            } else {
+                resetDragState();
+                return;
+            }
+        }
+
+        if (dragGhost) { dragGhost.remove(); dragGhost = null; }
+        if (draggedElement) draggedElement.classList.remove('dragging');
+        document.querySelectorAll('.drop-zone-highlight, .drop-zone-valid, .drop-zone-invalid').forEach(el => {
+            el.classList.remove('drop-zone-highlight', 'drop-zone-valid', 'drop-zone-invalid');
+        });
+    }
+
+    function handleReservationMove(newStartDate, newStartSlot, targetBoatId) {
+        if (!draggedReservation) { resetDragState(); return; }
+        const capturedReservation = JSON.parse(JSON.stringify(draggedReservation));
+
+        if (!newStartDate || !newStartSlot || !targetBoatId) {
+            showNotification('Invalid move parameters', 'error', 2000);
+            resetDragState(); return;
+        }
+
+        const originalCheckIn = getDateUTC(capturedReservation.checkInDate, capturedReservation.checkInTime);
+        const originalCheckOut = getDateUTC(capturedReservation.checkOutDate, capturedReservation.checkOutTime);
+        if (!originalCheckIn || !originalCheckOut) { resetDragState(); return; }
+
+        const duration = originalCheckOut - originalCheckIn;
+        const newCheckInTime = newStartSlot === 'AM' ? '09:00' : '12:00';
+        const newCheckIn = getDateUTC(newStartDate, newCheckInTime);
+        const newCheckOut = new Date(newCheckIn.getTime() + duration);
+
+        const newCheckOutDate = `${newCheckOut.getUTCFullYear()}-${String(newCheckOut.getUTCMonth() + 1).padStart(2, '0')}-${String(newCheckOut.getUTCDate()).padStart(2, '0')}`;
+        const newCheckOutTime = `${String(newCheckOut.getUTCHours()).padStart(2, '0')}:${String(newCheckOut.getUTCMinutes()).padStart(2, '0')}`;
+
+        const targetBoat = ALL_BOATS.find(b => b.uniqueId === targetBoatId);
+        const dateChanged = newStartDate !== capturedReservation.checkInDate;
+        const boatChangedBool = targetBoatId !== capturedReservation.boatUniqueId;
+
+        if (boatChangedBool || dateChanged) {
+            const oldDays = Math.round((originalCheckOut - originalCheckIn) / (1000 * 60 * 60 * 24));
+            const newDays = Math.round((newCheckOut - newCheckIn) / (1000 * 60 * 60 * 24));
+            const daysDiff = newDays - oldDays;
+
+            const details = [
+                `<strong>Client:</strong> ${capturedReservation.clientName}`,
+                `<strong>Old Dates:</strong> ${capturedReservation.checkInDate} → ${capturedReservation.checkOutDate}`,
+                `<strong>New Dates:</strong> ${newStartDate} → ${newCheckOutDate}`
+            ];
+            if (boatChangedBool && targetBoat) {
+                details.push(`<strong>Old Boat:</strong> ${capturedReservation.boatNameAuto || 'Unknown'}`);
+                details.push(`<strong>New Boat:</strong> ${targetBoat.boatName}`);
+            }
+            if (daysDiff !== 0) details.push(`<strong>Duration Change:</strong> ${daysDiff > 0 ? '+' : ''}${daysDiff} day(s)`);
+
+            showCustomConfirm({
+                title: boatChangedBool ? 'Move to Different Boat?' : 'Reschedule Reservation?',
+                message: `Are you sure you want to ${boatChangedBool ? 'move this reservation to a different boat' : 'change the dates for this reservation'}?`,
+                details: details,
+                warning: boatChangedBool ? 'Moving to a different boat may affect pricing.' : (daysDiff !== 0 ? `This will ${daysDiff > 0 ? 'add ' + daysDiff : 'remove ' + Math.abs(daysDiff)} night(s) and may change the price.` : null),
+                confirmText: 'Yes, Move Reservation', confirmColor: 'indigo', icon: 'warning',
+                onConfirm: () => {
+                    showLoading(true, 'notifications.processing');
+                    google.script.run.withSuccessHandler(response => {
+                        showLoading(false);
+                        if (response.success) {
+                            showNotification(`Reservation moved successfully!`, 'success');
+                            invalidateCache('reservations'); invalidateCache('dashboard');
+                            fetchReservations(() => renderYearCalendarGrid(calendarDisplayYear), 'After Drag Move');
+                        } else showNotification(`Error: ${response.message}`, 'error');
+                        resetDragState();
+                    }).withFailureHandler(error => {
+                        showLoading(false); showNotification(`Failed to reschedule: ${error.message}`, 'error');
+                        resetDragState();
+                    }).rescheduleReservation(capturedReservation.reservationId, newStartDate, newCheckInTime, newCheckOutDate, newCheckOutTime, targetBoatId);
+                }
+            });
+        } else resetDragState();
+    }
+
+    function handleReservationResize(targetDate, targetSlot, mode) {
+        if (!draggedReservation) { resetDragState(); return; }
+        const capturedReservation = JSON.parse(JSON.stringify(draggedReservation));
+        const newTime = targetSlot === 'AM' ? '09:00' : '17:00';
+
+        let newCI, newCITime, newCO, newCOTime;
+        if (mode === 'resize-start') {
+            newCI = targetDate; newCITime = newTime;
+            newCO = capturedReservation.checkOutDate; newCOTime = capturedReservation.checkOutTime;
+            if (getDateUTC(newCI, newCITime) >= getDateUTC(newCO, newCOTime)) {
+                showNotification('Check-in must be before check-out!', 'error', 3000);
+                resetDragState(); return;
+            }
+        } else {
+            newCI = capturedReservation.checkInDate; newCITime = capturedReservation.checkInTime;
+            newCO = targetDate; newCOTime = newTime;
+            if (getDateUTC(newCO, newCOTime) <= getDateUTC(newCI, newCITime)) {
+                showNotification('Check-out must be after check-in!', 'error', 3000);
+                resetDragState(); return;
+            }
+        }
+
+        const oldDays = Math.round((new Date(capturedReservation.checkOutDate) - new Date(capturedReservation.checkInDate)) / (1000 * 60 * 60 * 24));
+        const newDays = Math.round((new Date(newCO) - new Date(newCI)) / (1000 * 60 * 60 * 24));
+        const dayChange = newDays - oldDays;
+
+        showCustomConfirm({
+            title: 'Resize Reservation?',
+            message: `You are ${mode === 'resize-start' ? 'changing the check-in date' : 'changing the check-out date'} for this reservation.`,
+            details: [
+                `<strong>Client:</strong> ${capturedReservation.clientName}`,
+                `<strong>Old Duration:</strong> ${oldDays} night(s)`,
+                `<strong>New Duration:</strong> ${newDays} night(s)`,
+                `<strong>Old Dates:</strong> ${capturedReservation.checkInDate} → ${capturedReservation.checkOutDate}`,
+                `<strong>New Dates:</strong> ${newCI} → ${newCO}`
+            ],
+            warning: dayChange !== 0 ? `This will ${dayChange > 0 ? 'add ' + dayChange : 'remove ' + Math.abs(dayChange)} night(s) and may change the price.` : null,
+            confirmText: 'Yes, Resize', confirmColor: 'indigo', icon: 'warning',
+            onConfirm: () => {
+                showLoading(true, 'notifications.processing');
+                google.script.run.withSuccessHandler(response => {
+                    showLoading(false);
+                    if (response.success) {
+                        showNotification('Reservation resized successfully!', 'success');
+                        invalidateCache('reservations'); invalidateCache('dashboard');
+                        fetchReservations(() => renderYearCalendarGrid(calendarDisplayYear), 'After Drag Resize');
+                    } else showNotification(`Error: ${response.message}`, 'error');
+                    resetDragState();
+                }).withFailureHandler(error => {
+                    showLoading(false); showNotification(`Failed to resize: ${error.message}`, 'error');
+                    resetDragState();
+                }).rescheduleReservation(capturedReservation.reservationId, newCI, newCITime, newCO, newCOTime);
+            }
+        });
+    }
+
+    function resetDragState() {
+        draggedReservation = null; draggedElement = null; dragMode = null;
+        resizeStartCell = null; resizeEndCell = null;
+        if (dragGhost) { dragGhost.remove(); dragGhost = null; }
+    }
+
+    // ==========================================
+    // CONTEXT MENU & FULLCALENDAR
+    // ==========================================
+
+    function showReservationContextMenu(event, reservationId) {
+        const menu = document.getElementById('reservationContextMenu');
+        if (!menu) return;
+        currentContextReservationId = reservationId;
+        menu.dataset.reservationId = reservationId;
+        menu.style.left = event.clientX + 'px';
+        menu.style.top = event.clientY + 'px';
+        menu.classList.add('show');
+        setTimeout(() => {
+            const rect = menu.getBoundingClientRect();
+            if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 10) + 'px';
+            if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 10) + 'px';
+        }, 10);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function hideReservationContextMenu() {
+        const menu = document.getElementById('reservationContextMenu');
+        if (menu) menu.classList.remove('show');
+    }
+
+    function initializeTravelCalendar() {
+        const calendarEl = document.getElementById('travelCalendar');
+        if (!calendarEl || typeof FullCalendar === 'undefined') return;
+        if (travelCalendar) { travelCalendar.refetchEvents(); return; }
+        travelCalendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth', locale: currentLanguage,
+            headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,listWeek' },
+            events: (fetchInfo, successCallback, failureCallback) => {
+                google.script.run.withSuccessHandler(response => {
+                    if (response.success) {
+                        const events = response.travels.map(t => ({
+                            id: t.travelId, title: `${t.clientName} (${t.tripName})`,
+                            start: `${t.travelDate}T${t.travelTime}`, color: (parseFloat(t.foodCost) || 0) > 0 ? '#10b981' : '#3b82f6', extendedProps: t
+                        }));
+                        successCallback(events);
+                    } else failureCallback(new Error(response.error));
+                }).withFailureHandler(failureCallback).getDailyTravels();
+            },
+            eventClick: (info) => showTravelDetailsModal(info.event.id)
+        });
+        travelCalendar.render();
+    }
+
+    function initializeRestaurantCalendar() {
+        const calendarEl = document.getElementById('restaurantCalendar');
+        if (!calendarEl || typeof FullCalendar === 'undefined') return;
+        if (restaurantCalendar) { restaurantCalendar.refetchEvents(); return; }
+        restaurantCalendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth', locale: currentLanguage,
+            headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,listWeek' },
+            events: (fetchInfo, successCallback, failureCallback) => {
+                const events = ALL_RESTAURANT_RESERVATIONS.map(r => ({
+                    id: r.reservationId, title: `${r.clientName} (x${r.numPeople})`,
+                    start: `${r.reservationDate}T${r.reservationHour}`, color: r.status === 'Cancelled' ? '#ef4444' : '#16a34a', extendedProps: r
+                }));
+                successCallback(events);
+            },
+            eventClick: (info) => openRestaurantForm('edit', info.event.id)
+        });
+        restaurantCalendar.render();
+    }
+</script>

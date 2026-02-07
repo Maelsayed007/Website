@@ -1,0 +1,320 @@
+<script>
+    // ==========================================
+    // GLOBAL STATE & CACHE CONFIGURATION
+    // ==========================================
+    let ALL_BOATS = [];
+    let ALL_EXTRAS = [];
+    let ALL_MOORINGS = [];
+    let ALL_DAILY_TRIP_OPTIONS = [];
+    let ALL_FOOD_OPTIONS = [];
+    let ALL_RESERVATIONS = [];
+    let ALL_TARIFFS_PRICES = [];
+    let ALL_DAILY_TRAVELS = [];
+    let ALL_RESTAURANT_RESERVATIONS = [];
+
+    const RESERVATIONS_PER_PAGE = 10;
+    const TRAVELS_PER_PAGE = 10;
+    const RESTAURANT_PER_PAGE = 10;
+    let CURRENT_RESERVATIONS_PAGE = 1;
+    let CURRENT_TRAVELS_PAGE = 1;
+    let CURRENT_RESTAURANT_PAGE = 1;
+
+    let isInitialLoadComplete = false;
+    let lastRefreshTime = 0;
+
+    const CACHE_DURATION = {
+        boats: 30 * 60 * 1000,
+        extras: 30 * 60 * 1000,
+        tariffs: 30 * 60 * 1000,
+        trips: 30 * 60 * 1000,
+        food: 30 * 60 * 1000,
+        reservations: 1 * 60 * 1000,
+        moorings: 5 * 60 * 1000,
+        travels: 2 * 60 * 1000,
+        restaurant: 2 * 60 * 1000,
+        dashboard: 1 * 60 * 1000
+    };
+
+    let cacheTimestamps = {
+        boats: 0,
+        extras: 0,
+        tariffs: 0,
+        trips: 0,
+        food: 0,
+        reservations: 0,
+        moorings: 0,
+        travels: 0,
+        restaurant: 0,
+        dashboard: 0
+    };
+
+    let lazyLoadFlags = {
+        boats: false,
+        extras: false,
+        moorings: false,
+        trips: false,
+        food: false,
+        reservations: false,
+        tariffs: false,
+        travels: false,
+        restaurant: false
+    };
+
+    let currentInvoiceDetailsForPdf = null;
+    let currentTravelInvoiceDetailsForPdf = null;
+
+    /**
+     * Helper function for translations with parameter replacement.
+     */
+    function _t(key, params = {}, fallback = null) {
+        let text = translations[currentLanguage]?.[key] || translations.en?.[key] || fallback || key;
+        for (const p in params) {
+            text = text.replace(new RegExp(`{{${p}}}`, 'g'), params[p]);
+        }
+        return text;
+    }
+
+    /**
+     * Shows or hides the global loading overlay.
+     */
+    function showLoading(show = true, messageKey = "notifications.processing", messageParams = {}) {
+        const overlay = document.getElementById('loading-overlay');
+        const loadingMessageEl = document.getElementById('loading-message');
+        if (overlay) {
+            if (show) {
+                overlay.classList.add('show');
+            } else {
+                overlay.classList.remove('show');
+            }
+            if (loadingMessageEl) loadingMessageEl.textContent = _t(messageKey, messageParams);
+        }
+    }
+
+    /**
+     * Displays a temporary notification popup.
+     */
+    function showNotification(messageOrKey, type = 'info', duration = 4000, params = {}) {
+        const popup = document.getElementById('notification-popup');
+        if (!popup) return;
+        let message = messageOrKey;
+        if (translations[currentLanguage]?.[messageOrKey] || translations.en?.[messageOrKey]) {
+            message = _t(messageOrKey, params);
+        }
+        popup.textContent = message;
+        popup.className = 'fixed top-5 right-5 p-4 rounded-md text-white shadow-lg z-[10000] max-w-[90%] sm:max-w-md md:max-w-lg break-words';
+        if (type === 'success') popup.classList.add('success');
+        else if (type === 'error') popup.classList.add('error');
+        else popup.classList.add('info');
+        popup.classList.add('show');
+        setTimeout(() => {
+            popup.classList.remove('show');
+        }, duration);
+    }
+
+    // ==========================================
+    // CLIENT-SIDE CACHING SYSTEM
+    // ==========================================
+
+    function isCacheValid(dataType) {
+        if (!cacheTimestamps[dataType]) return false;
+        const now = Date.now();
+        const age = now - cacheTimestamps[dataType];
+        const isValid = age < CACHE_DURATION[dataType];
+        if (!isValid && cacheTimestamps[dataType] > 0) {
+            console.log(`Cache expired for ${dataType} (age: ${Math.round(age / 1000)}s)`);
+        }
+        return isValid;
+    }
+
+    function updateCacheTimestamp(dataType) {
+        cacheTimestamps[dataType] = Date.now();
+        console.log(`Cache updated for ${dataType}`);
+    }
+
+    function invalidateCache(dataType) {
+        cacheTimestamps[dataType] = 0;
+        console.log(`Cache invalidated for ${dataType}`);
+    }
+
+    function invalidateAllCaches() {
+        Object.keys(cacheTimestamps).forEach(key => {
+            cacheTimestamps[key] = 0;
+        });
+        Object.keys(lazyLoadFlags).forEach(key => {
+            lazyLoadFlags[key] = false;
+        });
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('AM_CACHE_')) localStorage.removeItem(key);
+        });
+        console.log('All caches invalidated');
+    }
+
+    function saveToLocalCache(key, data) {
+        try {
+            const cacheData = {
+                data: data,
+                timestamp: Date.now()
+            };
+            localStorage.setItem(`AM_CACHE_${key.toUpperCase()}`, JSON.stringify(cacheData));
+        } catch (e) {
+            console.warn(`LocalStorage failed for ${key}:`, e);
+        }
+    }
+
+    function getFromLocalCache(key) {
+        try {
+            const cached = localStorage.getItem(`AM_CACHE_${key.toUpperCase()}`);
+            if (!cached) return null;
+            const { data, timestamp } = JSON.parse(cached);
+            const duration = CACHE_DURATION[key] || (30 * 60 * 1000);
+            if (Date.now() - timestamp < duration) {
+                return data;
+            }
+            return null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function manualRefreshData() {
+        const now = Date.now();
+        if (now - lastRefreshTime < 3000) {
+            showNotification('Please wait a moment before refreshing again.', 'info', 2000);
+            return;
+        }
+        lastRefreshTime = now;
+        invalidateAllCaches();
+        showNotification('Cache cleared. Data will refresh on next view.', 'info', 2000);
+        const currentView = document.querySelector('.view-content:not(.hidden)');
+        if (currentView) {
+            const viewId = currentView.id.replace('-view', '');
+            showView(viewId);
+        }
+    }
+
+    // ==========================================
+    // LAZY LOADING HELPERS
+    // ==========================================
+
+    function ensureBoatsLoaded(callback) {
+        if (lazyLoadFlags.boats && ALL_BOATS.length > 0) {
+            if (typeof callback === 'function') callback();
+            return;
+        }
+        fetchBoats(() => {
+            lazyLoadFlags.boats = true;
+            if (typeof callback === 'function') callback();
+        });
+    }
+
+    function ensureExtrasLoaded(callback) {
+        if (lazyLoadFlags.extras && ALL_EXTRAS.length > 0) {
+            if (typeof callback === 'function') callback();
+            return;
+        }
+        fetchExtras(() => {
+            lazyLoadFlags.extras = true;
+            if (typeof callback === 'function') callback();
+        });
+    }
+
+    function ensureMooringsLoaded(callback) {
+        if (lazyLoadFlags.moorings) {
+            if (typeof callback === 'function') callback();
+            return;
+        }
+        fetchMoorings(() => {
+            lazyLoadFlags.moorings = true;
+            if (typeof callback === 'function') callback();
+        });
+    }
+
+    function ensureTripsLoaded(callback) {
+        if (lazyLoadFlags.trips && ALL_DAILY_TRIP_OPTIONS.length > 0) {
+            if (typeof callback === 'function') callback();
+            return;
+        }
+        fetchDailyTripOptions(() => {
+            lazyLoadFlags.trips = true;
+            if (typeof callback === 'function') callback();
+        });
+    }
+
+    function ensureFoodLoaded(callback) {
+        if (lazyLoadFlags.food && ALL_FOOD_OPTIONS.length > 0) {
+            if (typeof callback === 'function') callback();
+            return;
+        }
+        fetchFoodOptions(() => {
+            lazyLoadFlags.food = true;
+            if (typeof callback === 'function') callback();
+        });
+    }
+
+    function ensureReservationsLoaded(callback) {
+        if (lazyLoadFlags.reservations) {
+            if (typeof callback === 'function') callback();
+            return;
+        }
+        fetchReservations(() => {
+            lazyLoadFlags.reservations = true;
+            if (typeof callback === 'function') callback();
+        });
+    }
+
+    function ensureTariffsLoaded(callback) {
+        if (lazyLoadFlags.tariffs) {
+            if (typeof callback === 'function') callback();
+            return;
+        }
+        fetchTariffsPrices(() => {
+            lazyLoadFlags.tariffs = true;
+            if (typeof callback === 'function') callback();
+        });
+    }
+
+    // ==========================================
+    // PDF GENERATION
+    // ==========================================
+
+    function generateAndDownloadPdf(details, type = 'invoice') {
+        showLoading(true, "notifications.processing");
+        let apiFunction;
+        switch (type) {
+            case 'report': apiFunction = 'generateReportPdf'; break;
+            case 'invoice': apiFunction = 'generateInvoicePdf'; break;
+            case 'boatsList': apiFunction = 'generateBoatsListPdf'; break;
+            case 'tariffsBrochure': apiFunction = 'generateTariffsBrochurePdf'; break;
+            case 'extrasList': apiFunction = 'generateExtrasListPdf'; break;
+            case 'travelInvoice': apiFunction = 'generateTravelInvoicePdf'; break;
+            case 'financialReport': apiFunction = 'generateFinancialReportPdf'; break;
+            case 'mooringsMap': apiFunction = 'generateMooringsMapPdf'; break;
+            case 'mooringsTable': apiFunction = 'generateMooringsTablePdf'; break;
+            case 'staySheets': apiFunction = 'generateStaySheetsPdf'; break;
+            case 'singleStaySheet': apiFunction = 'generateSingleStaySheetPdf'; break;
+            case 'dailyActivityReport': apiFunction = 'generateDailyActivityReportPdf'; break;
+            case 'restaurantReport': apiFunction = 'generateRestaurantReportPdf'; break;
+            default:
+                showNotification(_t('notifications.error', { message: `Unknown PDF type: ${type}` }), 'error');
+                showLoading(false);
+                return;
+        }
+        const detailsWithLang = { ...details, lang: currentLanguage };
+        google.script.run.withSuccessHandler(response => {
+            showLoading(false);
+            if (response.success && response.pdfBase64 && response.fileName) {
+                const link = document.createElement('a');
+                link.href = 'data:application/pdf;base64,' + response.pdfBase64;
+                link.download = response.fileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                showNotification(_t('notifications.error', { message: `Error generating PDF: ${response.error || 'Unknown server error.'}` }), 'error');
+            }
+        }).withFailureHandler(error => {
+            showLoading(false);
+            showNotification(_t('notifications.failed', { message: `Failed to generate PDF: ${error.message || 'Unknown error'}` }), 'error');
+        })[apiFunction](detailsWithLang);
+    }
+</script>

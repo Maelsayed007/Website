@@ -1,0 +1,288 @@
+<script>
+    /**
+     * Opens a modal by its ID and performs necessary initializations (like titles).
+     */
+    function openModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.classList.add('show');
+            const titleEl = modal.querySelector('[id$="ModalTitle"]');
+            const paymentTitleEl = modal.querySelector('#paymentModalTitle');
+
+            if (paymentTitleEl && modalId === 'paymentManagementModal') {
+                const bookingId = document.getElementById('paymentBookingId')?.value || '...';
+                const bookingType = document.getElementById('paymentBookingType')?.value;
+                let bookingRecord;
+                let typeStr = bookingType;
+
+                if (bookingType === 'reservation') {
+                    bookingRecord = ALL_RESERVATIONS.find(r => r.reservationId === bookingId);
+                } else if (bookingType === 'travel') {
+                    bookingRecord = ALL_DAILY_TRAVELS.find(t => t.travelId === bookingId);
+                    typeStr = "Travel";
+                }
+                const clientName = bookingRecord?.clientName || '';
+                paymentTitleEl.textContent = _t('payments_modal_title', {
+                    type: typeStr,
+                    id: `${bookingId}${clientName ? ` (${clientName})` : ''}`
+                });
+            } else if (titleEl && titleEl.dataset.translateKey) {
+                let key = titleEl.dataset.translateKey;
+                if (modalId.includes('boat') && document.getElementById('boatFormMode')?.value === 'edit') key = 'boatModal.titleEdit';
+                else if (modalId.includes('tariffPrice') && document.getElementById('tariffPriceFormMode')?.value === 'edit') key = 'tariffModal.titleEdit';
+                else if (modalId.includes('extra') && document.getElementById('extraFormMode')?.value === 'edit') key = 'extraModal.titleEdit';
+                else if (modalId.includes('trip') && document.getElementById('tripFormMode')?.value === 'edit') key = 'manageTrips.modal.titleEdit';
+                else if (modalId.includes('food') && document.getElementById('foodFormMode')?.value === 'edit') key = 'manageFood.modal.titleEdit';
+                titleEl.textContent = _t(key);
+            }
+        }
+    }
+
+    /**
+     * Closes a modal and resets its state if necessary.
+     */
+    function closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) modal.classList.remove('show');
+        if (modalId === 'invoiceModal') currentInvoiceDetailsForPdf = null;
+        if (modalId === 'travelInvoiceModal') currentTravelInvoiceDetailsForPdf = null;
+        if (modalId === 'paymentManagementModal') {
+            document.getElementById('addPaymentForm')?.reset();
+            document.getElementById('paymentHistoryTableBody').innerHTML = `<tr><td colspan="5" class="text-center py-3 text-gray-500">${_t('payments_no_payments_recorded')}</td></tr>`;
+            document.getElementById('paymentDate').value = new Date().toISOString().split('T')[0];
+        }
+    }
+
+    /**
+     * Sidebar Collapse/Expand Functionality.
+     */
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const mainContent = document.querySelector('.main-content');
+        const toggleBtn = document.getElementById('sidebarToggleBtn');
+        const collapseIcon = toggleBtn.querySelector('.icon-collapse');
+        const expandIcon = toggleBtn.querySelector('.icon-expand');
+
+        sidebar.classList.toggle('collapsed');
+        mainContent.classList.toggle('expanded');
+
+        if (sidebar.classList.contains('collapsed')) {
+            collapseIcon.classList.add('hidden');
+            expandIcon.classList.remove('hidden');
+            toggleBtn.title = 'Expand Sidebar';
+            localStorage.setItem('sidebarCollapsed', 'true');
+        } else {
+            collapseIcon.classList.remove('hidden');
+            expandIcon.classList.add('hidden');
+            toggleBtn.title = 'Collapse Sidebar';
+            localStorage.setItem('sidebarCollapsed', 'false');
+        }
+        if (lucide) lucide.createIcons();
+    }
+
+    function restoreSidebarState() {
+        const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        if (isCollapsed) {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.querySelector('.main-content');
+            const toggleBtn = document.getElementById('sidebarToggleBtn');
+            const collapseIcon = toggleBtn?.querySelector('.icon-collapse');
+            const expandIcon = toggleBtn?.querySelector('.icon-expand');
+            sidebar?.classList.add('collapsed');
+            mainContent?.classList.add('expanded');
+            if (collapseIcon && expandIcon) {
+                collapseIcon.classList.add('hidden');
+                expandIcon.classList.remove('hidden');
+                toggleBtn.title = 'Expand Sidebar';
+            }
+        }
+    }
+
+    /**
+     * Switches BETWEEN high-level application views (Dashboard, Calendar, etc.)
+     */
+    function showView(viewId, params = {}) {
+        // Logic to hide all views and show requested viewId
+        const currentActiveView = views.find(v => {
+            const el = document.getElementById(`${v}-view`);
+            return el && !el.classList.contains('hidden');
+        });
+
+        if (currentActiveView === 'view-reservations' || currentActiveView === 'calendar') {
+            CURRENT_VIEW_ORIGIN = currentActiveView;
+        }
+
+        views.forEach(id => {
+            const el = document.getElementById(`${id}-view`);
+            if (el) el.classList.add('hidden');
+        });
+
+        const currentViewEl = document.getElementById(`${viewId}-view`);
+        if (currentViewEl) {
+            currentViewEl.classList.remove('hidden');
+        } else {
+            showNotification(_t('notifications.error', { message: `UI component for '${viewId}' is missing.` }), 'error');
+            document.getElementById('dashboard-view')?.classList.remove('hidden');
+            return;
+        }
+
+        // Update Titles and Wizard state
+        const viewTitleEl = document.getElementById('view-title');
+        const reservationFormTitleEl = document.getElementById('reservationFormTitle');
+        const newOrEditLinkTextEl = document.getElementById('newOrEditReservationLinkText');
+
+        if (viewTitleEl && viewTitles[viewId]) viewTitleEl.textContent = _t(viewTitles[viewId].key);
+
+        if (viewId === 'new-reservation') {
+            const isEdit = params.mode === 'edit' && params.reservationId;
+            wizard.initialize(isEdit, params.reservationId);
+            if (isEdit) {
+                if (reservationFormTitleEl) reservationFormTitleEl.textContent = _t('newReservation.formTitleEdit', { id: params.reservationId });
+                if (viewTitleEl) viewTitleEl.textContent = _t('nav.editReservation');
+                if (newOrEditLinkTextEl) newOrEditLinkTextEl.textContent = _t('nav.editReservation');
+                document.getElementById('initialPaymentSection')?.classList.add('hidden');
+                loadReservationForEditing(params.reservationId);
+            } else {
+                if (reservationFormTitleEl) reservationFormTitleEl.textContent = _t('newReservation.formTitleCreate');
+                if (viewTitleEl) viewTitleEl.textContent = _t('nav.newReservation');
+                if (newOrEditLinkTextEl) newOrEditLinkTextEl.textContent = _t('nav.newReservation');
+                document.getElementById('initialPaymentSection')?.classList.remove('hidden');
+            }
+        }
+
+        // Active state for navigation links
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('onclick')?.includes(`showView('${viewId}')`)) link.classList.add('active');
+        });
+
+        // Handle data loading for specific views
+        switch (viewId) {
+            case 'dashboard': fetchDashboardData(); break;
+            case 'manage-moorings': ensureMooringsLoaded(() => { renderMooringMap(ALL_MOORINGS); renderMooringNotifications(ALL_MOORINGS); }); break;
+            case 'view-reservations': ensureReservationsLoaded(() => renderReservationsPage()); break;
+            case 'calendar': ensureBoatsLoaded(() => ensureReservationsLoaded(() => initializeYearCalendar())); break;
+            case 'settings': ensureBoatsLoaded(() => renderBoatsTable()); break;
+            case 'daily-travels': ensureTripsLoaded(() => ensureFoodLoaded(() => ensureTravelsLoaded(() => { renderDailyTravelsTable(); populateTripSelect(); populateFoodOptions(); }))); break;
+            case 'restaurant': ensureRestaurantLoaded(() => { renderRestaurantTable(); initializeRestaurantCalendar(); }); break;
+        }
+    }
+
+    function setupSettingsTabs() {
+        const tabs = document.querySelectorAll('.settings-tab');
+        const panels = document.querySelectorAll('.settings-tab-panel');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', e => {
+                e.preventDefault();
+                const tabId = tab.dataset.tab;
+                tabs.forEach(t => { t.classList.remove('border-indigo-500', 'text-indigo-600'); t.classList.add('border-transparent', 'text-gray-500'); });
+                tab.classList.add('border-indigo-500', 'text-indigo-600');
+                panels.forEach(p => p.id === `settings-${tabId}-panel` ? p.classList.remove('hidden') : p.classList.add('hidden'));
+
+                // Trigger render
+                if (tabId === 'boats') renderBoatsTable();
+                else if (tabId === 'tariffs') renderTariffsPricesTable();
+                // ... etc
+            });
+        });
+    }
+
+    // --- Global Search Helpers ---
+    function safeStringSearch(value, term) {
+        if (!value) return false;
+        return String(value).toLowerCase().includes(term);
+    }
+
+    function closeGlobalSearch() {
+        document.getElementById('globalSearchResults')?.classList.remove('show');
+    }
+
+    // ==========================================
+    // CUSTOM CONFIRMATION DIALOG SYSTEM
+    // ==========================================
+
+    let confirmCallback = null;
+
+    /**
+     * Show custom confirmation dialog
+     * @param {Object} options - Configuration object
+     */
+    function showCustomConfirm(options) {
+        const title = document.getElementById('confirmModalTitle');
+        const message = document.getElementById('confirmModalMessage');
+        const details = document.getElementById('confirmModalDetails');
+        const detailsContent = document.getElementById('confirmModalDetailsContent');
+        const warning = document.getElementById('confirmModalWarning');
+        const warningText = document.getElementById('confirmModalWarningText');
+        const confirmBtn = document.getElementById('confirmModalConfirmBtn');
+        const iconContainer = document.getElementById('confirmModalIcon');
+
+        if (!title || !message || !confirmBtn) return;
+
+        // Set title and message
+        title.textContent = options.title || 'Confirm Action';
+        message.innerHTML = options.message || 'Are you sure?';
+
+        // Set icon
+        const iconMap = {
+            info: { icon: 'info', bg: 'bg-blue-100', color: 'text-blue-600' },
+            warning: { icon: 'alert-circle', bg: 'bg-amber-100', color: 'text-amber-600' },
+            danger: { icon: 'alert-triangle', bg: 'bg-red-100', color: 'text-red-600' },
+            success: { icon: 'check-circle', bg: 'bg-green-100', color: 'text-green-600' }
+        };
+        const iconConfig = iconMap[options.icon] || iconMap.warning;
+
+        if (iconContainer) {
+            iconContainer.className = `flex-shrink-0 w-12 h-12 rounded-full ${iconConfig.bg} flex items-center justify-center`;
+            iconContainer.innerHTML = `<i data-lucide="${iconConfig.icon}" class="h-6 w-6 ${iconConfig.color}"></i>`;
+        }
+
+        // Set details
+        if (options.details && options.details.length > 0) {
+            detailsContent.innerHTML = options.details.map(d => `<p>${d}</p>`).join('');
+            details.classList.remove('hidden');
+        } else {
+            details.classList.add('hidden');
+        }
+
+        // Set warning
+        if (options.warning) {
+            warningText.textContent = options.warning;
+            warning.classList.remove('hidden');
+        } else {
+            warning.classList.add('hidden');
+        }
+
+        // Set confirm button
+        confirmBtn.textContent = options.confirmText || 'Confirm';
+        const colorMap = {
+            indigo: 'bg-indigo-600 hover:bg-indigo-700',
+            red: 'bg-red-600 hover:bg-red-700',
+            green: 'bg-green-600 hover:bg-green-700',
+            amber: 'bg-amber-600 hover:bg-amber-700'
+        };
+        const btnColor = colorMap[options.confirmColor] || colorMap.indigo;
+        confirmBtn.className = `px-5 py-2.5 ${btnColor} text-white font-medium rounded-lg transition-colors shadow-md`;
+
+        // Store callback
+        confirmCallback = options.onConfirm;
+
+        // Show modal
+        openModal('customConfirmModal');
+
+        // Reinitialize icons
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function closeCustomConfirm() {
+        const modal = document.getElementById('customConfirmModal');
+        if (modal) modal.classList.remove('show');
+        confirmCallback = null;
+    }
+
+    // Handle confirm button click
+    document.getElementById('confirmModalConfirmBtn')?.addEventListener('click', () => {
+        if (typeof confirmCallback === 'function') confirmCallback();
+        closeCustomConfirm();
+    });
+</script>
