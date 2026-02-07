@@ -1,0 +1,28 @@
+{
+  "name": "nextn",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=@amieira/customer-site",
+    "build": "npm run build --workspace=@amieira/customer-site",
+    "start": "npm run start --workspace=@amieira/customer-site",
+    "lint": "npm run lint --workspaces",
+    "typecheck": "npm run typecheck --workspaces"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/negotiator": "^0.6.3",
+    "@types/node": "^20",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/uuid": "^11.0.0",
+    "genkit-cli": "^1.20.0",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
+  }
+}

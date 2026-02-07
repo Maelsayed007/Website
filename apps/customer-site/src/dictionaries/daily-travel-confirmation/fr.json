@@ -1,0 +1,10 @@
+
+{
+    "title": "Demande de Réservation Envoyée !",
+    "subtitle": "Nous avons reçu votre demande pour l'excursion et nous vous contacterons sous peu pour confirmer la disponibilité et finaliser le paiement.",
+    "package": "Forfait Demandé",
+    "instructionsTitle": "Prochaines Étapes et Paiement",
+    "instructionsSubtitle": "Votre réservation est en attente. Pour confirmer votre place, veuillez suivre les instructions qui vous seront envoyées par e-mail.",
+    "noInstructions": "Nous vous enverrons sous peu un e-mail avec les instructions de paiement.",
+    "returnHome": "Retour à la Page d'Accueil"
+}

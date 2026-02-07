@@ -1,0 +1,21 @@
+
+{
+    "tagline": "Your escape to serenity.",
+    "explore": {
+        "title": "Explore",
+        "home": "Home",
+        "houseboats": "Houseboats",
+        "restaurant": "Restaurant",
+        "gallery": "Gallery",
+        "contact": "Contact"
+    },
+    "legal": {
+        "title": "Legal",
+        "privacy": "Privacy Policy",
+        "terms": "Terms of Service"
+    },
+    "connect": {
+        "title": "Connect"
+    },
+    "rightsReserved": "All rights reserved."
+}

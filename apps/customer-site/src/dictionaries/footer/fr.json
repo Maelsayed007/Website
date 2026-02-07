@@ -1,0 +1,21 @@
+
+{
+    "tagline": "Votre évasion vers la sérénité.",
+    "explore": {
+        "title": "Explorer",
+        "home": "Accueil",
+        "houseboats": "Péniches",
+        "restaurant": "Restaurant",
+        "gallery": "Galerie",
+        "contact": "Contact"
+    },
+    "legal": {
+        "title": "Légal",
+        "privacy": "Politique de Confidentialité",
+        "terms": "Conditions d'Utilisation"
+    },
+    "connect": {
+        "title": "Connecter"
+    },
+    "rightsReserved": "Tous droits réservés."
+}

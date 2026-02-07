@@ -1,0 +1,21 @@
+
+{
+    "tagline": "A sua fuga para a serenidade.",
+    "explore": {
+        "title": "Explorar",
+        "home": "Início",
+        "houseboats": "Casas-Barco",
+        "restaurant": "Restaurante",
+        "gallery": "Galeria",
+        "contact": "Contato"
+    },
+    "legal": {
+        "title": "Legal",
+        "privacy": "Política de Privacidade",
+        "terms": "Termos de Serviço"
+    },
+    "connect": {
+        "title": "Conectar"
+    },
+    "rightsReserved": "Todos os direitos reservados."
+}

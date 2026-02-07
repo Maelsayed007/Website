@@ -1,0 +1,260 @@
+{
+  "homepage": {
+    "hero": {
+      "title": "Uw Woonboot Avontuur",
+      "subtitle": "Kies gewoon uw data en crew om uit te varen.",
+      "licenseFree": "Geen Vaarbewijs Nodig",
+      "form": {
+        "checkIn": "Inchecken",
+        "checkOut": "Uitchecken",
+        "guests": "Gasten",
+        "addDate": "Datum toevoegen",
+        "addGuests": "Gasten toevoegen"
+      }
+    },
+    "results": {
+      "available": "Beschikbare woonboten voor uw reis",
+      "noneAvailable": "Geen boten beschikbaar",
+      "noResults": "Helaas hebben we geen woonboten die aan uw zoekcriteria voldoen. Probeer andere data of minder gasten.",
+      "viewAll": "Bekijk alle woonboten"
+    },
+    "featured": {
+      "title": "Onze Uitgelichte Vloot",
+      "subtitle": "Een selectie van onze meest populaire boten voor een onvergetelijk avontuur."
+    },
+    "dining": {
+      "title": "Exquise Dineren aan het Meer",
+      "description": "Ons restaurant biedt een menu geïnspireerd op de rijke smaken van Portugal, bereid met de verste lokale ingrediënten. Geniet van uw maaltijd op ons terras met uitzicht op het prachtige Alqueva-meer.",
+      "button": "Bekijk het Menu"
+    },
+    "testimonials": {
+      "title": "Wat Onze Gasten Zeggen",
+      "subtitle": "Verhalen van onvergetelijke verblijven op het water.",
+      "none": "Nog geen getuigenissen beschikbaar."
+    }
+  },
+  "contact": {
+    "title": "Neem Contact Op",
+    "subtitle": "We horen graag van u! Of u nu een vraag heeft over onze diensten, een boekingsaanvraag wilt doen of gewoon even gedag wilt zeggen, aarzel niet om contact met ons op te nemen.",
+    "form": {
+      "title": "Stuur ons een Bericht",
+      "name": "Naam",
+      "namePlaceholder": "Uw naam",
+      "email": "E-mail",
+      "emailPlaceholder": "uw@email.com",
+      "message": "Bericht",
+      "messagePlaceholder": "Uw bericht...",
+      "submit": "Bericht Verzenden",
+      "submitting": "Verzenden...",
+      "success": {
+        "title": "Bericht Verzonden!",
+        "description": "Bedankt voor het contact opnemen. We nemen zo snel mogelijk contact met u op."
+      },
+      "error": {
+        "title": "Fout bij Verzenden",
+        "description": "Uw bericht kon niet worden verzonden. Probeer het opnieuw."
+      },
+      "validation": {
+        "title": "Ontbrekende Informatie",
+        "description": "Vul alle velden in voordat u verzendt."
+      }
+    },
+    "info": {
+      "title": "Contactgegevens"
+    },
+    "location": {
+      "title": "Onze Locatie"
+    }
+  },
+  "houseboats": {
+    "title": "Onze Vloot",
+    "subtitle": "Kies uit onze selectie van premium woonboten, elk ontworpen voor comfort en avontuur.",
+    "licenseFree": "Geen Vaarbewijs Nodig",
+    "filters": {
+      "guestsPlaceholder": "Filter op gasten...",
+      "allCapacities": "Alle Capaciteiten",
+      "guests": "Gasten",
+      "sortPlaceholder": "Sorteer op...",
+      "priceAsc": "Prijs: Laag naar Hoog",
+      "priceDesc": "Prijs: Hoog naar Laag",
+      "capacityDesc": "Capaciteit: Hoog naar Laag"
+    },
+    "noResults": {
+      "title": "Geen woonboten gevonden",
+      "description": "Probeer uw filters aan te passen."
+    }
+  },
+  "restaurant": {
+    "hero": {
+      "title": "Amieira Restaurant",
+      "subtitle": "Ervaar exquise dineren met uitzicht."
+    },
+    "about": {
+      "title": "Een Culinaire Reis",
+      "description1": "Ons restaurant biedt een menu geïnspireerd op de rijke smaken van Portugal, bereid met de verste lokale ingrediënten. Geniet van uw maaltijd op ons terras met uitzicht op het prachtige Alqueva-meer.",
+      "description2": "Of het nu gaat om een romantisch diner voor twee of een feestelijke maaltijd met familie en vrienden, ons team doet er alles aan om uw ervaring onvergetelijk te maken."
+    },
+    "menu": {
+      "title": "Smaak van Alentejo",
+      "subtitle": "Een menu samengesteld met lokale ingrediënten en traditionele smaken.",
+      "notAvailable": "Het menu is momenteel niet beschikbaar. Kom later terug."
+    },
+    "form": {
+      "title": "Een Reservering Maken",
+      "name": "Volledige Naam",
+      "namePlaceholder": "Uw naam",
+      "email": "E-mail",
+      "emailPlaceholder": "uw@email.com",
+      "phone": "Telefoon",
+      "date": "Datum",
+      "datePlaceholder": "Selecteer een datum",
+      "time": "Tijd",
+      "timePlaceholder": "Selecteer een tijd",
+      "guests": "Gasten",
+      "guestsPlaceholder": "Selecteer gasten",
+      "guestLabel": "gast",
+      "guestsLabel": "gasten",
+      "seating": "Zitplaatsvoorkeur",
+      "seatingPlaceholder": "Selecteer een voorkeur",
+      "seatingIndoor": "Binnen",
+      "seatingOutdoor": "Buiten",
+      "seatingAny": "Geen voorkeur",
+      "submit": "Reservering Aanvragen",
+      "submitting": "Verzenden...",
+      "success": {
+        "title": "Reservering Verzonden",
+        "description": "We hebben uw aanvraag ontvangen en zullen deze binnenkort bevestigen."
+      },
+      "error": {
+        "title": "Fout bij Verzenden",
+        "description": "Uw reservering kon niet worden verzonden. Probeer het opnieuw."
+      }
+    }
+  },
+  "gallery": {
+    "title": "Onze Galerij",
+    "subtitle": "Een kijkje in de Amieira Getaways ervaring.",
+    "categories": {
+      "all": "Alles",
+      "houseboat": "Woonboten",
+      "restaurant": "Restaurant",
+      "scenery": "Landschap"
+    }
+  },
+  "dailyTravel": {
+    "title": "Dagtochten",
+    "subtitle": "Ontdek de schoonheid van Alqueva met onze begeleide boottochten. Perfect voor een dag vol avontuur en ontspanning.",
+    "duration": "Duur",
+    "hours": "uur",
+    "minimum": "Minimum",
+    "people": "personen",
+    "from": "Vanaf",
+    "exclusive": "exclusief",
+    "perAdult": "per volwassene",
+    "requestBooking": "Reservering Aanvragen",
+    "noExcursions": {
+      "title": "Geen excursies beschikbaar",
+      "description": "Kom later terug of neem contact met ons op voor privétour-opties."
+    },
+    "submissionFailed": {
+      "title": "Fout bij Verzenden",
+      "description": "Uw aanvraag kon niet worden verzonden. Neem rechtstreeks contact met ons op."
+    },
+    "dialog": {
+      "title": "Reservering Aanvragen",
+      "description": "Geef uw gegevens door, dan nemen we contact met u op om de datum en betaling te bevestigen.",
+      "form": {
+        "name": "Volledige Naam",
+        "namePlaceholder": "Uw naam",
+        "email": "E-mail",
+        "emailPlaceholder": "uw@email.com",
+        "phone": "Telefoon",
+        "guests": "Aantal gasten",
+        "cancel": "Annuleren",
+        "submit": "Aanvraag Verzenden",
+        "submitting": "Verzenden..."
+      }
+    }
+  },
+  "payment": {
+    "title": "Reserveringsaanvraag Verzonden!",
+    "subtitle": "Bedankt voor uw boekingsaanvraag. Uw reservering is nu in behandeling. Volg de onderstaande instructies om uw boeking te bevestigen.",
+    "instructionsTitle": "Betalingsinstructies",
+    "instructionsSubtitle": "Voltooi uw reservering door de betaling uit te voeren.",
+    "noInstructions": "Betalingsinstructies zijn momenteel niet beschikbaar. We nemen binnenkort contact met u op met de details.",
+    "returnHome": "Terug naar Home"
+  },
+  "houseboat": {
+    "breadcrumbs": {
+      "home": "Home",
+      "houseboats": "Woonboten"
+    },
+    "licenseFree": "Geen Vaarbewijs Nodig",
+    "descriptionTitle": "Beschrijving",
+    "amenitiesTitle": "Wat deze plek biedt",
+    "features": {
+      "bedrooms": "Slaapkamers",
+      "bathrooms": "Badkamers",
+      "guests": "Gasten"
+    },
+    "booking": {
+      "perNight": "nacht",
+      "checkIn": "Inchecken",
+      "checkOut": "Uitchecken",
+      "addDate": "Datum toevoegen",
+      "guests": "Gasten",
+      "guest": "Gast",
+      "selectGuests": "Gasten selecteren",
+      "requestButton": "Reservering Aanvragen",
+      "error": {
+        "title": "Boekingsfout",
+        "description": "Selecteer geldige data en zorg ervoor dat alle gegevens zijn geladen."
+      },
+      "missingDetails": {
+        "title": "Ontbrekende Gegevens",
+        "description": "Voer uw naam, e-mail en telefoonnummer in."
+      },
+      "noAvailability": {
+        "title": "Geen Beschikbaarheid",
+        "description": "Alle boten voor dit model zijn volgeboekt voor de geselecteerde data."
+      },
+      "submissionFailed": {
+        "title": "Fout bij Verzenden",
+        "description": "Uw boekingsaanvraag kon niet worden verzonden. Probeer het opnieuw of neem rechtstreeks contact met ons op."
+      },
+      "summary": {
+        "normalNights": "normale nachten",
+        "weekendNights": "weekendnachten",
+        "extras": "Extra's",
+        "taxes": "Belastingen & toeslagen",
+        "total": "Totaal"
+      }
+    },
+    "dialog": {
+      "title": "Bevestig Uw Boekingsaanvraag",
+      "description": "Controleer uw gegevens en voeg eventuele extra's toe voordat u uw aanvraag verzendt.",
+      "extrasTitle": "Optionele Extra's",
+      "noExtras": "Geen optionele extra's beschikbaar voor deze boeking.",
+      "detailsTitle": "Uw Gegevens",
+      "summary": {
+        "title": "Boekingsoverzicht",
+        "normalNights": "normale nacht(en)",
+        "weekendNights": "weekendnacht(en)",
+        "extras": "Extra's",
+        "taxes": "Belastingen & toeslagen",
+        "total": "Totaal"
+      },
+      "form": {
+        "name": "Volledige Naam",
+        "namePlaceholder": "Uw volledige naam",
+        "email": "E-mailadres",
+        "emailPlaceholder": "uw.email@voorbeeld.nl",
+        "phone": "Telefoonnummer",
+        "phonePlaceholder": "Uw telefoonnummer",
+        "cancel": "Annuleren",
+        "submit": "Aanvraag Verzenden",
+        "submitting": "Verzenden..."
+      }
+    }
+  }
+}

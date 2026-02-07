@@ -1,0 +1,260 @@
+{
+  "homepage": {
+    "hero": {
+      "title": "Your Houseboat Adventure",
+      "subtitle": "Just choose your dates and crew to cast off.",
+      "licenseFree": "No License Required To Operate",
+      "form": {
+        "checkIn": "Check-in",
+        "checkOut": "Check-out",
+        "guests": "Guests",
+        "addDate": "Add date",
+        "addGuests": "Add guests"
+      }
+    },
+    "results": {
+      "available": "Available houseboats for your trip",
+      "noneAvailable": "No boats available",
+      "noResults": "Sorry, we don't have any houseboats that match your search criteria. Please try different dates or fewer guests.",
+      "viewAll": "View all houseboats"
+    },
+    "featured": {
+      "title": "Our Featured Fleet",
+      "subtitle": "A selection of our most popular boats for an unforgettable adventure."
+    },
+    "dining": {
+      "title": "Exquisite Dining by the Lake",
+      "description": "Our restaurant offers a menu inspired by the rich flavors of Portugal, prepared with the freshest local ingredients. Enjoy your meal on our terrace overlooking the magnificent Alqueva Lake.",
+      "button": "View Menu"
+    },
+    "testimonials": {
+      "title": "What Our Guests Say",
+      "subtitle": "Stories of unforgettable stays on the water.",
+      "none": "No testimonials available yet."
+    }
+  },
+  "contact": {
+    "title": "Get in Touch",
+    "subtitle": "We'd love to hear from you! Whether you have a question about our services, want to make a booking inquiry, or just want to say hello, don't hesitate to contact us.",
+    "form": {
+      "title": "Send us a Message",
+      "name": "Name",
+      "namePlaceholder": "Your Name",
+      "email": "Email",
+      "emailPlaceholder": "your@email.com",
+      "message": "Message",
+      "messagePlaceholder": "Your message...",
+      "submit": "Send Message",
+      "submitting": "Sending...",
+      "success": {
+        "title": "Message Sent!",
+        "description": "Thanks for contacting us. We'll get back to you shortly."
+      },
+      "error": {
+        "title": "Submission Error",
+        "description": "Your message couldn't be sent. Please try again."
+      },
+      "validation": {
+        "title": "Missing Information",
+        "description": "Please fill in all fields before submitting."
+      }
+    },
+    "info": {
+      "title": "Contact Information"
+    },
+    "location": {
+      "title": "Our Location"
+    }
+  },
+  "houseboats": {
+    "title": "Our Fleet",
+    "subtitle": "Choose from our selection of premium houseboats, each designed for comfort and adventure.",
+    "licenseFree": "No License Required",
+    "filters": {
+      "guestsPlaceholder": "Filter by guests...",
+      "allCapacities": "All Capacities",
+      "guests": "Guests",
+      "sortPlaceholder": "Sort by...",
+      "priceAsc": "Price: Low to High",
+      "priceDesc": "Price: High to Low",
+      "capacityDesc": "Capacity: High to Low"
+    },
+    "noResults": {
+      "title": "No houseboats match your criteria",
+      "description": "Please try adjusting your filters."
+    }
+  },
+  "restaurant": {
+    "hero": {
+      "title": "Amieira Restaurant",
+      "subtitle": "Experience exquisite dining with a view."
+    },
+    "about": {
+      "title": "A Culinary Journey",
+      "description1": "Our restaurant offers a menu inspired by the rich flavors of Portugal, prepared with the freshest local ingredients. Enjoy your meal on our terrace overlooking the magnificent Alqueva Lake.",
+      "description2": "Whether it's a romantic dinner for two or a festive meal with family and friends, our team is dedicated to making your experience unforgettable."
+    },
+    "menu": {
+      "title": "Taste of Alentejo",
+      "subtitle": "A menu crafted with local ingredients and traditional flavors.",
+      "notAvailable": "The menu is currently not available. Please check back later."
+    },
+    "form": {
+      "title": "Make a Reservation",
+      "name": "Full Name",
+      "namePlaceholder": "Your Name",
+      "email": "Email",
+      "emailPlaceholder": "your@email.com",
+      "phone": "Phone",
+      "date": "Date",
+      "datePlaceholder": "Select a date",
+      "time": "Time",
+      "timePlaceholder": "Select a time",
+      "guests": "Guests",
+      "guestsPlaceholder": "Select guests",
+      "guestLabel": "Guest",
+      "guestsLabel": "Guests",
+      "seating": "Seating Preference",
+      "seatingPlaceholder": "Select a preference",
+      "seatingIndoor": "Indoor",
+      "seatingOutdoor": "Outdoor",
+      "seatingAny": "Any",
+      "submit": "Request Reservation",
+      "submitting": "Sending...",
+      "success": {
+        "title": "Reservation Submitted",
+        "description": "We've received your request and will confirm it shortly."
+      },
+      "error": {
+        "title": "Submission Failed",
+        "description": "Your reservation couldn't be submitted. Please try again."
+      }
+    }
+  },
+  "gallery": {
+    "title": "Our Gallery",
+    "subtitle": "A glimpse into the Amieira Getaways experience.",
+    "categories": {
+      "all": "All",
+      "houseboat": "Houseboats",
+      "restaurant": "Restaurant",
+      "scenery": "Scenery"
+    }
+  },
+  "dailyTravel": {
+    "title": "Daily Travel",
+    "subtitle": "Discover the beauty of Alqueva with our guided boat tours. Perfect for a day of adventure and relaxation.",
+    "duration": "Duration",
+    "hours": "Hours",
+    "minimum": "Minimum",
+    "people": "People",
+    "from": "From",
+    "exclusive": "exclusive",
+    "perAdult": "per adult",
+    "requestBooking": "Request Booking",
+    "noExcursions": {
+      "title": "No excursions available",
+      "description": "Please check back later or contact us for private tour options."
+    },
+    "submissionFailed": {
+      "title": "Submission Failed",
+      "description": "Your request couldn't be submitted. Please contact us directly."
+    },
+    "dialog": {
+      "title": "Request Booking",
+      "description": "Please provide your details, and we will contact you to confirm the date and payment.",
+      "form": {
+        "name": "Full Name",
+        "namePlaceholder": "Your Name",
+        "email": "Email",
+        "emailPlaceholder": "your@email.com",
+        "phone": "Phone",
+        "guests": "Number of guests",
+        "cancel": "Cancel",
+        "submit": "Send Request",
+        "submitting": "Sending..."
+      }
+    }
+  },
+  "payment": {
+    "title": "Reservation Request Sent!",
+    "subtitle": "Thank you for your booking request. Your reservation is now pending. Please follow the instructions below to confirm your booking.",
+    "instructionsTitle": "Payment Instructions",
+    "instructionsSubtitle": "To complete your reservation, please proceed with the payment.",
+    "noInstructions": "Payment instructions are currently not available. We'll contact you shortly with the details.",
+    "returnHome": "Return Home"
+  },
+  "houseboat": {
+    "breadcrumbs": {
+      "home": "Home",
+      "houseboats": "Houseboats"
+    },
+    "licenseFree": "No License Required",
+    "descriptionTitle": "Description",
+    "amenitiesTitle": "What this place offers",
+    "features": {
+      "bedrooms": "Bedrooms",
+      "bathrooms": "Bathrooms",
+      "guests": "Guests"
+    },
+    "booking": {
+      "perNight": "night",
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "addDate": "Add date",
+      "guests": "Guests",
+      "guest": "Guest",
+      "selectGuests": "Select guests",
+      "requestButton": "Request Booking",
+      "error": {
+        "title": "Booking Error",
+        "description": "Please select valid dates and ensure all data is loaded."
+      },
+      "missingDetails": {
+        "title": "Missing Details",
+        "description": "Please enter your name, email, and phone number."
+      },
+      "noAvailability": {
+        "title": "No Availability",
+        "description": "All boats for this model are booked for the selected dates."
+      },
+      "submissionFailed": {
+        "title": "Submission Failed",
+        "description": "Your booking request couldn't be submitted. Please try again or contact us directly."
+      },
+      "summary": {
+        "normalNights": "normal nights",
+        "weekendNights": "weekend nights",
+        "extras": "Extras",
+        "taxes": "Taxes & fees",
+        "total": "Total"
+      }
+    },
+    "dialog": {
+      "title": "Confirm Your Booking Request",
+      "description": "Review your details and add any optional extras before submitting your request.",
+      "extrasTitle": "Optional Extras",
+      "noExtras": "No optional extras available for this booking.",
+      "detailsTitle": "Your Details",
+      "summary": {
+        "title": "Booking Summary",
+        "normalNights": "normal night(s)",
+        "weekendNights": "weekend night(s)",
+        "extras": "Extras",
+        "taxes": "Taxes & fees",
+        "total": "Total"
+      },
+      "form": {
+        "name": "Full Name",
+        "namePlaceholder": "Your full name",
+        "email": "Email Address",
+        "emailPlaceholder": "your.email@example.com",
+        "phone": "Phone Number",
+        "phonePlaceholder": "Your phone number",
+        "cancel": "Cancel",
+        "submit": "Send Request",
+        "submitting": "Sending..."
+      }
+    }
+  }
+}

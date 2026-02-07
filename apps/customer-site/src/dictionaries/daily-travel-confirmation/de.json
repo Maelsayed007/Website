@@ -1,0 +1,10 @@
+
+{
+    "title": "Buchungsanfrage Gesendet!",
+    "subtitle": "Wir haben Ihre Anfrage für den Ausflug erhalten und werden Sie in Kürze kontaktieren, um die Verfügbarkeit zu bestätigen und die Zahlung abzuschließen.",
+    "package": "Angefragtes Paket",
+    "instructionsTitle": "Nächste Schritte & Zahlung",
+    "instructionsSubtitle": "Ihre Buchung ist ausstehend. Um Ihren Platz zu bestätigen, folgen Sie bitte den Anweisungen, die an Ihre E-Mail-Adresse gesendet werden.",
+    "noInstructions": "Wir werden Ihnen in Kürze eine E-Mail mit den Zahlungsanweisungen senden.",
+    "returnHome": "Zurück zur Startseite"
+}

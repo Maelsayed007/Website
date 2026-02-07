@@ -1,0 +1,260 @@
+{
+  "homepage": {
+    "hero": {
+      "title": "Sua Aventura em Casa-Barco",
+      "subtitle": "Basta escolher suas datas e tripulação para zarpar.",
+      "licenseFree": "Sem Necessidade de Licença para Operar",
+      "form": {
+        "checkIn": "Check-in",
+        "checkOut": "Check-out",
+        "guests": "Hóspedes",
+        "addDate": "Adicionar data",
+        "addGuests": "Adicionar hóspedes"
+      }
+    },
+    "results": {
+      "available": "Casas-barco disponíveis para sua viagem",
+      "noneAvailable": "Nenhum barco disponível",
+      "noResults": "Desculpe, não temos casas-barco que correspondam aos seus critérios de busca. Por favor, tente datas diferentes ou menos hóspedes.",
+      "viewAll": "Ver todas as casas-barco"
+    },
+    "featured": {
+      "title": "Nossa Frota em Destaque",
+      "subtitle": "Uma seleção dos nossos barcos mais populares para uma aventura inesquecível."
+    },
+    "dining": {
+      "title": "Jantar Requintado à Beira do Lago",
+      "description": "Nosso restaurante oferece um menu inspirado nos ricos sabores de Portugal, preparado com os ingredientes locais mais frescos. Desfrute da sua refeição no nosso terraço com vista para o magnífico Grande Lago Alqueva.",
+      "button": "Ver Menu"
+    },
+    "testimonials": {
+      "title": "O que Nossos Hóspedes Dizem",
+      "subtitle": "Histórias de estadias inesquecíveis na água.",
+      "none": "Nenhum depoimento disponível ainda."
+    }
+  },
+  "contact": {
+    "title": "Entre em Contato",
+    "subtitle": "Gostaríamos muito de ouvir você! Se você tiver uma pergunta sobre nossos serviços, quiser fazer uma consulta de reserva ou apenas quiser dizer olá, não hesite em nos contatar.",
+    "form": {
+      "title": "Envie-nos uma Mensagem",
+      "name": "Nome",
+      "namePlaceholder": "Seu Nome",
+      "email": "E-mail",
+      "emailPlaceholder": "seu@email.com",
+      "message": "Mensagem",
+      "messagePlaceholder": "Sua mensagem...",
+      "submit": "Enviar Mensagem",
+      "submitting": "Enviando...",
+      "success": {
+        "title": "Mensagem Enviada!",
+        "description": "Obrigado por nos contatar. Responderemos em breve."
+      },
+      "error": {
+        "title": "Erro no Envio",
+        "description": "Sua mensagem não pôde ser enviada. Por favor, tente novamente."
+      },
+      "validation": {
+        "title": "Informações em Falta",
+        "description": "Por favor, preencha todos os campos antes de enviar."
+      }
+    },
+    "info": {
+      "title": "Informações de Contato"
+    },
+    "location": {
+      "title": "Nossa Localização"
+    }
+  },
+  "houseboats": {
+    "title": "Nossa Frota",
+    "subtitle": "Escolha entre nossa seleção de casas-barco premium, cada uma projetada para conforto e aventura.",
+    "licenseFree": "Sem Necessidade de Licença",
+    "filters": {
+      "guestsPlaceholder": "Filtrar por hóspedes...",
+      "allCapacities": "Todas as Capacidades",
+      "guests": "Hóspedes",
+      "sortPlaceholder": "Ordenar por...",
+      "priceAsc": "Preço: Menor para Maior",
+      "priceDesc": "Preço: Maior para Menor",
+      "capacityDesc": "Capacidade: Maior para Menor"
+    },
+    "noResults": {
+      "title": "Nenhuma casa-barco corresponde aos seus critérios",
+      "description": "Por favor, tente ajustar seus filtros."
+    }
+  },
+  "restaurant": {
+    "hero": {
+      "title": "Restaurante Amieira",
+      "subtitle": "Experimente um jantar requintado com vista."
+    },
+    "about": {
+      "title": "Uma Jornada Culinária",
+      "description1": "Nosso restaurante oferece um menu inspirado nos ricos sabores de Portugal, preparado com os ingredientes locais mais frescos. Desfrute da sua refeição no nosso terraço com vista para o magnífico Grande Lago Alqueva.",
+      "description2": "Seja um jantar romântico para dois ou uma refeição festiva com a família e amigos, nossa equipe se dedica a tornar sua experiência inesquecível."
+    },
+    "menu": {
+      "title": "Gosto do Alentejo",
+      "subtitle": "Um menu criado com ingredientes locais e sabores tradicionais.",
+      "notAvailable": "O menu não está disponível no momento. Por favor, volte mais tarde."
+    },
+    "form": {
+      "title": "Fazer uma Reserva",
+      "name": "Nome Completo",
+      "namePlaceholder": "Seu Nome",
+      "email": "E-mail",
+      "emailPlaceholder": "seu@email.com",
+      "phone": "Telefone",
+      "date": "Data",
+      "datePlaceholder": "Selecione uma data",
+      "time": "Hora",
+      "timePlaceholder": "Selecione uma hora",
+      "guests": "Hóspedes",
+      "guestsPlaceholder": "Selecione hóspedes",
+      "guestLabel": "Hóspede",
+      "guestsLabel": "Hóspedes",
+      "seating": "Preferência de Assento",
+      "seatingPlaceholder": "Selecione uma preferência",
+      "seatingIndoor": "Interior",
+      "seatingOutdoor": "Exterior",
+      "seatingAny": "Qualquer",
+      "submit": "Solicitar Reserva",
+      "submitting": "Enviando...",
+      "success": {
+        "title": "Reserva Enviada",
+        "description": "Recebemos sua solicitação e confirmaremos em breve."
+      },
+      "error": {
+        "title": "Falha no Envio",
+        "description": "Sua reserva não pôde ser enviada. Por favor, tente novamente."
+      }
+    }
+  },
+  "gallery": {
+    "title": "Nossa Galeria",
+    "subtitle": "Um vislumbre da experiência Amieira Getaways.",
+    "categories": {
+      "all": "Todos",
+      "houseboat": "Casas-barco",
+      "restaurant": "Restaurante",
+      "scenery": "Paisagem"
+    }
+  },
+  "dailyTravel": {
+    "title": "Passeios Diários",
+    "subtitle": "Descubra a beleza do Alqueva com nossos passeios de barco guiados. Perfeito para um dia de aventura e relaxamento.",
+    "duration": "Duração",
+    "hours": "Horas",
+    "minimum": "Mínimo",
+    "people": "Pessoas",
+    "from": "A partir de",
+    "exclusive": "exclusivo",
+    "perAdult": "por adulto",
+    "requestBooking": "Solicitar Reserva",
+    "noExcursions": {
+      "title": "Nenhum passeio disponível",
+      "description": "Por favor, volte mais tarde ou entre em contato conosco para opções de passeios privados."
+    },
+    "submissionFailed": {
+      "title": "Falha no Envio",
+      "description": "Sua solicitação não pôde ser enviada. Por favor, entre em contato conosco diretamente."
+    },
+    "dialog": {
+      "title": "Solicitar Reserva",
+      "description": "Por favor, forneça seus dados e entraremos em contato para confirmar a data e o pagamento.",
+      "form": {
+        "name": "Nome Completo",
+        "namePlaceholder": "Seu Nome",
+        "email": "E-mail",
+        "emailPlaceholder": "seu@email.com",
+        "phone": "Telefone",
+        "guests": "Número de hóspedes",
+        "cancel": "Cancelar",
+        "submit": "Enviar Solicitação",
+        "submitting": "Enviando..."
+      }
+    }
+  },
+  "payment": {
+    "title": "Solicitação de Reserva Enviada!",
+    "subtitle": "Obrigado por sua solicitação de reserva. Sua reserva está agora pendente. Por favor, siga as instruções abaixo para confirmar sua reserva.",
+    "instructionsTitle": "Instruções de Pagamento",
+    "instructionsSubtitle": "Para concluir sua reserva, proceda com o pagamento.",
+    "noInstructions": "Instruções de pagamento não estão disponíveis no momento. Entraremos em contato em breve com os detalhes.",
+    "returnHome": "Voltar à Página Inicial"
+  },
+  "houseboat": {
+    "breadcrumbs": {
+      "home": "Página Inicial",
+      "houseboats": "Casas-barco"
+    },
+    "licenseFree": "Sem Necessidade de Licença",
+    "descriptionTitle": "Descrição",
+    "amenitiesTitle": "O que este lugar oferece",
+    "features": {
+      "bedrooms": "Quartos",
+      "bathrooms": "Casas de banho",
+      "guests": "Hóspedes"
+    },
+    "booking": {
+      "perNight": "noite",
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "addDate": "Adicionar data",
+      "guests": "Hóspedes",
+      "guest": "Hóspede",
+      "selectGuests": "Selecionar hóspedes",
+      "requestButton": "Solicitar Reserva",
+      "error": {
+        "title": "Erro na Reserva",
+        "description": "Por favor, selecione datas válidas e certifique-se de que todos os dados foram carregados."
+      },
+      "missingDetails": {
+        "title": "Detalhes em Falta",
+        "description": "Por favor, insira seu nome, e-mail e número de telefone."
+      },
+      "noAvailability": {
+        "title": "Sem Disponibilidade",
+        "description": "Todos os barcos para este modelo estão reservados para as datas selecionadas."
+      },
+      "submissionFailed": {
+        "title": "Falha no Envio",
+        "description": "Sua solicitação de reserva não pôde ser enviada. Por favor, tente novamente ou entre em contato conosco diretamente."
+      },
+      "summary": {
+        "normalNights": "noites normais",
+        "weekendNights": "noites de fim de semana",
+        "extras": "Extras",
+        "taxes": "Impostos e taxas",
+        "total": "Total"
+      }
+    },
+    "dialog": {
+      "title": "Confirme Sua Solicitação de Reserva",
+      "description": "Revise seus dados e adicione quaisquer extras opcionais antes de enviar sua solicitação.",
+      "extrasTitle": "Extras Opcionais",
+      "noExtras": "Nenhum extra opcional disponível para esta reserva.",
+      "detailsTitle": "Seus Detalhes",
+      "summary": {
+        "title": "Resumo da Reserva",
+        "normalNights": "noite(s) normal(ais)",
+        "weekendNights": "noite(s) de fim de semana",
+        "extras": "Extras",
+        "taxes": "Impostos e taxas",
+        "total": "Total"
+      },
+      "form": {
+        "name": "Nome Completo",
+        "namePlaceholder": "Seu nome completo",
+        "email": "Endereço de E-mail",
+        "emailPlaceholder": "seu.email@exemplo.com",
+        "phone": "Número de Telefone",
+        "phonePlaceholder": "Seu número de telefone",
+        "cancel": "Cancelar",
+        "submit": "Enviar Solicitação",
+        "submitting": "Enviando..."
+      }
+    }
+  }
+}

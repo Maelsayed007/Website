@@ -1,0 +1,12 @@
+
+{
+  "links": {
+    "home": "Home",
+    "houseboats": "Houseboats",
+    "dailyTravel": "Daily Travel",
+    "restaurant": "Restaurant",
+    "gallery": "Gallery",
+    "contact": "Contact"
+  },
+  "requestBooking": "Request Booking"
+}

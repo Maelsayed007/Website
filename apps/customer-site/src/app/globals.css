@@ -1,0 +1,482 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Striking High-Contrast Light Mode - Extra Bold Separation */
+    --background: 0 0% 100%;
+    /* Pure white background */
+    --foreground: 93 40% 10%;
+
+    --card: 0 0% 100%;
+    /* Pure white 'blocks' for maximum pop */
+    --card-foreground: 93 40% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 93 40% 10%;
+
+    --primary: 153 60% 53%;
+    /* Supabase Green */
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 220 13% 88%;
+    --secondary-foreground: 93 40% 10%;
+
+    --muted: 220 13% 88%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 153 60% 53%;
+    --accent-foreground: 93 40% 10%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 220 13% 82%;
+    /* Sharp, dark borders #cbd5e1 */
+    --input: 220 13% 82%;
+    --ring: 153 60% 53%;
+
+    --sidebar-bg: 0 0% 100%;
+    /* Fully white sidebar to match cards */
+    --sidebar-fg: 93 40% 10%;
+    --sidebar-hover: 220 13% 88%;
+    --sidebar-border: 220 13% 82%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* Supabase Dark Theme */
+    --background: 0 0% 11%;
+    /* #1c1c1c - Main Supabase BG */
+    --foreground: 0 0% 93%;
+    /* #EDEDED */
+
+    --card: 0 0% 13%;
+    /* #232323 */
+    --card-foreground: 0 0% 93%;
+
+    --primary: 153 60% 53%;
+    /* Supabase Green #3ECF8E */
+    --primary-foreground: 144 60% 10%;
+    /* Dark Green text for contrast */
+
+    --secondary: 0 0% 16%;
+    /* #282828 */
+    --secondary-foreground: 0 0% 93%;
+
+    --muted: 0 0% 16%;
+    /* #282828 */
+    --muted-foreground: 0 0% 53%;
+    /* #878787 */
+
+    --accent: 153 60% 53%;
+    --accent-foreground: 144 60% 10%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 18%;
+    /* #2E2E2E */
+    --input: 0 0% 18%;
+    --ring: 153 60% 53%;
+
+    --sidebar-bg: 0 0% 11%;
+    /* #1c1c1c */
+    --sidebar-fg: 0 0% 93%;
+    --sidebar-hover: 0 0% 16%;
+    /* #282828 */
+    --sidebar-border: 0 0% 18%;
+    /* #2e2e2e */
+
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground transition-colors duration-300;
+    font-family: var(--font-outfit), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-outfit), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  button {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring;
+  }
+}
+
+@layer components {
+  .rdp {
+    --rdp-cell-size: 40px;
+    --rdp-accent-color: hsl(var(--primary));
+    --rdp-background-color: hsl(var(--primary) / 0.1);
+  }
+
+  .rdp-months {
+    @apply bg-card p-4 rounded-2xl;
+  }
+
+  .rdp-day_selected {
+    @apply bg-primary text-primary-foreground font-semibold;
+  }
+
+  .rdp-day_selected:hover {
+    @apply bg-primary/90;
+  }
+
+  .rdp-day_today {
+    @apply font-bold text-primary;
+  }
+
+  .rdp-day:hover:not(.rdp-day_selected) {
+    @apply bg-accent/10;
+  }
+
+  .rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
+    @apply bg-accent/10 rounded-full p-2 transition-colors;
+  }
+
+  .rdp-day_range_middle {
+    @apply bg-accent/10;
+  }
+
+  .rdp-head_cell {
+    @apply text-muted-foreground font-semibold text-sm;
+  }
+
+  .rdp-caption {
+    @apply mb-4;
+  }
+
+  .rdp-nav button {
+    @apply hover:bg-accent/10 rounded-full p-2 transition-colors;
+  }
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0px) translateX(0px);
+  }
+
+  50% {
+    transform: translateY(-15px) translateX(5px);
+  }
+}
+
+@keyframes float-slow {
+
+  0%,
+  100% {
+    transform: translateY(0px) translateX(0px) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-10px) translateX(-5px) rotate(5deg);
+  }
+}
+
+@keyframes pulse-slow {
+
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-float-delay-1 {
+  animation: float 7s ease-in-out infinite;
+  animation-delay: 1s;
+}
+
+.animate-float-delay-2 {
+  animation: float 8s ease-in-out infinite;
+  animation-delay: 2s;
+}
+
+.animate-float-delay-3 {
+  animation: float 5.5s ease-in-out infinite;
+  animation-delay: 1.5s;
+}
+
+.animate-float-slow {
+  animation: float-slow 10s ease-in-out infinite;
+}
+
+.animate-float-slow-delay {
+  animation: float-slow 12s ease-in-out infinite;
+  animation-delay: 2s;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 4s ease-in-out infinite;
+}
+
+@keyframes wave {
+
+  0%,
+  100% {
+    transform: translateX(0) translateY(0);
+  }
+
+  50% {
+    transform: translateX(-25px) translateY(-10px);
+  }
+}
+
+@keyframes wave-slow {
+
+  0%,
+  100% {
+    transform: translateX(0) translateY(0);
+  }
+
+  50% {
+    transform: translateX(25px) translateY(-5px);
+  }
+}
+
+.animate-wave {
+  animation: wave 8s ease-in-out infinite;
+}
+
+.animate-wave-slow {
+  animation: wave-slow 12s ease-in-out infinite;
+}
+
+@keyframes blob {
+
+  0%,
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* Professional Table Styles */
+.professional-table {
+  @apply w-full border-separate border-spacing-0;
+}
+
+.professional-table thead {
+  @apply sticky top-0 z-10 bg-muted/50 backdrop-blur-sm;
+}
+
+.professional-table thead tr {
+  @apply border-b border-border;
+}
+
+.professional-table thead th {
+  @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground;
+}
+
+.professional-table tbody tr {
+  @apply border-b border-border/50 transition-all duration-200 hover:bg-muted/30;
+}
+
+.professional-table tbody tr:last-child {
+  @apply border-b-0;
+}
+
+.professional-table tbody td {
+  @apply px-4 py-4 text-sm;
+}
+
+.professional-table tbody tr .table-actions {
+  @apply opacity-0 transition-opacity;
+}
+
+.professional-table tbody tr:hover .table-actions {
+  @apply opacity-100;
+}
+
+/* Card wrapper for tables */
+.table-card {
+  @apply rounded-xl border border-border bg-card overflow-hidden;
+}
+
+/* Empty state */
+.empty-state {
+  @apply flex flex-col items-center justify-center p-12 text-center;
+}
+
+.empty-state-icon {
+  @apply h-12 w-12 text-muted-foreground/40 mb-4;
+}
+
+.empty-state-title {
+  @apply text-sm font-semibold text-foreground mb-1;
+}
+
+.empty-state-description {
+  @apply text-xs text-muted-foreground;
+}
+
+/* Smooth page transitions and animations */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.4s ease-out;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}
+
+/* Stagger children animations */
+.stagger-children>* {
+  animation: fade-in-up 0.4s ease-out;
+  animation-fill-mode: both;
+}
+
+.stagger-children>*:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.stagger-children>*:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.stagger-children>*:nth-child(3) {
+  animation-delay: 0.15s;
+}
+
+.stagger-children>*:nth-child(4) {
+  animation-delay: 0.2s;
+}
+
+.stagger-children>*:nth-child(5) {
+  animation-delay: 0.25s;
+}
+
+/* Smooth transitions for dark mode */
+* {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* Override for elements that shouldn't transition */
+.no-transition,
+.no-transition * {
+  transition: none !important;
+}
+
+@layer utilities {
+  .shadow-elevation {
+    box-shadow: none;
+  }
+
+  :root:not(.dark) .shadow-sm {
+    box-shadow: none;
+  }
+
+  :root:not(.dark) .card-lift {
+    background-color: hsl(var(--card)) !important;
+    box-shadow: none;
+    border-color: hsl(var(--border)) !important;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  :root:not(.dark) .card-lift:hover {
+    box-shadow: none;
+    transform: translateY(-6px);
+    border-color: hsl(var(--primary) / 0.6) !important;
+  }
+
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+  }
+}
