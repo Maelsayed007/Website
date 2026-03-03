@@ -1,11 +1,13 @@
 'use client';
 
-import { useAuth, useSupabase } from '@/components/providers/supabase-provider';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { NotificationProvider } from '@/components/providers/notification-provider';
-import SupabaseSidebar from '@/components/supabase-sidebar';
+import SupabaseSidebar, {
+  DASHBOARD_SIDEBAR_COLLAPSED_WIDTH,
+  DASHBOARD_SIDEBAR_EXPANDED_WIDTH,
+} from '@/components/supabase-sidebar';
 import DashboardTopBar from '@/components/dashboard-topbar';
 import { cn } from '@/lib/utils';
 import {
@@ -18,7 +20,6 @@ import {
   History,
   Printer,
   PlusCircle,
-  CreditCard,
 } from 'lucide-react';
 import {
   CommandDialog,
@@ -29,18 +30,14 @@ import {
   CommandList,
   CommandSeparator,
 } from '@/components/ui/command';
+import {
+  canAccessSettings as canAccessSettingsFromPermissions,
+  isSuperAdmin as isSuperAdminFromPermissions,
+  type PermissionMap,
+} from '@/lib/auth/permissions';
+import type { DashboardNavItem } from '@/lib/dashboard/types';
 
-type Permissions = {
-  isSuperAdmin?: boolean;
-  canViewDashboard?: boolean;
-  canViewClients?: boolean;
-  canViewMessages?: boolean;
-  canViewSettings?: boolean;
-  canEditSettings?: boolean;
-  canAccessSettings?: boolean;
-  canManageUsers?: boolean;
-  canManageStaff?: boolean;
-};
+type Permissions = PermissionMap;
 
 type UserProfile = {
   id: string;
@@ -49,24 +46,15 @@ type UserProfile = {
   permissions: Permissions;
 };
 
-type Booking = {
-  id: string;
-  clientName: string;
-  start_time: string; // Supabase uses snake_case and ISO string
-  status: 'Pending' | 'Confirmed' | 'Maintenance';
-  read?: boolean;
-};
-
-const navLinks = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid, exact: true, permission: 'canViewDashboard' as keyof Permissions },
-  { href: '/dashboard/reservations', label: 'Reservations', icon: Calendar, permission: 'canViewDashboard' as keyof Permissions },
-  { href: '/dashboard/houseboat-reservations', label: 'Houseboats', icon: Ship, permission: 'canViewHouseboatReservations' as keyof Permissions },
-  { href: '/dashboard/restaurant-reservations', label: 'Restaurant', icon: Utensils, permission: 'canViewRestaurantReservations' as keyof Permissions },
-  { href: '/dashboard/daily-travel-reservations', label: 'Daily Travel', icon: History, permission: 'canViewDailyTravelReservations' as keyof Permissions },
-  { href: '/dashboard/clients', label: 'Clients', icon: Users, permission: 'canViewClients' as keyof Permissions },
-  { href: '/dashboard/messages', label: 'Messages', icon: MessageSquare, permission: 'canViewMessages' as keyof Permissions },
-  { href: '/dashboard/printables', label: 'Printables', icon: Printer, permission: 'canViewDashboard' as keyof Permissions },
-  { href: '/dashboard/payments', label: 'Payments', icon: CreditCard, permission: 'canViewDashboard' as keyof Permissions },
+const navLinks: DashboardNavItem[] = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid, exact: true, permission: 'canViewDashboard' },
+  { href: '/dashboard/reservations', label: 'Reservations', icon: Calendar, permission: 'canViewDashboard' },
+  { href: '/dashboard/houseboat-reservations', label: 'Houseboats', icon: Ship, permission: 'canViewHouseboatReservations' },
+  { href: '/dashboard/restaurant-reservations', label: 'Restaurant', icon: Utensils, permission: 'canViewRestaurantReservations' },
+  { href: '/dashboard/river-cruise-reservations', label: 'River Cruise', icon: History, permission: 'canViewRiverCruiseReservations' },
+  { href: '/dashboard/clients', label: 'Clients', icon: Users, permission: 'canViewClients' },
+  { href: '/dashboard/messages', label: 'Messages', icon: MessageSquare, permission: 'canViewMessages' },
+  { href: '/dashboard/printables', label: 'Printables', icon: Printer, permission: 'canViewDashboard' },
 ];
 
 export default function DashboardLayout({
@@ -74,134 +62,50 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
-  const isHouseboatReservations = pathname === '/dashboard/houseboat-reservations';
-
-  const { user, isUserLoading } = useAuth();
-  const { supabase } = useSupabase();
   const router = useRouter();
   const [openCommand, setOpenCommand] = useState(false);
-  const [notifications, setNotifications] = useState<Booking[]>([]);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   // Admin Auth State
   const [adminUser, setAdminUser] = useState<any>(null);
   const [isAdminLoading, setIsAdminLoading] = useState(true);
 
-  // Check Admin Session
+  // Initialize admin session before rendering dashboard routes.
   useEffect(() => {
-    const checkAdminSession = async () => {
-      try {
-        const res = await fetch('/api/admin/auth/session');
-        if (res.ok) {
-          const data = await res.json();
-          setAdminUser(data.user);
+    const init = async () => {
+      const adminData = await fetch('/api/admin/auth/session')
+        .then(res => res.ok ? res.json() : null)
+        .catch(() => null);
 
-          // Map admin user to UserProfile format for UI compatibility
-          setUserProfile({
-            id: data.user.id,
-            username: data.user.username,
-            email: `${data.user.username}@staff.local`,
-            permissions: data.user.permissions
-          });
-        } else {
-          // Only redirect if NOT loading Supabase user (to avoid race conditions)
-          // and if we are sure we require admin auth
-          router.push('/staff-login');
-        }
-      } catch (e) {
-        console.error('Admin session check failed', e);
-      } finally {
-        setIsAdminLoading(false);
+      // Handle admin session
+      if (adminData?.user) {
+        setAdminUser(adminData.user);
+        setUserProfile({
+          id: adminData.user.id,
+          username: adminData.user.username,
+          email: `${adminData.user.username}@staff.amieira.local`,
+          permissions: adminData.user.permissions
+        });
+      } else {
+        router.push('/staff-login');
       }
+
+      setIsAdminLoading(false);
     };
 
-    checkAdminSession();
+    init();
   }, [router]);
 
-  /* 
-  // Disable Supabase Redirect for now as it conflicts with Admin Auth
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, isUserLoading, router]);
-  */
-
-  // Fetch Supabase user profile (Keep this for hybrid support if needed, but Admin takes precedence)
-  useEffect(() => {
-    if (!supabase || !user) return;
-    const fetchProfile = async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (data) {
-        setUserProfile(data);
-      }
-    };
-    fetchProfile();
-  }, [supabase, user]);
-
   // Check permissions
-  // Correctly identify SuperAdmin from the mapped profile permissions OR the original adminUser object
-  // The SQL permissions update adds explicit keys, but role match is the ultimate fallback
-  const isHardcodedAdmin = user?.email === 'myasserofficial@gmail.com';
-  const isSuperAdmin =
-    isHardcodedAdmin ||
-    userProfile?.permissions?.isSuperAdmin ||
-    (adminUser && adminUser.role === 'super_admin'); // Explicit check against admin session
+  const isSuperAdmin = isSuperAdminFromPermissions(userProfile, adminUser);
+  const canAccessSettings = canAccessSettingsFromPermissions(userProfile, adminUser);
 
-  // Ensure we check permissions correctly, falling back to superAdmin override
-  const canAccessSettings = isSuperAdmin || userProfile?.permissions?.canViewSettings || userProfile?.permissions?.canAccessSettings;
-
-  // Filter visible navigation links based on permissions
   const visibleNavLinks = useMemo(() => {
     if (isSuperAdmin) return navLinks;
     if (!userProfile?.permissions) return [];
     return navLinks.filter(link => userProfile.permissions[link.permission]);
   }, [userProfile, isSuperAdmin]);
-
-  // Fetch notifications (Pending bookings)
-  useEffect(() => {
-    if (!supabase) return;
-
-    const fetchNotifications = async () => {
-      const { data } = await supabase
-        .from('bookings')
-        .select('*')
-        .eq('status', 'Pending')
-        .order('start_time', { ascending: false })
-        .limit(20);
-
-      if (data) {
-        setNotifications(data as Booking[]);
-      }
-    };
-
-    fetchNotifications();
-
-    // Subscribe to realtime updates for bookings
-    const channel = supabase
-      .channel('pending_bookings_notifications')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'bookings', filter: 'status=eq.Pending' },
-        (payload) => {
-          fetchNotifications(); // Simple approach: re-fetch on change
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [supabase]);
-
-  const unreadCount = notifications?.filter(n => !n.read && n.status === 'Pending').length || 0;
 
   // Command palette keyboard shortcut
   useEffect(() => {
@@ -214,6 +118,29 @@ export default function DashboardLayout({
     document.addEventListener('keydown', down);
     return () => document.removeEventListener('keydown', down);
   }, []);
+
+  useEffect(() => {
+    try {
+      const storedValue = localStorage.getItem('dashboard:sidebar-collapsed');
+      if (storedValue === '1') {
+        setIsSidebarCollapsed(true);
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }, []);
+
+  const handleToggleSidebar = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('dashboard:sidebar-collapsed', next ? '1' : '0');
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+  };
 
   // Loading state
   // Show skeleton only while we are determining if the user is an admin or a customer
@@ -240,18 +167,22 @@ export default function DashboardLayout({
   return (
     <NotificationProvider>
       <div data-dashboard className="bg-background min-h-screen">
-        {/* Sidebar - Fixed to viewport */}
         <SupabaseSidebar
           visibleLinks={visibleNavLinks}
           canAccessSettings={!!canAccessSettings}
           userProfile={userProfile}
-          hideLogo={isHouseboatReservations}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={handleToggleSidebar}
         />
 
-        {/* Main Content Area */}
         <div
-          className="ml-16 transition-all duration-300 relative min-h-screen"
-          style={{ overflowX: 'hidden' }}
+          className="relative min-h-screen"
+          style={{
+            overflowX: 'hidden',
+            marginLeft: isSidebarCollapsed
+              ? DASHBOARD_SIDEBAR_COLLAPSED_WIDTH
+              : DASHBOARD_SIDEBAR_EXPANDED_WIDTH,
+          }}
         >
           <DashboardTopBar
             canAccessSettings={!!canAccessSettings}
@@ -260,14 +191,13 @@ export default function DashboardLayout({
           />
 
           <main className={cn(
-            "animate-fade-in-up",
-            "p-4 md:p-6 lg:p-8"
+            'animate-fade-in-up',
+            'p-4 md:p-6 lg:p-8'
           )}>
             {children}
           </main>
         </div>
 
-        {/* Command Palette */}
         <CommandDialog open={openCommand} onOpenChange={setOpenCommand}>
           <CommandInput placeholder="Type a command or search..." />
           <CommandList>
@@ -316,3 +246,4 @@ export default function DashboardLayout({
     </NotificationProvider>
   );
 }
+

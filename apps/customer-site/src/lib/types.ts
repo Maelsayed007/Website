@@ -18,6 +18,10 @@ export interface HouseboatModel {
     amenities: Amenity[];
     imageUrls: string[];
     slug?: string;
+    diaria_enabled: boolean;
+    diaria_price: number;
+    diaria_description: string;
+    translations?: Record<string, any>;
     // Computed Properties for UI
     pricePerNight?: number;
     totalPrice?: number;
@@ -64,6 +68,7 @@ export interface Booking {
     startTime: string;
     endTime: string;
     status: 'Confirmed' | 'Pending' | 'Maintenance' | 'Cancelled';
+    booking_type: 'overnight' | 'day_charter';
     source?: string;
     clientPhone?: string;
     clientEmail?: string;
@@ -77,7 +82,7 @@ export interface Booking {
     extras?: { id: string; name: string; price: number; quantity?: number }[];
     houseboatId?: string;
     restaurantTableId?: string;
-    dailyTravelPackageId?: string;
+    riverCruisePackageId?: string;
     numberOfGuests?: number;
     guestDetails?: GuestDetail[];
     totalPrice?: number;
@@ -93,14 +98,27 @@ export interface PaymentTransaction {
     booking_id: string;
     amount: number;
     method: 'cash' | 'card' | 'transfer' | 'stripe' | 'other';
+    status?: string;
     reference?: string;
+    ref?: string; // Add ref as alias for compatibility
+    invoice_ref?: string;
+    invoice_status?: 'pending' | 'issued' | 'ignored';
     notes?: string;
+    accountant_notes?: string;
     created_at: string;
 }
 
 export interface WebsiteSettings {
     company_name: string;
     logoUrl: string;
+    heroImageUrl?: string;
+    restaurantHeroImageUrl?: string;
+    homeHouseboatsImageUrl?: string;
+    homeRiverCruiseImageUrl?: string;
+    homeRestaurantImageUrl?: string;
+    home_houseboats_image_url?: string;
+    home_river_cruise_image_url?: string;
+    home_restaurant_image_url?: string;
     email: string;
     restaurant_email?: string;
     phone: string;
@@ -126,12 +144,14 @@ export interface RestaurantMenuPackage {
         child: number;
     };
     is_active: boolean;
+    translations?: Record<string, any>;
 }
 
 export interface GuestDetail {
     name?: string;
     ageGroup: 'adult' | 'child';
     menuPackageId?: string;
+    menuId?: string;
     price?: number;
     quantity: number;
 }
@@ -140,3 +160,162 @@ export type AmenityDetail = {
     name: string;
     icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>;
 };
+
+export interface RiverCruiseAgePricing {
+    withoutFood: number;
+    withFood: number;
+    minAge: number;
+    maxAge?: number;
+}
+
+export interface RiverCruisePricing {
+    type: 'per-person' | 'exclusive';
+    adults: RiverCruiseAgePricing;
+    children: RiverCruiseAgePricing;
+    seniors: RiverCruiseAgePricing;
+    totalPrice?: number;
+}
+
+export interface RiverCruisePackage {
+    id: string;
+    name: string;
+    description?: string;
+    destination?: string;
+    duration_hours: number;
+    photo_url?: string;
+    pricing: RiverCruisePricing;
+    min_capacity: number;
+    preparation_buffer?: number;
+    is_active: boolean;
+    translations?: Record<string, any>;
+    created_at?: string;
+}
+
+export interface DailyBoat {
+    id: string;
+    name: string;
+    max_capacity: number;
+    min_capacity: number;
+    boat_type: 'large_vessel' | 'houseboat';
+    photo_url?: string;
+}
+
+export interface RestaurantPhoto {
+    id: string;
+    image_url: string;
+    caption?: string;
+    sort_order: number;
+    created_at?: string;
+}
+
+export interface SiteGalleryItem {
+    id: string;
+    image_url: string;
+    category: 'houseboat' | 'scenery' | 'restaurant' | 'hero' | 'lake' | 'interior';
+    alt_text?: string;
+    sort_order: number;
+    created_at?: string;
+}
+
+export interface SpecialOffer {
+    id: string;
+    title: string;
+    subtitle: string;
+    description: string;
+    badge_text?: string;
+    badge_icon?: 'tag' | 'gift' | 'percent';
+    category: 'houseboat' | 'package' | 'service';
+    category_icon: 'gift' | 'users' | 'clock' | 'ship' | 'utensils' | 'waves';
+    category_color: 'pink' | 'blue' | 'amber';
+    original_price_text?: string;
+    current_price_text: string;
+    unit_text: string;
+    button_text: string;
+    discount_type?: 'percentage' | 'fixed';
+    discount_value?: number;
+    conditions?: {
+        min_nights?: number;
+        max_nights?: number;
+        allowed_models?: string[];
+        allowed_boats?: string[];
+        start_date?: string;
+        end_date?: string;
+        min_boats?: number;
+        days_in_advance?: number;
+        min_people?: number;
+        max_people?: number;
+    };
+    is_dark_theme?: boolean;
+    image_url?: string;
+    linked_package_id?: string;
+    use_manual_pricing?: boolean;
+    manual_adult_price?: number;
+    manual_child_price?: number;
+    manual_senior_price?: number;
+    is_active?: boolean;
+    sort_order?: number;
+    created_at?: string;
+    updated_at?: string;
+    translations?: Record<string, any>;
+}
+
+export interface RestaurantAvailabilityResult {
+    available: boolean;
+    reason: 'ok' | 'closed_day' | 'closed_time' | 'capacity_exceeded' | 'invalid_input';
+    currentLoad: number;
+    remainingCapacity: number;
+    projectedLoad: number;
+    maxCapacity: number;
+}
+
+export interface RestaurantBookingPolicyResult {
+    isOpenDay: boolean;
+    isOpenTime: boolean;
+    requiresPreReservation: boolean;
+    serviceWindow: {
+        start: string;
+        end: string;
+        timezone: string;
+        openDays: string[];
+    };
+}
+
+export interface RiverCruiseEligibilityResult {
+    mode: 'inquiry' | 'payable';
+    eligibleForCheckout: boolean;
+    minGuestsForCheckout: number;
+    guestCount: number;
+    reason: string;
+}
+
+export interface HouseboatRecurringDiscountResult {
+    applies: boolean;
+    earlyBookingApplied: boolean;
+    groupSizeApplied: boolean;
+    longStayApplied: boolean;
+    discountPercent: number;
+    discountedBasePrice: number;
+    discountAmount: number;
+}
+
+export interface HeroBadgeItem {
+    key: string;
+    label: string;
+    icon?: string;
+}
+
+export interface HomepageVoucherItem {
+    id: string;
+    title: string;
+    rule: string;
+    ctaLabel: string;
+    ctaHref: string;
+    promoCode?: string;
+}
+
+export interface HomepagePrimaryCta {
+    label: string;
+    href?: string;
+    action?: 'scroll' | 'route';
+    description?: string;
+}

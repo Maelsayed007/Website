@@ -1,3 +1,14 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --brand-deep: #18230f;
+  --brand-accent: #34c759;
+  --surface-muted: #f1f8f1;
+}
+
+body {
+  background: linear-gradient(180deg, #f8fbf8 0%, #ffffff 45%, #f1f8f1 100%);
+  color: var(--brand-deep);
+}

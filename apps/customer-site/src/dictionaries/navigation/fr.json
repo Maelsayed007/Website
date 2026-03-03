@@ -1,12 +1,17 @@
-
 {
   "links": {
     "home": "Accueil",
-    "houseboats": "Péniches",
-    "dailyTravel": "Excursions",
+    "houseboats": "Houseboats",
     "restaurant": "Restaurant",
-    "gallery": "Galerie",
-    "contact": "Contact"
+    "riverCruise": "Croisi\u00e8re",
+    "contact": "Contact",
+    "services": "Services"
   },
-  "requestBooking": "Demander une réservation"
+  "auth": {
+    "login": "Connexion",
+    "register": "S'inscrire",
+    "logout": "D\u00e9connexion",
+    "dashboard": "Tableau de bord",
+    "myBookings": "Mes R\u00e9servations"
+  }
 }

@@ -1,9 +1,9 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { User, Session, SupabaseClient } from '@supabase/supabase-js';
+import { User, Session, SupabaseClient, AuthChangeEvent } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 type SupabaseContextType = {
     supabase: SupabaseClient;
@@ -24,6 +24,7 @@ export default function SupabaseProvider({
     const [session, setSession] = useState<Session | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
+    const pathname = usePathname();
     const [supabase] = useState(() => createClient());
 
     useEffect(() => {
@@ -43,7 +44,7 @@ export default function SupabaseProvider({
 
         const {
             data: { subscription },
-        } = supabase.auth.onAuthStateChange((event, session) => {
+        } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
             setSession(session);
             setUser(session?.user ?? null);
             setIsLoading(false);
@@ -53,7 +54,11 @@ export default function SupabaseProvider({
             }
             if (event === 'SIGNED_OUT') {
                 router.refresh();
-                router.push('/');
+                if (typeof window !== 'undefined' && window.location.pathname.startsWith('/dashboard')) {
+                    window.location.href = '/staff-login';
+                } else {
+                    router.push('/');
+                }
             }
             if (event === 'TOKEN_REFRESHED') {
                 // Session was refreshed, update state
@@ -67,10 +72,25 @@ export default function SupabaseProvider({
                 window.removeEventListener('storage', handleStorageChange);
             }
         };
-    }, [router, supabase]);
+    }, [router, supabase, pathname]);
 
     const signOut = async () => {
-        await supabase.auth.signOut();
+        try {
+            await fetch('/api/admin/auth/logout', { method: 'POST' });
+        } catch {
+            // Ignore missing admin session on public flows.
+        }
+
+        try {
+            await supabase.auth.signOut();
+        } catch {
+            // Ignore Supabase auth sign-out errors for admin-only sessions.
+        }
+
+        if (typeof window !== 'undefined') {
+            const isDashboardRoute = window.location.pathname.startsWith('/dashboard');
+            window.location.href = isDashboardRoute ? '/staff-login' : '/';
+        }
     };
 
     return (

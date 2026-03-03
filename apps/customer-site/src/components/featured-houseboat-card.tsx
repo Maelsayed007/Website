@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Users, Search } from 'lucide-react';
+import { Search, ShieldCheck, Users } from 'lucide-react';
 
 interface FeaturedHouseboatCardProps {
   houseboat: any;
@@ -11,14 +11,12 @@ interface FeaturedHouseboatCardProps {
 
 export default function FeaturedHouseboatCard({
   houseboat,
-  dictionary,
 }: FeaturedHouseboatCardProps) {
   const imageUrl = houseboat.imageUrls?.[0] || houseboat.images?.[0] || houseboat.image_urls?.[0] || '/placeholder-houseboat.jpg';
 
   const optimalCapacity = houseboat.optimalCapacity || houseboat.optimal_capacity || 6;
   const maxCapacity = houseboat.maximumCapacity || houseboat.maximum_capacity || optimalCapacity;
   const bedrooms = houseboat.bedrooms;
-  const startingPrice = houseboat.startingPrice;
 
   return (
     <Link
@@ -37,6 +35,10 @@ export default function FeaturedHouseboatCard({
             className="object-cover"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
           />
+          <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full border border-[#70c167]/45 bg-[#eaf7e8]/95 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#25553f]">
+            <ShieldCheck className="h-3 w-3" />
+            No license
+          </span>
         </div>
 
         {/* Content Section - Google Flights Style */}

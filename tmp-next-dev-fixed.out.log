@@ -1,0 +1,91 @@
+
+> @amieira/customer-site@0.1.0 dev
+> next dev --webpack -p 9002
+
+▲ Next.js 16.1.1 (webpack)
+- Local:         http://localhost:9002
+- Network:       http://192.168.1.21:9002
+- Environments: .env
+
+✓ Starting...
+✓ Ready in 7.1s
+○ Compiling / ...
+ GET / 200 in 36.9s (compile: 17.5s, proxy.ts: 460ms, render: 19.0s)
+ GET / 200 in 3.1s (compile: 24ms, proxy.ts: 32ms, render: 3.1s)
+ GET / 200 in 4.7s (compile: 20ms, proxy.ts: 33ms, render: 4.7s)
+ GET / 200 in 3.9s (compile: 19ms, proxy.ts: 40ms, render: 3.9s)
+ GET / 200 in 2.7s (compile: 11ms, proxy.ts: 23ms, render: 2.6s)
+ GET / 200 in 2.5s (compile: 11ms, proxy.ts: 26ms, render: 2.5s)
+ GET / 200 in 2.6s (compile: 13ms, proxy.ts: 22ms, render: 2.6s)
+ GET / 200 in 2.6s (compile: 13ms, proxy.ts: 20ms, render: 2.5s)
+ GET / 200 in 2.5s (compile: 14ms, proxy.ts: 24ms, render: 2.5s)
+ GET / 200 in 2.6s (compile: 15ms, proxy.ts: 23ms, render: 2.5s)
+ GET / 200 in 2.5s (compile: 18ms, proxy.ts: 27ms, render: 2.4s)
+ GET / 200 in 2.6s (compile: 15ms, proxy.ts: 27ms, render: 2.6s)
+ GET / 200 in 2.5s (compile: 14ms, proxy.ts: 24ms, render: 2.5s)
+ GET / 200 in 2.5s (compile: 13ms, proxy.ts: 23ms, render: 2.5s)
+ GET / 200 in 2.9s (compile: 16ms, proxy.ts: 19ms, render: 2.8s)
+ GET / 200 in 2.6s (compile: 15ms, proxy.ts: 19ms, render: 2.6s)
+ GET / 200 in 2.5s (compile: 14ms, proxy.ts: 22ms, render: 2.5s)
+ GET / 200 in 2.5s (compile: 11ms, proxy.ts: 21ms, render: 2.5s)
+ GET / 200 in 9.4s (compile: 392ms, proxy.ts: 24ms, render: 9.0s)
+ GET / 200 in 112s (compile: 16ms, proxy.ts: 22ms, render: 112s)
+ GET / 200 in 4.2s (compile: 359ms, proxy.ts: 33ms, render: 3.8s)
+ GET / 200 in 22.2s (compile: 13ms, proxy.ts: 25ms, render: 22.2s)
+ GET / 200 in 3.7s (compile: 223ms, proxy.ts: 15ms, render: 3.5s)
+ GET / 200 in 16.5s (compile: 8ms, proxy.ts: 99ms, render: 16.4s)
+○ Compiling /river-cruise ...
+ GET /river-cruise 200 in 7.2s (compile: 5.9s, proxy.ts: 19ms, render: 1229ms)
+ GET / 200 in 15.5s (compile: 44ms, proxy.ts: 16ms, render: 15.5s)
+○ Compiling /_error ...
+ GET / 500 in 11.2s (compile: 10.5s, proxy.ts: 294ms, render: 347ms)
+ GET / 500 in 39ms (compile: 12ms, proxy.ts: 13ms, render: 13ms)
+ GET / 500 in 36ms (compile: 10ms, proxy.ts: 12ms, render: 15ms)
+ GET / 500 in 47ms (compile: 14ms, proxy.ts: 19ms, render: 15ms)
+ GET / 500 in 91ms (compile: 16ms, proxy.ts: 19ms, render: 56ms)
+ GET / 500 in 53ms (compile: 17ms, proxy.ts: 19ms, render: 17ms)
+ GET / 500 in 57ms (compile: 12ms, proxy.ts: 18ms, render: 26ms)
+ GET / 200 in 17.8s (compile: 425ms, proxy.ts: 16ms, render: 17.4s)
+ GET / 200 in 4.2s (compile: 16ms, proxy.ts: 19ms, render: 4.2s)
+○ Compiling /offers ...
+ GET /offers 200 in 5.4s (compile: 10ms, proxy.ts: 15ms, render: 5.4s)
+ GET /offers 200 in 11.5s (compile: 5.7s, proxy.ts: 16ms, render: 5.9s)
+ GET / 200 in 16.3s (compile: 41ms, proxy.ts: 20ms, render: 16.2s)
+ GET / 200 in 4.0s (compile: 431ms, proxy.ts: 22ms, render: 3.5s)
+ GET / 200 in 3.1s (compile: 11ms, proxy.ts: 21ms, render: 3.1s)
+ GET / 200 in 2.7s (compile: 11ms, proxy.ts: 19ms, render: 2.7s)
+ GET / 200 in 58s (compile: 11ms, proxy.ts: 24ms, render: 58s)
+ GET / 200 in 3.8s (compile: 228ms, proxy.ts: 19ms, render: 3.6s)
+○ Compiling /houseboats ...
+ GET /houseboats?from=2026-03-04&to=2026-03-06&guests=2&boats=1&type=overnight 200 in 38.6s (compile: 13.2s, proxy.ts: 24ms, render: 25.3s)
+ GET /houseboats?from=2026-03-04&to=2026-03-06&guests=2&boats=1&type=overnight 200 in 25.1s (compile: 9ms, proxy.ts: 20ms, render: 25.1s)
+ GET /houseboats?from=2026-03-04&to=2026-03-06&guests=2&boats=1&type=overnight 200 in 57s (compile: 18ms, proxy.ts: 31ms, render: 57s)
+○ Compiling /houseboats/[slug] ...
+ GET /houseboats/525a3a12-2b10-4fcc-b563-13a157135c42?from=2026-03-04&to=2026-03-06&guests=2&boats=1&type=overnight 200 in 36.5s (compile: 7.1s, proxy.ts: 18ms, render: 29.3s)
+ GET /houseboats/525a3a12-2b10-4fcc-b563-13a157135c42?from=2026-03-04&to=2026-03-06&guests=2&boats=1&type=overnight 200 in 41s (compile: 28ms, proxy.ts: 13ms, render: 41s)
+○ Compiling /checkout ...
+ GET /checkout?boatId=525a3a12-2b10-4fcc-b563-13a157135c42&from=2026-03-04T00%3A00%3A00.000Z&to=2026-03-06T00%3A00%3A00.000Z&guests=2&type=overnight 200 in 7.1s (compile: 7.0s, proxy.ts: 22ms, render: 111ms)
+ GET / 200 in 24.5s (compile: 33ms, proxy.ts: 14ms, render: 24.5s)
+ GET / 200 in 10.9s (compile: 261ms, proxy.ts: 25ms, render: 10.6s)
+ GET / 200 in 2.0s (compile: 8ms, proxy.ts: 16ms, render: 2.0s)
+ GET / 200 in 1874ms (compile: 9ms, proxy.ts: 37ms, render: 1828ms)
+ GET / 500 in 37ms (compile: 8ms, proxy.ts: 8ms, render: 22ms)
+ GET / 500 in 20ms (compile: 6ms, proxy.ts: 8ms, render: 6ms)
+ GET / 500 in 25ms (compile: 5ms, proxy.ts: 8ms, render: 12ms)
+ GET / 200 in 21.9s (compile: 93ms, proxy.ts: 6ms, render: 21.8s)
+ GET / 200 in 2.3s (compile: 259ms, proxy.ts: 157ms, render: 1867ms)
+ GET / 200 in 1761ms (compile: 68ms, proxy.ts: 10ms, render: 1683ms)
+ GET / 200 in 2.9s (compile: 159ms, proxy.ts: 14ms, render: 2.7s)
+ GET / 200 in 4.7s (compile: 225ms, proxy.ts: 37ms, render: 4.4s)
+ GET / 200 in 881ms (compile: 18ms, proxy.ts: 19ms, render: 844ms)
+ GET /houseboats 200 in 15.3s (compile: 80ms, proxy.ts: 20ms, render: 15.2s)
+ GET /houseboats 200 in 6.9s (compile: 200ms, proxy.ts: 21ms, render: 6.6s)
+ GET /houseboats 200 in 12.3s (compile: 269ms, proxy.ts: 29ms, render: 12.0s)
+ GET /houseboats 200 in 1247ms (compile: 300ms, proxy.ts: 28ms, render: 919ms)
+ GET /houseboats 200 in 24.9s (compile: 13ms, proxy.ts: 21ms, render: 24.9s)
+ GET /houseboats 200 in 1310ms (compile: 319ms, proxy.ts: 51ms, render: 941ms)
+ GET /houseboats 200 in 25.7s (compile: 281ms, proxy.ts: 23ms, render: 25.4s)
+ GET /houseboats 200 in 661ms (compile: 16ms, proxy.ts: 17ms, render: 627ms)
+ GET / 200 in 10.8s (compile: 84ms, proxy.ts: 13ms, render: 10.7s)
+ GET / 200 in 18.6s (compile: 8ms, proxy.ts: 17ms, render: 18.5s)
+[?25h

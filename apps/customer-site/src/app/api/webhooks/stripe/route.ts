@@ -3,7 +3,11 @@ import { headers } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
-import { sendEmail } from '@/lib/email';
+import {
+    sendAccountingEmail,
+    sendClientReceipt,
+    sendStaffPaymentFailedEmail
+} from '@/lib/email';
 import Stripe from 'stripe';
 
 export const dynamic = 'force-dynamic';
@@ -26,6 +30,43 @@ export async function POST(req: Request) {
 
     const supabase = createAdminClient();
 
+    // Handle expired/failed checkout sessions
+    if (event.type === 'checkout.session.expired') {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const bookingId = session.metadata?.bookingId;
+        const tokenId = session.metadata?.tokenId;
+
+        console.log(`[Webhook] Checkout session expired for Booking ${bookingId}`);
+
+        if (bookingId) {
+            // Update booking payment status to failed
+            await supabase.from('bookings').update({
+                payment_status: 'failed'
+            }).eq('id', bookingId);
+
+            // Get booking details for notification
+            const { data: booking } = await supabase
+                .from('bookings')
+                .select('*')
+                .eq('id', bookingId)
+                .single();
+
+            if (booking) {
+                // Notify staff about failed payment
+                await sendStaffPaymentFailedEmail(booking, session);
+            }
+        }
+
+        // Mark token as expired/failed if applicable
+        if (tokenId) {
+            await supabase.from('payment_tokens').update({
+                used_at: new Date().toISOString() // Mark as used so it can't be retried
+            }).eq('id', tokenId);
+        }
+
+        return NextResponse.json({ received: true });
+    }
+
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object as Stripe.Checkout.Session;
         let bookingId = session.metadata?.bookingId;
@@ -46,24 +87,47 @@ export async function POST(req: Request) {
                 billingAddress,
                 numberOfGuests,
                 depositAmount,
-                totalPrice
+                totalPrice,
+                bookingType,
+                menuId,
+                guestDetails,
+                restaurantTableId
             } = session.metadata || {};
 
-            if (!boatId || !startTime || !endTime) {
-                console.error('[Webhook] Missing metadata for new booking creation');
+            // Validation: Require either boatId OR menuId (for restaurant)
+            if ((!boatId && !menuId) || !startTime) {
+                console.error('[Webhook] Missing required metadata for new booking creation');
                 return NextResponse.json({ error: 'Missing metadata' }, { status: 400 });
             }
 
             const amountPaid = (session.amount_total || 0) / 100;
             const isDeposit = Math.abs(amountPaid - Number(depositAmount)) < 1; // Tolerance
 
+            // Parse Guest Details if Restaurant
+            let parsedGuestDetails: any[] = [];
+            if (guestDetails) {
+                try {
+                    parsedGuestDetails = JSON.parse(guestDetails);
+                    // Ensure menuId is attached to details if not present
+                    if (menuId) {
+                        parsedGuestDetails = parsedGuestDetails.map((gd: any) => ({
+                            ...gd,
+                            menuId: gd.menuId || menuId
+                        }));
+                    }
+                } catch (e) {
+                    console.error('Failed to parse guestDetails', e);
+                }
+            }
+
             const { data: newBooking, error: createError } = await supabase
                 .from('bookings')
                 .insert({
                     id: crypto.randomUUID(),
-                    houseboat_id: boatId,
-                    start_time: startTime,
-                    end_time: endTime,
+                    houseboat_id: boatId || null,
+                    restaurant_table_id: restaurantTableId || (menuId ? 'auto' : null),
+                    start_time: startTime, // Note: Stripe metadata converts to string, ensure ISO format was sent
+                    end_time: endTime || (menuId ? new Date(new Date(startTime).getTime() + 2 * 60 * 60 * 1000).toISOString() : null), // Default 2h duration for restaurant if unused
                     client_name: clientName || session.customer_details?.name || 'Guest',
                     client_email: clientEmail || session.customer_details?.email,
                     client_phone: clientPhone,
@@ -75,7 +139,9 @@ export async function POST(req: Request) {
                     billing_nif: billingNif || null,
                     billing_address: billingAddress || null,
                     billing_name: clientName || null,
-                    source: 'website'
+                    source: 'website',
+                    booking_type: bookingType || (boatId ? 'overnight' : 'restaurant_reservation'),
+                    guest_details: parsedGuestDetails.length > 0 ? parsedGuestDetails : null
                 })
                 .select()
                 .single();
@@ -91,22 +157,80 @@ export async function POST(req: Request) {
 
         console.log(`[Webhook] Processing Payment for Booking ${bookingId}`);
 
-        // 1. Record Payment in 'payments' table (Non-blocking - table may not exist)
+        // 1. Record Payment in 'payments' table
         const amountPaid = (session.amount_total || 0) / 100;
+        let paymentMetadata = {};
 
         try {
+            // Retrieve PaymentIntent to get payment method details
+            if (session.payment_intent) {
+                const pi = await stripe.paymentIntents.retrieve(session.payment_intent as string, {
+                    expand: ['payment_method']
+                });
+                const pm = pi.payment_method as Stripe.PaymentMethod;
+
+                if (pm) {
+                    let methodLabel: string = pm.type;
+                    if (pm.type === 'card') {
+                        methodLabel = `${pm.card?.brand?.toUpperCase()} ••• ${pm.card?.last4}`;
+                    } else if (pm.type === 'mb_way') {
+                        methodLabel = 'MB WAY';
+                    } else if (pm.type === 'multibanco') {
+                        methodLabel = 'Multibanco';
+                    }
+
+                    paymentMetadata = {
+                        stripe_payment_method_id: pm.id,
+                        stripe_type: pm.type,
+                        card_brand: pm.card?.brand,
+                        last4: pm.card?.last4,
+                        wallet: pm.card?.wallet?.type,
+                        details: methodLabel
+                    };
+                }
+            }
+
             const { error: paymentError } = await supabase.from('payments').insert({
                 booking_id: bookingId,
                 stripe_payment_intent_id: session.payment_intent as string,
                 amount: amountPaid,
-                status: 'succeeded'
+                status: 'succeeded',
+                method: 'stripe',
+                reference: session.payment_intent as string,
+                metadata: paymentMetadata
             });
 
             if (paymentError) {
                 console.error('[Webhook] Failed to record payment (non-blocking):', paymentError.message);
             }
+
+            // ALSO: Record in payment_transactions for the new premium history board
+            // Fetch billing info from booking if available
+            const { data: bookingData } = await supabase
+                .from('bookings')
+                .select('billing_name, billing_nif, billing_address')
+                .eq('id', bookingId)
+                .single();
+
+            const { error: transError } = await supabase.from('payment_transactions').insert({
+                booking_id: bookingId,
+                amount: amountPaid,
+                method: (paymentMetadata as any).details || 'Stripe',
+                status: 'completed',
+                reference: session.payment_intent as string,
+                type: 'payment',
+                billing_name: bookingData?.billing_name || null,
+                billing_nif: bookingData?.billing_nif || null,
+                billing_address: bookingData?.billing_address || null,
+                needs_invoice: !!(bookingData?.billing_nif),
+                invoice_status: !!(bookingData?.billing_nif) ? 'pending' : 'ignored'
+            });
+
+            if (transError) {
+                console.error('[Webhook] Failed to log to payment_transactions:', transError.message);
+            }
         } catch (e: any) {
-            console.error('[Webhook] Payment table error (non-blocking):', e.message);
+            console.error('[Webhook] Payment logging error:', e.message);
         }
 
         // 2. Mark Token Used (if applicable)
@@ -127,43 +251,33 @@ export async function POST(req: Request) {
             // but for now let's increment atomicly or re-sum.
             // Let's re-sum from payments table for "Source of Truth" as per user plan.
 
-            const { data: allPayments } = await supabase
-                .from('payments')
-                .select('amount')
-                .eq('booking_id', bookingId)
-                .eq('status', 'succeeded');
-
-            // If the insert above was slow/async, this select might miss it? 
-            // Actually in same flow it might be fine, or we just trust 'booking.amount_paid' + current.
-            // Let's use the safer "increment" approach for the booking record itself 
-            // OR strictly follow the user plan: "Calculate Total Paid... If total >= price confirm".
-
-            const totalPaidDb = (allPayments || []).reduce((sum, p) => sum + Number(p.amount), 0);
-            // NOTE: The insert above happened just before.
-
             // Note: If 'active' storage of amount_paid is preferred:
             const newTotalPaid = (booking.amount_paid || 0) + amountPaid;
             // Use the greater of the two strategies to be safe? 
             // Let's stick to the booking column update for frontend consistency.
 
             const totalPrice = booking.total_price || booking.price || 0;
-            const isFullyPaid = newTotalPaid >= (totalPrice - 0.05); // epsilon
+            const isFullyPaid = newTotalPaid >= (totalPrice - 0.05);
+            const isDepositPaid = newTotalPaid >= (totalPrice * 0.3);
+            const paymentStatus = isFullyPaid ? 'fully_paid' : (isDepositPaid ? 'deposit_paid' : 'unpaid');
+
+            let newStatus = booking.status;
+            if (booking.source !== 'external') {
+                if (isFullyPaid || isDepositPaid) {
+                    newStatus = 'Confirmed';
+                }
+            }
 
             await supabase.from('bookings').update({
                 amount_paid: newTotalPaid,
-                status: isFullyPaid ? 'Confirmed' : (booking.status === 'Pending' ? 'Confirmed' : booking.status),
-                // Note: User plan said "If Partial -> deposit_paid". We map that to 'Confirmed' (as deposit confirms it) or keep as is?
-                // Let's stick to Confirmed if any payment is made for now, or 'Confirmed' only if full?
-                // For Houseboats, deposit confirms. 
+                payment_status: paymentStatus,
+                status: newStatus,
             }).eq('id', bookingId);
 
 
             // 4. Notifications
-            // Send Finance Email (only if fully paid? or every payment?)
-            // User plan: "If Total Paid >= Total Price ... Send Finance Email"
-            if (isFullyPaid) {
-                await sendFinanceEmail(booking, newTotalPaid);
-            }
+            // Send Accounting Email on EVERY successful payment (per user plan)
+            await sendAccountingEmail(booking, amountPaid, newTotalPaid, totalPrice, session);
 
             // Send Client Receipt (Always good)
             await sendClientReceipt(booking, amountPaid);
@@ -171,40 +285,4 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ received: true });
-}
-
-// Helpers
-async function sendFinanceEmail(booking: any, totalPaid: number) {
-    const financeEmail = process.env.FINANCE_EMAIL || 'finance@amieiramarina.com';
-    const invoiceSubject = `[URGENT] Issue Invoice - Booking ${booking.id.slice(0, 8)}`;
-    const invoiceBody = `
-To Finance Department,
-
-A reservation has been FULLY PAID. Please issue the Fatura.
-
-Client: ${booking.billing_name || booking.client_name}
-NIF: ${booking.billing_nif || 'N/A'}
-Address: ${booking.billing_address || 'N/A'}
-
-Total Paid: €${totalPaid.toFixed(2)}
-Booking Date: ${new Date(booking.start_time).toLocaleDateString()}
-Service: ${booking.houseboat_id ? 'Houseboat' : 'Restaurant'}
-
-Booking ID: ${booking.id}
-    `;
-    await sendEmail(financeEmail, invoiceSubject, invoiceBody).catch(console.error);
-}
-
-async function sendClientReceipt(booking: any, amountPaid: number) {
-    const receiptSubject = `Payment Receipt - ${booking.client_name}`;
-    const receiptBody = `
-Dear ${booking.client_name},
-
-We have confirmed your payment of €${amountPaid.toFixed(2)}.
-
-Billing NIF: ${booking.billing_nif || 'N/A'}
-
-Thank you for choosing Amieira Getaways.
-    `;
-    await sendEmail(booking.client_email, receiptSubject, receiptBody).catch(console.error);
 }

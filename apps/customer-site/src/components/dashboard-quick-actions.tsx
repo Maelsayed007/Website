@@ -1,19 +1,12 @@
 'use client';
 
-import { Plus, Ship, Utensils, Calendar, Hammer } from 'lucide-react';
+import { Ship, Utensils, Hammer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
 export function QuickActions() {
     const actions = [
-        {
-            label: 'New Reservation',
-            icon: Plus,
-            href: '/dashboard/reservations?action=new',
-            color: 'bg-[#34C759]',
-            textColor: 'text-white'
-        },
         {
             label: 'Check-in Boat',
             icon: Ship,

@@ -6,10 +6,16 @@ import { stripe } from '@/lib/stripe';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
-    const supabase = createAdminClient();
-
     try {
-        const { token, billingInfo } = await request.json();
+        const supabase = createAdminClient();
+        const { token, billingInfo, email } = await request.json();
+
+        // Email validation helper
+        const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+
+        if (!process.env.STRIPE_SECRET_KEY) {
+            throw new Error('Missing STRIPE_SECRET_KEY');
+        }
 
         if (!token) {
             return NextResponse.json({ error: 'Missing token' }, { status: 400 });
@@ -27,6 +33,19 @@ export async function POST(request: Request) {
         }
 
         const booking = tokenData.bookings;
+
+        // 2. Determine Email to use
+        const customerEmail = email || booking.client_email;
+
+        if (!customerEmail || !isValidEmail(customerEmail)) {
+            return NextResponse.json({ error: 'A valid email address is required for receipt.' }, { status: 400 });
+        }
+
+        // 3. Update Email in DB if changed/new
+        if (customerEmail !== booking.client_email) {
+            await supabase.from('bookings').update({ client_email: customerEmail }).eq('id', booking.id);
+        }
+
         const amountPaid = booking.amount_paid || 0;
         const totalPrice = booking.total_price || booking.price || 0;
         const remaining = Math.max(0, totalPrice - amountPaid);
@@ -54,8 +73,7 @@ export async function POST(request: Request) {
 
         const session = await stripe.checkout.sessions.create({
             mode: 'payment',
-            automatic_payment_methods: { enabled: true },
-            customer_email: booking.client_email,
+            customer_email: customerEmail,
             line_items: [
                 {
                     price_data: {
@@ -80,8 +98,8 @@ export async function POST(request: Request) {
 
         return NextResponse.json({ url: session.url });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('Stripe Checkout Error:', error);
-        return NextResponse.json({ error: 'Failed to create checkout session' }, { status: 500 });
+        return NextResponse.json({ error: error.message || 'Failed to create checkout session' }, { status: 500 });
     }
 }

@@ -1,0 +1,7 @@
+npm error Lifecycle script `start` failed with error:
+npm error code 4294967295
+npm error path C:\Users\amend\Desktop\Amieira Marina\apps\customer-site
+npm error workspace @amieira/customer-site@0.1.0
+npm error location C:\Users\amend\Desktop\Amieira Marina\apps\customer-site
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c next start

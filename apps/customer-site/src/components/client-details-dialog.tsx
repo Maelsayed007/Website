@@ -42,7 +42,7 @@ type Booking = {
   status: string;
   houseboatId?: string;
   restaurantTableId?: string;
-  dailyTravelPackageId?: string;
+  riverCruisePackageId?: string;
 };
 
 type ClientDetailsDialogProps = {
@@ -83,7 +83,7 @@ export function ClientDetailsDialog({
           status: b.status,
           houseboatId: b.houseboat_id,
           restaurantTableId: b.restaurant_table_id,
-          dailyTravelPackageId: b.daily_travel_package_id,
+          riverCruisePackageId: b.daily_travel_package_id,
         })));
       }
       setIsLoadingBookings(false);
@@ -103,7 +103,7 @@ export function ClientDetailsDialog({
   const getBookingType = (booking: Booking) => {
     if (booking.houseboatId) return 'Houseboat';
     if (booking.restaurantTableId) return 'Restaurant';
-    return 'Daily Travel';
+    return 'River Cruise';
   };
 
   return (
@@ -239,3 +239,4 @@ export function ClientDetailsDialog({
     </Dialog>
   );
 }
+

@@ -83,7 +83,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     useEffect(() => {
         if (!supabase) return;
 
-        // Listen for NEW bookings
+        // Listen for NEW bookings OR UPDATED bookings (Payments)
         const channel = supabase
             .channel('dashboard-realtime-notifications')
             .on(
@@ -93,6 +93,22 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                     console.log('NEW BOOKING DETECTED:', payload);
                     // Only alert for NEW paid client reservations (source: website)
                     if (payload.new.status !== 'Cancelled' && payload.new.source === 'website') {
+                        addNotification(payload.new);
+                    }
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'bookings' },
+                (payload) => {
+                    console.log('BOOKING UPDATE DETECTED:', payload);
+
+                    // Logic: If amount_paid has increased, it's a new payment
+                    const oldPaid = payload.old?.amount_paid || 0;
+                    const newPaid = payload.new?.amount_paid || 0;
+
+                    if (newPaid > oldPaid) {
+                        console.log('PAYMENT DETECTED for Booking:', payload.new.id);
                         addNotification(payload.new);
                     }
                 }

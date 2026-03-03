@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useSupabase } from '@/components/providers/supabase-provider';
+import { useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/page-header';
 import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
@@ -14,11 +15,8 @@ import {
   Phone,
   Calendar,
   UserPlus,
-  ExternalLink,
-  ShieldAlert,
   Key,
   Trash2,
-  Edit,
   Loader2
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -78,6 +76,8 @@ export default function ClientsPage() {
 
   const [clients, setClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const searchParams = useSearchParams();
+  const clientIdParam = searchParams.get('id');
 
   // Fetch Clients
   useEffect(() => {
@@ -86,16 +86,15 @@ export default function ClientsPage() {
       setIsLoading(true);
 
       // Fetch from profiles where they are "Clients" (role='client' or no dashboard access)
-      const { data: profileClients, error: profilesError } = await supabase
+      const { data: profileClients } = await supabase
         .from('profiles')
         .select('*');
 
       if (profileClients) {
-        // Filter for Clients Only: No dashboard access and not the primary admin
+        // Filter for Clients Only: no dashboard/staff permissions.
         const clientUsers = profileClients.filter((p: any) => {
           const isStaff = p.permissions?.isSuperAdmin || p.permissions?.canViewDashboard;
-          const isPrimaryAdmin = p.email === 'myasserofficial@gmail.com';
-          return !isStaff && !isPrimaryAdmin;
+          return !isStaff;
         });
 
         setClients(clientUsers.map((c: any) => ({
@@ -116,7 +115,7 @@ export default function ClientsPage() {
 
     // Subscribe to realtime changes? Optional but good.
     const channel = supabase.channel('clients_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, payload => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, () => {
         // Re-fetch or simplistic update
         fetchClients();
       })
@@ -140,6 +139,17 @@ export default function ClientsPage() {
         (client.phone && client.phone.toLowerCase().includes(query))
     );
   }, [clients, searchQuery]);
+
+  // Handle URL ID Parameter
+  useEffect(() => {
+    if (clientIdParam && clients.length > 0) {
+      const client = clients.find(c => c.id === clientIdParam);
+      if (client) {
+        setSelectedClient(client);
+        setDetailsDialogOpen(true);
+      }
+    }
+  }, [clientIdParam, clients]);
 
   const handleDelete = async () => {
     if (!selectedClient) return;

@@ -1,301 +1,558 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, Users, Clock, Search, ChevronDown } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, Clock, Loader2, Search, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useSupabase } from '@/components/providers/supabase-provider';
 import { cn } from '@/lib/utils';
-import { sendBookingRequestEmail } from '@/lib/email';
-import { Label } from './ui/label';
+import {
+  getAvailabilityReasonText,
+  isRestaurantClosedDay,
+  parseInputDate,
+  RESTAURANT_TIME_OPTIONS,
+  RestaurantAvailabilityPayload,
+  RestaurantMenuOption,
+  RestaurantQuickDraft,
+} from './restaurant-booking.types';
 
-const reservationSchema = z.object({
-    date: z.date({
-        required_error: 'A date is required.',
-    }),
-    time: z.string({ required_error: 'A time is required.' }).min(1, 'A time is required.'),
-    guests: z.string({ required_error: 'Number of guests is required.' }).min(1, 'Number of guests is required.'),
-});
-
-const findOrCreateClient = async (supabase: any, name: string, email: string, phone: string) => {
-    if (!supabase) return;
-
-    const { data: existingClients, error: queryError } = await supabase
-        .from('clients')
-        .select('id')
-        .eq('email', email.toLowerCase())
-        .limit(1);
-
-    if (queryError) throw queryError;
-
-    const now = new Date().toISOString();
-    let clientId: string;
-
-    if (!existingClients || existingClients.length === 0) {
-        const { data: newClient, error: insertError } = await supabase
-            .from('clients')
-            .insert({
-                name,
-                email: email.toLowerCase(),
-                phone,
-                status: 'Lead',
-                last_contact: now,
-                created_at: now,
-                contact_history: [],
-            })
-            .select('id')
-            .single();
-
-        if (insertError) throw insertError;
-        clientId = newClient.id;
-    } else {
-        const client = existingClients[0];
-        const { error: updateError } = await supabase
-            .from('clients')
-            .update({ last_contact: now, phone })
-            .eq('id', client.id);
-
-        if (updateError) throw updateError;
-        clientId = client.id;
-    }
-    return clientId;
-};
-
-const fullyBookedRestaurantDays: Date[] = [];
+const reservationSchema = z
+  .object({
+    clientName: z.string().min(2, 'Name is required.'),
+    clientEmail: z.string().email('Valid email is required.'),
+    clientPhone: z.string().optional(),
+    date: z.date({ required_error: 'A date is required.' }),
+    time: z.string().min(1, 'A time is required.'),
+    menuId: z.string().min(1, 'Please select a menu.'),
+    adults: z.coerce.number().int().min(0),
+    children: z.coerce.number().int().min(0),
+    seniors: z.coerce.number().int().min(0),
+  })
+  .refine((values) => values.adults + values.children + values.seniors > 0, {
+    message: 'At least one guest is required.',
+    path: ['adults'],
+  });
 
 type RestaurantReservationFormProps = {
-    dictionary: {
-        form: {
-            title: string;
-            name: string; namePlaceholder: string;
-            email: string; emailPlaceholder: string;
-            phone: string;
-            date: string; datePlaceholder: string;
-            time: string; timePlaceholder: string;
-            guests: string; guestsPlaceholder: string;
-            guestLabel: string; guestsLabel: string;
-            submit: string; submitting: string;
-            success: { title: string; description: string; };
-            error: { title: string; description: string; };
-        };
+  dictionary: {
+    form: {
+      title: string;
+      name: string;
+      namePlaceholder: string;
+      email: string;
+      emailPlaceholder: string;
+      phone: string;
+      date: string;
+      datePlaceholder: string;
+      time: string;
+      timePlaceholder: string;
+      guests: string;
+      guestsPlaceholder: string;
+      guestLabel: string;
+      guestsLabel: string;
+      submit: string;
+      submitting: string;
+      success: { title: string; description: string };
+      error: { title: string; description: string };
     };
+  };
+  preselectedMenuId?: string;
+  providedMenus?: RestaurantMenuOption[];
+  initialDraft?: Partial<RestaurantQuickDraft>;
+  initialStep?: 1 | 2;
 };
 
-export default function RestaurantReservationForm({ dictionary }: RestaurantReservationFormProps) {
-    const { toast } = useToast();
-    const { supabase } = useSupabase();
-    const router = useRouter();
-    const [isSubmitting, setIsSubmitting] = useState(false);
+export default function RestaurantReservationForm({
+  dictionary,
+  preselectedMenuId,
+  providedMenus,
+  initialDraft,
+  initialStep = 1,
+}: RestaurantReservationFormProps) {
+  const { toast } = useToast();
+  const { supabase } = useSupabase();
 
-    const form = useForm<z.infer<typeof reservationSchema>>({
-        resolver: zodResolver(reservationSchema),
-        defaultValues: {
-            time: "",
-            guests: "2",
-        }
-    });
+  const [menus, setMenus] = useState<RestaurantMenuOption[]>(providedMenus || []);
+  const [step, setStep] = useState<1 | 2>(initialStep);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
+  const [availability, setAvailability] = useState<RestaurantAvailabilityPayload | null>(null);
 
-    async function onSubmit(values: z.infer<typeof reservationSchema>) {
-        if (!supabase) {
-            toast({
-                variant: 'destructive',
-                title: "Database Error",
-                description: "Could not connect to the database. Please try again later.",
-            });
-            return;
-        }
-        setIsSubmitting(true);
+  const initialDate = parseInputDate(initialDraft?.date);
+  const initialMenuId = initialDraft?.menuId || preselectedMenuId || '';
 
-        try {
-            const [hours, minutes] = values.time.split(':').map(Number);
-            const startTime = new Date(values.date);
-            startTime.setHours(hours, minutes, 0, 0);
+  const form = useForm<z.infer<typeof reservationSchema>>({
+    resolver: zodResolver(reservationSchema),
+    defaultValues: {
+      clientName: '',
+      clientEmail: '',
+      clientPhone: '',
+      date: initialDate,
+      time: initialDraft?.time || '',
+      menuId: initialMenuId,
+      adults: typeof initialDraft?.adults === 'number' ? initialDraft.adults : 2,
+      children: typeof initialDraft?.children === 'number' ? initialDraft.children : 0,
+      seniors: typeof initialDraft?.seniors === 'number' ? initialDraft.seniors : 0,
+    },
+  });
 
-            const endTime = new Date(startTime.getTime() + 2 * 60 * 60 * 1000);
+  const watched = form.watch();
+  const totalGuests = (watched.adults || 0) + (watched.children || 0) + (watched.seniors || 0);
 
-            const clientName = "Restaurant Guest"; // Placeholder
-            const clientEmail = "placeholder@example.com"; // Placeholder
-            const clientPhone = ""; // Placeholder
+  const selectedMenu = useMemo(() => menus.find((menu) => menu.id === watched.menuId), [menus, watched.menuId]);
 
-            const clientId = await findOrCreateClient(supabase, clientName, clientEmail, clientPhone);
+  const estimatedTotal = useMemo(() => {
+    if (!selectedMenu) return 0;
+    return (
+      (watched.adults || 0) * Number(selectedMenu.price_adult || 0) +
+      (watched.children || 0) * Number(selectedMenu.price_child || 0) +
+      (watched.seniors || 0) * Number(selectedMenu.price_senior ?? selectedMenu.price_adult ?? 0)
+    );
+  }, [selectedMenu, watched.adults, watched.children, watched.seniors]);
 
-            const bookingData = {
-                client_name: clientName,
-                client_email: clientEmail,
-                client_phone: clientPhone,
-                client_id: clientId,
-                start_time: startTime.toISOString(),
-                end_time: endTime.toISOString(),
-                status: 'Pending',
-                notes: `Restaurant reservation for ${values.guests} guest(s).`,
-                source: 'Website - Restaurant',
-                restaurant_table_id: 'unknown',
-                number_of_guests: parseInt(values.guests, 10),
-            };
+  useEffect(() => {
+    setStep(initialStep);
+  }, [initialStep]);
 
-            const { error: bookingError } = await supabase
-                .from('bookings')
-                .insert(bookingData);
+  useEffect(() => {
+    if (!providedMenus || providedMenus.length === 0) return;
+    setMenus(
+      providedMenus.map((menu) => ({
+        ...menu,
+        price_senior: menu.price_senior || menu.price_adult || 0,
+      })),
+    );
+  }, [providedMenus]);
 
-            if (bookingError) throw bookingError;
+  useEffect(() => {
+    if (providedMenus && providedMenus.length > 0) return;
+    if (!supabase) return;
 
-            await sendBookingRequestEmail({
-                ...bookingData,
-                clientName: bookingData.client_name,
-                clientEmail: bookingData.client_email,
-                clientPhone: bookingData.client_phone,
-                clientId: bookingData.client_id,
-                startTime: bookingData.start_time,
-                endTime: bookingData.end_time,
-                restaurantTableId: bookingData.restaurant_table_id,
-                numberOfGuests: bookingData.number_of_guests,
-            } as any);
+    const fetchMenus = async () => {
+      const { data } = await supabase
+        .from('restaurant_menus')
+        .select('id, name, price_adult, price_child, price_senior, is_active')
+        .eq('is_active', true)
+        .order('sort_order');
 
-            router.push('/payment-instructions');
+      if (data) {
+        setMenus(
+          (data as RestaurantMenuOption[]).map((menu) => ({
+            ...menu,
+            price_senior: menu.price_senior || menu.price_adult || 0,
+          })),
+        );
+      }
+    };
 
-        } catch (error) {
-            console.error("Reservation submission error:", error);
-            toast({
-                variant: 'destructive',
-                title: dictionary.form.error.title,
-                description: dictionary.form.error.description,
-            });
-        } finally {
-            setIsSubmitting(false);
-        }
+    fetchMenus();
+  }, [providedMenus, supabase]);
+
+  useEffect(() => {
+    if (!initialMenuId) return;
+    const exists = menus.some((menu) => menu.id === initialMenuId);
+    if (!exists) return;
+    form.setValue('menuId', initialMenuId, { shouldValidate: true });
+  }, [initialMenuId, menus, form]);
+
+  useEffect(() => {
+    const date = watched.date;
+    const time = watched.time;
+
+    if (!date || !time || totalGuests <= 0) {
+      setAvailability(null);
+      return;
     }
 
-    return (
-        <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)}>
-                <div className="flex flex-col md:flex-row gap-2 items-end justify-center">
-                    <FormField
-                        control={form.control}
-                        name="date"
-                        render={({ field }) => (
-                            <FormItem className="w-full md:w-auto">
-                                <Label className="block text-xs font-semibold mb-1 uppercase tracking-wider" style={{ color: '#010a1f' }}>
-                                    {dictionary.form.date}
-                                </Label>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <FormControl>
-                                            <button
-                                                type="button"
-                                                style={{ backgroundColor: 'white' }}
-                                                className={cn(
-                                                    'w-full md:w-48 h-11 justify-start text-left font-semibold border-2 border-gray-300 rounded-full bg-white hover:border-green-600 transition-colors flex items-center px-4',
-                                                    !field.value && 'text-gray-500'
-                                                )}
-                                            >
-                                                <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
-                                                <span className="text-sm font-semibold" style={{ color: field.value ? '#010a1f' : undefined }}>
-                                                    {field.value ? (
-                                                        format(field.value, 'MMM dd')
-                                                    ) : (
-                                                        <span>{dictionary.form.datePlaceholder}</span>
-                                                    )}
-                                                </span>
-                                            </button>
-                                        </FormControl>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0 bg-white rounded-2xl" align="start">
-                                        <Calendar
-                                            mode="single"
-                                            selected={field.value}
-                                            onSelect={field.onChange}
-                                            disabled={(date) =>
-                                                date < new Date(new Date().setHours(0, 0, 0, 0)) || fullyBookedRestaurantDays.some(d => format(d, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd'))
-                                            }
-                                            initialFocus
-                                            className="bg-white rounded-2xl"
-                                        />
-                                    </PopoverContent>
-                                </Popover>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+    let aborted = false;
+    const run = async () => {
+      setIsCheckingAvailability(true);
+      try {
+        const res = await fetch('/api/public/restaurant/availability', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: format(date, 'yyyy-MM-dd'),
+            time,
+            partySize: totalGuests,
+          }),
+        });
+        const data = (await res.json()) as RestaurantAvailabilityPayload;
+        if (!aborted) setAvailability(data);
+      } catch {
+        if (!aborted) setAvailability(null);
+      } finally {
+        if (!aborted) setIsCheckingAvailability(false);
+      }
+    };
 
-                    <FormField
-                        control={form.control}
-                        name="time"
-                        render={({ field }) => (
-                            <FormItem className="w-full md:w-48">
-                                <Label className="block text-xs font-semibold mb-1 uppercase tracking-wider" style={{ color: '#010a1f' }}>
-                                    {dictionary.form.time}
-                                </Label>
-                                <div className="relative">
-                                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-green-600 pointer-events-none z-10" />
-                                    <FormControl>
-                                        <select
-                                            {...field}
-                                            style={{ backgroundColor: 'white', color: '#010a1f' }}
-                                            className="w-full h-11 pl-11 pr-8 bg-white border-2 border-gray-300 rounded-full text-sm font-semibold hover:border-green-600 focus:border-green-600 focus:ring-2 focus:ring-green-600/20 transition-all outline-none appearance-none cursor-pointer"
-                                        >
-                                            <option value="" disabled>{dictionary.form.timePlaceholder}</option>
-                                            <option value="19:00">7:00 PM</option>
-                                            <option value="19:30">7:30 PM</option>
-                                            <option value="20:00">8:00 PM</option>
-                                            <option value="20:30">8:30 PM</option>
-                                            <option value="21:00">9:00 PM</option>
-                                        </select>
-                                    </FormControl>
-                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                                </div>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+    run();
+    return () => {
+      aborted = true;
+    };
+  }, [watched.date, watched.time, totalGuests]);
 
-                    <FormField
-                        control={form.control}
-                        name="guests"
-                        render={({ field }) => (
-                            <FormItem className="w-full md:w-48">
-                                <Label className="block text-xs font-semibold mb-1 uppercase tracking-wider" style={{ color: '#010a1f' }}>
-                                    {dictionary.form.guests}
-                                </Label>
-                                <div className="relative">
-                                    <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-green-600 pointer-events-none z-10" />
-                                    <FormControl>
-                                        <select
-                                            {...field}
-                                            style={{ backgroundColor: 'white', color: '#010a1f' }}
-                                            className="w-full h-11 pl-11 pr-8 bg-white border-2 border-gray-300 rounded-full text-sm font-semibold hover:border-green-600 focus:border-green-600 focus:ring-2 focus:ring-green-600/20 transition-all outline-none appearance-none cursor-pointer"
-                                        >
-                                            {[...Array(8)].map((_, i) => (
-                                                <option key={i + 1} value={`${i + 1}`}>
-                                                    {i + 1} {i + 1 > 1 ? dictionary.form.guestsLabel : dictionary.form.guestLabel}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </FormControl>
-                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                                </div>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+  const proceedToStepTwo = async () => {
+    const valid = await form.trigger(['menuId', 'date', 'time', 'adults', 'children', 'seniors']);
+    if (!valid) return;
 
-                    <Button
-                        type="submit"
-                        className="w-12 h-12 md:mb-0 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 rounded-full shadow-lg hover:shadow-xl transition-all flex-shrink-0 flex items-center justify-center"
-                        disabled={isSubmitting}
-                    >
-                        <Search className="w-6 h-6 text-white" />
-                    </Button>
+    if (!availability?.available) {
+      toast({
+        variant: 'destructive',
+        title: 'Selected slot unavailable',
+        description: availability ? getAvailabilityReasonText(availability.reason) : 'Please check availability first.',
+      });
+      return;
+    }
+
+    setStep(2);
+  };
+
+  async function onSubmit(values: z.infer<typeof reservationSchema>) {
+    if (!availability?.available) {
+      toast({
+        variant: 'destructive',
+        title: 'Selected slot unavailable',
+        description: availability ? getAvailabilityReasonText(availability.reason) : 'Please check availability first.',
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        date: format(values.date, 'yyyy-MM-dd'),
+        time: values.time,
+        menuId: values.menuId,
+        clientDetails: {
+          name: values.clientName,
+          email: values.clientEmail,
+          phone: values.clientPhone || '',
+        },
+        ageBreakdown: {
+          adults: values.adults,
+          children: values.children,
+          seniors: values.seniors,
+        },
+      };
+
+      const res = await fetch('/api/restaurant/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Could not start checkout.');
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+
+      toast({
+        variant: 'destructive',
+        title: 'Checkout failed',
+        description: 'No payment URL was returned.',
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: dictionary.form.error.title || 'Reservation failed',
+        description: error?.message || dictionary.form.error.description || 'Please try again.',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+        <div className="grid grid-cols-2 gap-2">
+          <div
+            className={cn(
+              'rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em]',
+              step === 1 ? 'bg-[#79ab64] text-white' : 'bg-[#eef6ea] text-[#5f9150]',
+            )}
+          >
+            1. Reservation setup
+          </div>
+          <div
+            className={cn(
+              'rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em]',
+              step === 2 ? 'bg-[#79ab64] text-white' : 'bg-[#eef6ea] text-[#5f9150]',
+            )}
+          >
+            2. Contact and confirm
+          </div>
+        </div>
+
+        {step === 1 ? (
+          <div className="space-y-5">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold uppercase tracking-wider text-[#18230F]/60">Menu</Label>
+              <Select value={watched.menuId} onValueChange={(value) => form.setValue('menuId', value, { shouldValidate: true })}>
+                <SelectTrigger className="h-11 rounded-xl border-stone-200">
+                  <SelectValue placeholder="Select menu" />
+                </SelectTrigger>
+                <SelectContent>
+                  {menus.map((menu) => (
+                    <SelectItem key={menu.id} value={menu.id}>
+                      {menu.name} | EUR {menu.price_adult}/adult
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-red-600">{form.formState.errors.menuId?.message}</p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="date"
+                render={({ field }) => (
+                  <FormItem>
+                    <Label className="text-xs font-bold uppercase tracking-wider text-[#18230F]/60">
+                      {dictionary.form.date || 'Date'}
+                    </Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <button
+                            type="button"
+                            className={cn(
+                              'h-11 w-full rounded-xl border border-stone-200 bg-white px-3 text-left text-sm font-medium',
+                              !field.value && 'text-stone-400',
+                            )}
+                          >
+                            <span className="inline-flex items-center gap-2">
+                              <CalendarIcon className="h-4 w-4 text-[#79ab64]" />
+                              {field.value ? format(field.value, 'MMM dd, yyyy') : dictionary.form.datePlaceholder || 'Pick date'}
+                            </span>
+                          </button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto rounded-xl p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0)) || isRestaurantClosedDay(date)}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="time"
+                render={({ field }) => (
+                  <FormItem>
+                    <Label className="text-xs font-bold uppercase tracking-wider text-[#18230F]/60">
+                      {dictionary.form.time || 'Time'}
+                    </Label>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger className="h-11 rounded-xl border-stone-200">
+                        <SelectValue placeholder={dictionary.form.timePlaceholder || 'Select time'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {RESTAURANT_TIME_OPTIONS.map((time) => (
+                          <SelectItem key={time} value={time}>
+                            <span className="inline-flex items-center gap-2">
+                              <Clock className="h-3.5 w-3.5 text-slate-400" />
+                              {time}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold uppercase tracking-wider text-[#18230F]/60">Adults</Label>
+                <Input type="number" min={0} className="h-11 rounded-xl border-stone-200" {...form.register('adults', { valueAsNumber: true })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold uppercase tracking-wider text-[#18230F]/60">Children</Label>
+                <Input type="number" min={0} className="h-11 rounded-xl border-stone-200" {...form.register('children', { valueAsNumber: true })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold uppercase tracking-wider text-[#18230F]/60">Seniors</Label>
+                <Input type="number" min={0} className="h-11 rounded-xl border-stone-200" {...form.register('seniors', { valueAsNumber: true })} />
+              </div>
+            </div>
+            {form.formState.errors.adults?.message && (
+              <p className="text-xs text-red-600">{form.formState.errors.adults.message}</p>
+            )}
+
+            <div className="rounded-xl border border-stone-200 bg-white px-4 py-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-stone-500">Party size</span>
+                <span className="inline-flex items-center gap-1.5 font-semibold text-[#18230F]">
+                  <Users className="h-4 w-4 text-[#79ab64]" />
+                  {totalGuests} guests
+                </span>
+              </div>
+              {totalGuests > 6 && (
+                <p className="mt-2 text-[12px] font-medium text-emerald-700">
+                  Group reservations are supported with priority confirmation.
+                </p>
+              )}
+            </div>
+
+            {(availability || isCheckingAvailability) && (
+              <div
+                className={cn(
+                  'rounded-xl px-4 py-3 text-sm',
+                  availability?.available ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800',
+                )}
+              >
+                {isCheckingAvailability ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Checking availability...
+                  </span>
+                ) : (
+                  <p className="font-semibold">{getAvailabilityReasonText(availability?.reason || '')}</p>
+                )}
+              </div>
+            )}
+
+            <Button
+              type="button"
+              className="h-12 w-full rounded-xl border-none bg-[#79ab64] text-white hover:bg-[#6d9b58]"
+              onClick={proceedToStepTwo}
+              disabled={isCheckingAvailability}
+            >
+              Continue to contact
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {!availability?.available && (
+              <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+                {availability
+                  ? getAvailabilityReasonText(availability.reason)
+                  : 'Checking selected slot. If unavailable, go back and adjust details.'}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="clientName" className="text-xs font-bold uppercase tracking-wider text-[#18230F]/60">
+                  {dictionary.form.name || 'Name'}
+                </Label>
+                <Input
+                  id="clientName"
+                  placeholder={dictionary.form.namePlaceholder || 'Your full name'}
+                  className="h-11 rounded-xl border-stone-200"
+                  {...form.register('clientName')}
+                />
+                {form.formState.errors.clientName?.message && (
+                  <p className="text-xs text-red-600">{form.formState.errors.clientName.message}</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="clientEmail" className="text-xs font-bold uppercase tracking-wider text-[#18230F]/60">
+                  {dictionary.form.email || 'Email'}
+                </Label>
+                <Input
+                  id="clientEmail"
+                  type="email"
+                  placeholder={dictionary.form.emailPlaceholder || 'name@email.com'}
+                  className="h-11 rounded-xl border-stone-200"
+                  {...form.register('clientEmail')}
+                />
+                {form.formState.errors.clientEmail?.message && (
+                  <p className="text-xs text-red-600">{form.formState.errors.clientEmail.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="clientPhone" className="text-xs font-bold uppercase tracking-wider text-[#18230F]/60">
+                {dictionary.form.phone || 'Phone'}
+              </Label>
+              <Input id="clientPhone" placeholder="+351..." className="h-11 rounded-xl border-stone-200" {...form.register('clientPhone')} />
+            </div>
+
+            <div className="rounded-xl border border-stone-200 bg-white px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-stone-500">Reservation summary</p>
+              <div className="mt-2 grid gap-1 text-sm text-[#18230F]">
+                <p>
+                  <span className="text-stone-500">Menu:</span> {selectedMenu?.name || '-'}
+                </p>
+                <p>
+                  <span className="text-stone-500">Date:</span> {watched.date ? format(watched.date, 'MMM dd, yyyy') : '-'}
+                </p>
+                <p>
+                  <span className="text-stone-500">Time:</span> {watched.time || '-'}
+                </p>
+                <p>
+                  <span className="text-stone-500">Guests:</span> {totalGuests}
+                </p>
+              </div>
+              <div className="mt-3 border-t border-stone-200 pt-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-stone-500">Estimated total</span>
+                  <span className="font-semibold text-[#18230F]">EUR {estimatedTotal.toFixed(2)}</span>
                 </div>
-            </form>
-        </Form>
-    );
+                <div className="mt-1 flex items-center justify-between">
+                  <span className="text-stone-500">Deposit to confirm (30%)</span>
+                  <span className="font-semibold text-[#18230F]">EUR {(estimatedTotal * 0.3).toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Button type="button" variant="outline" className="h-11 rounded-xl border-stone-300" onClick={() => setStep(1)}>
+                <ChevronLeft className="mr-1 h-4 w-4" />
+                Back to details
+              </Button>
+              <Button
+                type="submit"
+                className="h-11 rounded-xl border-none bg-[#79ab64] text-white hover:bg-[#6d9b58]"
+                disabled={isSubmitting || isCheckingAvailability || !availability?.available}
+              >
+                {isSubmitting ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {dictionary.form.submitting || 'Submitting...'}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-2">
+                    <Search className="h-4 w-4" />
+                    {dictionary.form.submit || 'Continue to payment'}
+                  </span>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+      </form>
+    </Form>
+  );
 }

@@ -1,15 +1,51 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { useAuth, useSupabase } from '@/components/providers/supabase-provider';
-import { PageHeader } from '@/components/page-header';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import {
+  addMonths,
+  addMinutes,
+  eachDayOfInterval,
+  differenceInMinutes,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameMonth,
+  isToday,
+  parseISO,
+  startOfMonth,
+  startOfWeek,
+} from 'date-fns';
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Loader2,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  Table2,
+  Trash2,
+  Users,
+} from 'lucide-react';
+import { useSupabase } from '@/components/providers/supabase-provider';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -18,18 +54,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
-  DialogClose,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -41,1521 +71,1793 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useToast } from '@/hooks/use-toast';
 import {
-  Search,
-  Filter,
-  Download,
-  Utensils,
-  Calendar,
-  Pencil,
-  Trash2,
-  FileText,
-  FileSpreadsheet,
-  ChevronDown,
-  Link,
-  Clock,
-  User,
-  CalendarDays,
-  Plus,
-  Phone,
-  Mail,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  X,
-  Users,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  ArrowRight,
-  History,
-  CreditCard,
-  DollarSign,
-  LayoutGrid,
-  List,
-  Leaf,
-  Wheat,
-  Milk,
-  Nut,
-  Fish,
-  Copy,
-  Loader2
-} from 'lucide-react';
-import { format, parseISO, formatDistanceToNow, isSameDay } from 'date-fns';
-import { cn } from '@/lib/utils';
+  normalizePermissions,
+  type PermissionSource,
+} from '@/lib/auth/permissions';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DateRange } from 'react-day-picker';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+  calculateRestaurantTotalFromAgeBreakdown,
+  evaluateRestaurantAvailability,
+  getRestaurantBookingPolicy,
+  toLisbonUtcDate,
+} from '@/lib/booking-rules';
+import {
+  getAvailabilityReasonText,
+  getDefaultRestaurantDateString,
+  RESTAURANT_TIME_OPTIONS,
+  type RestaurantMenuOption,
+} from '@/components/restaurant-booking.types';
 
-import { PaymentLinkPopover } from '@/components/payments/payment-link-popover';
-import { logActivity } from '@/lib/actions';
-import { sendBookingStatusUpdateEmail } from '@/lib/email';
-import { Booking as GlobalBooking, RestaurantMenuPackage, GuestDetail, PaymentTransaction } from '@/lib/types';
+type ReservationStatus = 'Pending' | 'Confirmed' | 'Cancelled' | 'Maintenance';
 
-type Booking = GlobalBooking & {
+type RestaurantGuestDetail = {
+  ageGroup: 'adult' | 'child' | 'senior';
+  quantity: number;
+  menuId?: string;
+  menuPackageId?: string;
+  price?: number;
+};
+
+type RestaurantBooking = {
   id: string;
+  houseboat_id?: string | null;
   client_name: string;
   client_email: string;
   client_phone: string;
   start_time: string;
   end_time: string;
-  status: 'Confirmed' | 'Pending' | 'Maintenance' | 'Cancelled';
-  price: number;
+  status: string;
   source: string;
-  restaurant_table_id?: string;
-  created_at: string;
-  notes?: string;
-  number_of_guests?: number;
-  guest_details?: GuestDetail[];
-  total_price?: number;
+  notes?: string | null;
+  restaurant_table_id?: string | null;
+  number_of_guests?: number | null;
+  guest_details?: RestaurantGuestDetail[] | null;
+  total_price?: number | null;
+  price?: number | null;
+  amount_paid?: number | null;
+  payment_status?: string | null;
+  booking_type?: string | null;
 };
 
-type RestaurantTable = {
+type PaymentTransactionRow = {
   id: string;
-  name: string;
+  booking_id: string;
+  amount?: number | null;
+  status?: string | null;
 };
 
-type UserPermissions = {
-  isSuperAdmin?: boolean;
-  canEditBookings?: boolean;
-  canViewBookings?: boolean;
+type ReservationFormState = {
+  id?: string;
+  clientName: string;
+  clientEmail: string;
+  clientPhone: string;
+  date: string;
+  time: string;
+  durationMinutes: number;
+  status: ReservationStatus;
+  source: string;
+  menuId: string;
+  adults: number;
+  children: number;
+  seniors: number;
+  amountPaid: number;
+  totalPrice: number;
+  notes: string;
+};
+
+const STATUS_OPTIONS: ReservationStatus[] = [
+  'Pending',
+  'Confirmed',
+  'Cancelled',
+  'Maintenance',
+];
+
+const DEFAULT_DURATION_MINUTES = 120;
+
+function clampInteger(value: unknown, fallback = 0) {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+  return parsed;
 }
 
-const STATUS_OPTIONS = ['Pending', 'Confirmed', 'Cancelled'];
+function safeNumber(value: unknown, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
 
-const statusColors: Record<string, string> = {
-  'Pending': 'bg-amber-100 text-[#854d0e]',
-  'Confirmed': 'bg-[#34C759] text-[#18230F]',
-  'Cancelled': 'bg-red-100 text-[#991b1b]',
-};
+function normalizeGuestAge(value: unknown): RestaurantGuestDetail['ageGroup'] {
+  const normalized = String(value || '').toLowerCase();
+  if (normalized === 'child') return 'child';
+  if (normalized === 'senior') return 'senior';
+  return 'adult';
+}
 
-const statusStyles: Record<string, { icon: React.ElementType, className: string }> = {
-  Confirmed: { icon: CheckCircle, className: 'bg-[#34C759] text-[#18230F]' },
-  Pending: { icon: Clock, className: 'bg-amber-100 text-[#854d0e]' },
-  Cancelled: { icon: XCircle, className: 'bg-red-100 text-[#991b1b]' },
-};
+function normalizeGuestDetails(value: unknown): RestaurantGuestDetail[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      const guest = item as Record<string, unknown>;
+      return {
+        ageGroup: normalizeGuestAge(guest.ageGroup),
+        quantity: clampInteger(guest.quantity, 0),
+        menuId:
+          typeof guest.menuId === 'string'
+            ? guest.menuId
+            : typeof guest.menuPackageId === 'string'
+              ? guest.menuPackageId
+              : undefined,
+        menuPackageId:
+          typeof guest.menuPackageId === 'string' ? guest.menuPackageId : undefined,
+        price: safeNumber(guest.price, 0),
+      };
+    })
+    .filter((guest) => guest.quantity > 0);
+}
+
+function extractGuestCount(
+  details: RestaurantGuestDetail[],
+  ageGroup: RestaurantGuestDetail['ageGroup']
+) {
+  return details
+    .filter((detail) => detail.ageGroup === ageGroup)
+    .reduce((sum, detail) => sum + clampInteger(detail.quantity, 0), 0);
+}
+
+function extractMenuId(details: RestaurantGuestDetail[]) {
+  const withMenu = details.find((detail) => detail.menuId || detail.menuPackageId);
+  return withMenu?.menuId || withMenu?.menuPackageId || '';
+}
+
+function createDefaultForm(menuId: string, selectedDate?: string): ReservationFormState {
+  return {
+    clientName: '',
+    clientEmail: '',
+    clientPhone: '',
+    date: selectedDate || getDefaultRestaurantDateString(),
+    time: RESTAURANT_TIME_OPTIONS[0] || '12:00',
+    durationMinutes: DEFAULT_DURATION_MINUTES,
+    status: 'Pending',
+    source: 'manual',
+    menuId,
+    adults: 2,
+    children: 0,
+    seniors: 0,
+    amountPaid: 0,
+    totalPrice: 0,
+    notes: '',
+  };
+}
+
+function formatCurrency(value: number) {
+  return `EUR ${Math.max(0, value).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function getStatusBadgeClass(status: string) {
+  switch (status) {
+    case 'Confirmed':
+      return 'border-emerald-400/45 bg-emerald-500/15 text-emerald-900 dark:text-emerald-100';
+    case 'Pending':
+      return 'border-amber-400/50 bg-amber-400/20 text-amber-900 dark:text-amber-100';
+    case 'Cancelled':
+      return 'border-rose-400/45 bg-rose-500/15 text-rose-900 dark:text-rose-100';
+    case 'Maintenance':
+      return 'border-zinc-500/60 bg-zinc-500/15 text-zinc-800 dark:text-zinc-100';
+    default:
+      return 'border-border bg-muted/40 text-foreground';
+  }
+}
+
+function summarizeBookings(rows: RestaurantBooking[]) {
+  const totalReservations = rows.length;
+  const pending = rows.filter((booking) => booking.status === 'Pending').length;
+  const totalCovers = rows.reduce(
+    (sum, booking) => sum + clampInteger(booking.number_of_guests, 0),
+    0
+  );
+  const totalDue = rows.reduce((sum, booking) => {
+    const total = safeNumber(booking.total_price ?? booking.price, 0);
+    const paid = safeNumber(booking.amount_paid, 0);
+    return sum + Math.max(0, total - paid);
+  }, 0);
+
+  return {
+    totalReservations,
+    pending,
+    totalCovers,
+    totalDue,
+  };
+}
+
+function getBookingMenuName(
+  booking: RestaurantBooking,
+  menuById: Map<string, RestaurantMenuOption>
+) {
+  const details = normalizeGuestDetails(booking.guest_details);
+  const menuId = extractMenuId(details);
+  if (!menuId) return 'Menu n/a';
+  return menuById.get(menuId)?.name || 'Archived menu';
+}
+
+function isRestaurantBookingRecord(booking: RestaurantBooking) {
+  const type = String(booking.booking_type || '').toLowerCase();
+  if (type) return type === 'restaurant_reservation';
+  if (booking.restaurant_table_id) return true;
+  const source = String(booking.source || '').toLowerCase();
+  if (source.includes('restaurant')) return true;
+  return !booking.houseboat_id && normalizeGuestDetails(booking.guest_details).length > 0;
+}
 
 export default function RestaurantReservationsPage() {
-  const { supabase } = useSupabase();
-  const { user } = useAuth();
-  const { toast } = useToast();
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { supabase } = useSupabase();
+  const { toast } = useToast();
 
-  // State
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [tables, setTables] = useState<RestaurantTable[]>([]);
-  const [packages, setPackages] = useState<RestaurantMenuPackage[]>([]);
+  const [permissionSource, setPermissionSource] = useState<PermissionSource>(null);
+  const [isPermissionsLoading, setIsPermissionsLoading] = useState(true);
+
+  const initialQuery = searchParams.get('q') || '';
+  const initialStatus = searchParams.get('status') || 'all';
+  const initialView = searchParams.get('view') === 'calendar' ? 'calendar' : 'table';
+  const initialDate = searchParams.get('date') || format(new Date(), 'yyyy-MM-dd');
+
+  const [localSearch, setLocalSearch] = useState(initialQuery);
+  const [searchTerm, setSearchTerm] = useState(initialQuery);
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
+  const [viewMode, setViewMode] = useState<'table' | 'calendar'>(initialView);
+  const [selectedDate, setSelectedDate] = useState(initialDate);
+  const [calendarDate, setCalendarDate] = useState<Date | undefined>(
+    () => parseISO(`${initialDate}T00:00:00`)
+  );
+
+  const [bookings, setBookings] = useState<RestaurantBooking[]>([]);
+  const [menus, setMenus] = useState<RestaurantMenuOption[]>([]);
+
   const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Filters
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [tableFilter, setTableFilter] = useState('all');
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editingBooking, setEditingBooking] = useState<RestaurantBooking | null>(null);
+  const [form, setForm] = useState<ReservationFormState>(() => createDefaultForm(''));
+  const [dayViewDate, setDayViewDate] = useState(initialDate);
+  const [isDayViewOpen, setIsDayViewOpen] = useState(false);
 
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(20);
-
-  // Dialogs
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [deletingBooking, setDeletingBooking] = useState<RestaurantBooking | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [formData, setFormData] = useState<Partial<Booking> & { dietaryNotes?: string }>({
-    guest_details: []
-  });
-  const [activeTab, setActiveTab] = useState('details');
 
-  // Bulk Actions
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [sortConfig, setSortConfig] = useState<{ key: keyof Booking; direction: 'asc' | 'desc' } | null>(null);
-  const [isBulkStatusDialogOpen, setIsBulkStatusDialogOpen] = useState(false);
-  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
-  const [bulkStatus, setBulkStatus] = useState('Confirmed');
-  const [payments, setPayments] = useState<PaymentTransaction[]>([]);
-  const [isAddingPayment, setIsAddingPayment] = useState(false);
-  const [paymentFormData, setPaymentFormData] = useState<Partial<PaymentTransaction>>({
-    method: 'cash',
-    amount: 0
-  });
-
-  // Auth & Permissions
-  const [userProfile, setUserProfile] = useState<{ permissions: UserPermissions, username: string, role: string } | null>(null);
-  const isHardcodedAdmin = user?.email === 'myasserofficial@gmail.com';
-  const canEdit = isHardcodedAdmin || userProfile?.role === 'super_admin' || userProfile?.permissions?.canEditBookings;
-
-  // Fetch User Permissions (Using Admin Session API)
   useEffect(() => {
-    const fetchProfile = async () => {
+    const timer = setTimeout(() => setSearchTerm(localSearch.trim()), 250);
+    return () => clearTimeout(timer);
+  }, [localSearch]);
+
+  useEffect(() => {
+    const query = searchParams.get('q') || '';
+    const nextStatus = searchParams.get('status') || 'all';
+    const nextView = searchParams.get('view') === 'calendar' ? 'calendar' : 'table';
+    const nextDate = searchParams.get('date') || format(new Date(), 'yyyy-MM-dd');
+
+    setLocalSearch((prev) => (prev === query ? prev : query));
+    setSearchTerm((prev) => (prev === query ? prev : query));
+    setStatusFilter((prev) => (prev === nextStatus ? prev : nextStatus));
+    setViewMode((prev) => (prev === nextView ? prev : nextView));
+    setSelectedDate((prev) => (prev === nextDate ? prev : nextDate));
+    setDayViewDate((prev) => (prev === nextDate ? prev : nextDate));
+    setCalendarDate((prev) => {
+      const next = parseISO(`${nextDate}T00:00:00`);
+      if (!prev) return next;
+      return format(prev, 'yyyy-MM-dd') === nextDate ? prev : next;
+    });
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!pathname) return;
+    const nextParams = new URLSearchParams();
+    if (searchTerm) nextParams.set('q', searchTerm);
+    if (statusFilter !== 'all') nextParams.set('status', statusFilter);
+    if (viewMode === 'calendar') nextParams.set('view', 'calendar');
+    if (viewMode === 'calendar' && selectedDate) nextParams.set('date', selectedDate);
+
+    const nextQuery = nextParams.toString();
+    const currentQuery = searchParams.toString();
+    if (nextQuery === currentQuery) return;
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+  }, [router, pathname, searchParams, searchTerm, statusFilter, viewMode, selectedDate]);
+
+  useEffect(() => {
+    let active = true;
+    const loadPermissions = async () => {
       try {
-        const res = await fetch('/api/admin/auth/session');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.user) {
-            setUserProfile({
-              permissions: data.user.permissions,
-              username: data.user.username,
-              role: data.user.role
-            });
-          }
+        const response = await fetch('/api/admin/auth/session');
+        if (!response.ok) {
+          if (active) setPermissionSource(null);
+          return;
         }
-      } catch (e) {
-        console.error('Error fetching admin session:', e);
+        const payload = await response.json();
+        if (!active) return;
+        if (payload?.user) {
+          setPermissionSource({
+            role: payload.user.role,
+            permissions: payload.user.permissions,
+          });
+        } else {
+          setPermissionSource(null);
+        }
+      } catch {
+        if (active) setPermissionSource(null);
+      } finally {
+        if (active) setIsPermissionsLoading(false);
       }
     };
-    fetchProfile();
+
+    void loadPermissions();
+    return () => {
+      active = false;
+    };
   }, []);
 
-  // Fetch Profile
-
-  // Fetch Utilities
-  useEffect(() => {
-    const fetchUtilities = async () => {
+  const loadData = useCallback(
+    async (options?: { silent?: boolean }) => {
       if (!supabase) return;
-      const { data: tableData } = await supabase.from('restaurant_tables').select('id, name');
-      if (tableData) setTables(tableData);
 
-      const { data: pkgData } = await supabase.from('restaurant_menu_packages').select('*').eq('is_active', true);
-      if (pkgData) setPackages(pkgData);
-    };
-    fetchUtilities();
-  }, [supabase]);
-
-  // Fetch Bookings
-  const fetchBookings = useCallback(async () => {
-    if (!supabase) return;
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('bookings')
-        .select('*')
-        .not('restaurant_table_id', 'is', null)
-        .order('start_time', { ascending: false });
-
-      if (error) throw error;
-      const mapped: Booking[] = data.map((b: any) => ({
-        id: b.id,
-        client_name: b.client_name,
-        client_email: b.client_email,
-        client_phone: b.client_phone,
-        start_time: b.start_time,
-        end_time: b.end_time,
-        status: b.status,
-        price: b.price || 0,
-        source: b.source || 'Direct',
-        restaurant_table_id: b.restaurant_table_id,
-        created_at: b.created_at,
-        notes: b.notes,
-        number_of_guests: b.number_of_guests || 1,
-        guest_details: b.guest_details || [],
-        total_price: b.total_price || 0
-      }));
-      setBookings(mapped);
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch reservations.' });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [supabase, toast]);
-
-  useEffect(() => {
-    fetchBookings();
-    if (!supabase) return;
-    const channel = supabase.channel('restaurant-reservations-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => {
-        fetchBookings();
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel) };
-  }, [supabase, fetchBookings]);
-
-  const fetchPayments = useCallback(async (bookingId: string) => {
-    if (!supabase) return;
-    try {
-      const { data, error } = await supabase
-        .from('restaurant_payments')
-        .select('*')
-        .eq('booking_id', bookingId)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      setPayments(data || []);
-    } catch (error: any) {
-      console.error('Error fetching payments:', error);
-    }
-  }, [supabase]);
-
-  // Initial load actions
-  useEffect(() => {
-    if (searchParams.get('action') === 'new' && canEdit) {
-      handleNewClick();
-    }
-  }, [searchParams, canEdit]);
-
-  // Calculations
-  const filteredBookings = useMemo(() => {
-    let result = bookings.filter(b => {
-      const matchesSearch = !searchQuery ||
-        b.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        b.client_email?.toLowerCase().includes(searchQuery.toLowerCase());
-
-      const matchesStatus = statusFilter === 'All' || b.status === statusFilter;
-      const matchesTable = tableFilter === 'all' || b.restaurant_table_id === tableFilter;
-
-      let matchesDate = true;
-      if (dateRange?.from) {
-        const bookingDate = parseISO(b.start_time);
-        matchesDate = bookingDate >= dateRange.from &&
-          (!dateRange.to || bookingDate <= dateRange.to);
-      }
-
-      return matchesSearch && matchesStatus && matchesTable && matchesDate;
-    });
-
-    if (sortConfig) {
-      result = [...result].sort((a, b) => {
-        let aValue = a[sortConfig.key];
-        let bValue = b[sortConfig.key];
-        if (aValue === undefined || bValue === undefined) return 0;
-        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-        return 0;
-      });
-    }
-
-    return result;
-  }, [bookings, searchQuery, statusFilter, tableFilter, dateRange, sortConfig]);
-
-  const stats = useMemo(() => {
-    const activeBookings = bookings.filter(b => b.status !== 'Cancelled');
-    const covers = activeBookings.reduce((sum, b) => sum + (b.number_of_guests || 1), 0);
-    return {
-      covers,
-      avgPartySize: activeBookings.length ? Math.round(covers / activeBookings.length) : 0,
-      pending: bookings.filter(b => b.status === 'Pending').length,
-      confirmed: bookings.filter(b => b.status === 'Confirmed').length,
-    };
-  }, [bookings]);
-
-  const dayBookings = useMemo(() => {
-    if (!selectedDate) return [];
-    return bookings.filter(b => isSameDay(parseISO(b.start_time), selectedDate))
-      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
-  }, [bookings, selectedDate]);
-
-  // Pricing Auto-Calculation
-  useEffect(() => {
-    if (!formData.guest_details || packages.length === 0) return;
-
-    let total = 0;
-    formData.guest_details.forEach(group => {
-      const pkg = packages.find(p => p.id === group.menuPackageId);
-      if (pkg) {
-        const price = group.ageGroup === 'child' ? pkg.prices.child : pkg.prices.adult;
-        total += price * (group.quantity || 1);
-      }
-    });
-
-    if (total !== formData.total_price) {
-      setFormData(prev => ({ ...prev, total_price: total, price: total }));
-    }
-  }, [formData.guest_details, packages]);
-
-  // Actions
-  const handleNewClick = () => {
-    if (!canEdit) {
-      toast({ variant: 'destructive', title: 'Permission Denied', description: "You don't have permission to create reservations." });
-      return;
-    }
-    setSelectedBooking(null);
-    setFormData({
-      status: 'Pending',
-      start_time: new Date().toISOString(),
-      number_of_guests: 1,
-      source: 'Manual',
-      dietaryNotes: '',
-      guest_details: [{ quantity: 1, ageGroup: 'adult', menuPackageId: packages[0]?.id || '' }],
-      total_price: 0
-    });
-    setActiveTab('details');
-    setIsEditDialogOpen(true);
-  };
-
-  const handleEditClick = (booking: Booking) => {
-    if (!canEdit) {
-      toast({ variant: 'destructive', title: 'Permission Denied', description: "You don't have permission to edit reservations." });
-      return;
-    }
-    setSelectedBooking(booking);
-
-    // Extract dietary notes if simple logic used (e.g., "DIETARY: ..." line)
-    setFormData({
-      ...booking,
-      dietaryNotes: booking.notes?.split('[DIETARY]: ')[1] || '',
-      guest_details: booking.guest_details || []
-    });
-
-    setActiveTab('details');
-    setIsEditDialogOpen(true);
-    if (booking.id) {
-      fetchPayments(booking.id);
-    }
-  };
-
-  const handleSaveChanges = async () => {
-    if (!supabase) return;
-    if (!user && !userProfile) {
-      toast({ variant: 'destructive', title: 'Error', description: 'User not authenticated. Please log in again.' });
-      return;
-    }
-    // Only block if we don't have enough permission info
-    if (!canEdit && !userProfile) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Loading permissions...' });
-      return;
-    }
-    setIsLoading(true);
-    try {
-      // Append dietary notes to main notes if present
-      let finalNotes = formData.notes || '';
-      if (formData.dietaryNotes) {
-        finalNotes = finalNotes ? `${finalNotes}\n[DIETARY]: ${formData.dietaryNotes}` : `[DIETARY]: ${formData.dietaryNotes}`;
-      }
-
-      if (selectedBooking) {
-        const { id, created_at, dietaryNotes, ...updates } = formData;
-        const { error } = await supabase.from('bookings').update({
-          ...updates,
-          notes: finalNotes,
-          guest_details: formData.guest_details,
-          total_price: formData.total_price
-        }).eq('id', selectedBooking.id);
-        if (error) throw error;
-        toast({ title: 'Success', description: 'Reservation updated.' });
+      if (options?.silent) {
+        setIsRefreshing(true);
       } else {
-        const startTime = formData.start_time ? new Date(formData.start_time) : new Date();
-        const endTime = new Date(startTime.getTime() + 2 * 60 * 60 * 1000);
-        const newId = crypto.randomUUID();
-        const totalCovers = formData.guest_details?.reduce((sum, g) => sum + (g.quantity || 0), 0) || 1;
-        const bookingData = {
-          id: newId,
-          client_name: formData.client_name,
-          client_email: formData.client_email,
-          client_phone: formData.client_phone,
-          restaurant_table_id: formData.restaurant_table_id || 'manual',
-          start_time: startTime.toISOString(),
-          end_time: endTime.toISOString(),
-          status: formData.status || 'Pending',
-          number_of_guests: totalCovers,
-          source: 'Manual',
-          notes: finalNotes,
-          price: formData.total_price || 0,
-          guest_details: formData.guest_details,
-          total_price: formData.total_price
-        };
-        const { error } = await supabase.from('bookings').insert(bookingData);
-        if (error) throw error;
-        toast({ title: 'Success', description: 'Reservation created.' });
+        setIsLoading(true);
       }
-      setIsEditDialogOpen(false);
-      fetchBookings();
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Error', description: error.message });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      setErrorMessage(null);
 
-  const handleDelete = async () => {
-    if (!selectedBooking || !supabase) return;
-    try {
-      const { error } = await supabase.from('bookings').delete().eq('id', selectedBooking.id);
-      if (error) throw error;
-      toast({ title: 'Success', description: 'Reservation deleted.' });
-      setIsDeleteDialogOpen(false);
-      fetchBookings();
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Error', description: error.message });
-    }
-  };
+      try {
+        const [bookingsRes, menusRes] = await Promise.all([
+          supabase
+            .from('bookings')
+            .select(
+              'id,houseboat_id,client_name,client_email,client_phone,start_time,end_time,status,source,notes,restaurant_table_id,number_of_guests,guest_details,total_price,price,amount_paid,payment_status,booking_type'
+            )
+            .or('booking_type.eq.restaurant_reservation,restaurant_table_id.not.is.null,source.ilike.%restaurant%')
+            .order('start_time', { ascending: true }),
+          supabase
+            .from('restaurant_menus')
+            .select('id,name,price_adult,price_child,price_senior,is_active,sort_order')
+            .eq('is_active', true)
+            .order('sort_order', { ascending: true }),
+        ]);
 
-  const handleAddPayment = async () => {
-    if (!supabase || !selectedBooking) return;
-    try {
-      const { amount, method, reference, notes } = paymentFormData;
-      if (!amount || amount <= 0) {
-        toast({ variant: 'destructive', title: 'Invalid Amount', description: 'Please enter a valid amount.' });
+        if (bookingsRes.error) throw bookingsRes.error;
+        if (menusRes.error) throw menusRes.error;
+
+        const incomingBookings = ((bookingsRes.data || []) as RestaurantBooking[]).filter(
+          isRestaurantBookingRecord
+        );
+
+        const incomingMenus = ((menusRes.data || []) as RestaurantMenuOption[]).map((menu) => ({
+          ...menu,
+          price_adult: safeNumber(menu.price_adult, 0),
+          price_child: safeNumber(menu.price_child, 0),
+          price_senior: safeNumber(menu.price_senior, safeNumber(menu.price_adult, 0)),
+        }));
+
+        setBookings(incomingBookings);
+        setMenus(incomingMenus);
+        setForm((prev) =>
+          prev.menuId || incomingMenus.length === 0 ? prev : { ...prev, menuId: incomingMenus[0].id }
+        );
+      } catch (error: any) {
+        const message = error?.message || 'Failed to load restaurant reservations.';
+        setErrorMessage(message);
+        toast({
+          variant: 'destructive',
+          title: 'Load failed',
+          description: message,
+        });
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [supabase, toast]
+  );
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  const permissions = useMemo(() => normalizePermissions(permissionSource), [permissionSource]);
+  const canView = Boolean(
+    permissions.isSuperAdmin ||
+      permissions.canViewBookings ||
+      permissions.canViewRestaurantReservations ||
+      permissions.canEditBookings ||
+      permissions.canEditRestaurantReservations
+  );
+  const canEdit = Boolean(
+    permissions.isSuperAdmin ||
+      permissions.canEditBookings ||
+      permissions.canEditRestaurantReservations
+  );
+
+  const menuById = useMemo(() => new Map(menus.map((menu) => [menu.id, menu])), [menus]);
+
+  const baseFilteredBookings = useMemo(() => {
+    const query = searchTerm.toLowerCase();
+
+    return bookings
+      .filter((booking) => {
+        if (statusFilter !== 'all' && booking.status !== statusFilter) return false;
+
+        if (!query) return true;
+        const haystack = [
+          booking.id,
+          booking.client_name || '',
+          booking.client_email || '',
+          booking.client_phone || '',
+          booking.status || '',
+          getBookingMenuName(booking, menuById),
+        ]
+          .join(' ')
+          .toLowerCase();
+
+        return haystack.includes(query);
+      })
+      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+  }, [bookings, searchTerm, statusFilter, menuById]);
+
+  const filteredBookings = useMemo(() => baseFilteredBookings, [baseFilteredBookings]);
+
+  const monthAnchorDate = useMemo(
+    () => calendarDate ?? parseISO(`${selectedDate}T00:00:00`),
+    [calendarDate, selectedDate]
+  );
+  const nextMonthAnchorDate = useMemo(() => addMonths(monthAnchorDate, 1), [monthAnchorDate]);
+  const monthRangeLabel = `${format(monthAnchorDate, 'MMM yyyy')} - ${format(nextMonthAnchorDate, 'MMM yyyy')}`;
+  const dualMonthViews = useMemo(
+    () =>
+      [monthAnchorDate, nextMonthAnchorDate].map((anchorDate) => {
+        const start = startOfWeek(startOfMonth(anchorDate), { weekStartsOn: 1 });
+        const end = endOfWeek(endOfMonth(anchorDate), { weekStartsOn: 1 });
+        const days = eachDayOfInterval({ start, end });
+        return {
+          anchorDate,
+          label: format(anchorDate, 'MMMM yyyy'),
+          days,
+          rowCount: Math.max(5, Math.ceil(days.length / 7)),
+        };
+      }),
+    [monthAnchorDate, nextMonthAnchorDate]
+  );
+  const bookingsByDayKey = useMemo(() => {
+    const map = new Map<string, RestaurantBooking[]>();
+    for (const booking of baseFilteredBookings) {
+      const key = format(parseISO(booking.start_time), 'yyyy-MM-dd');
+      const list = map.get(key);
+      if (list) {
+        list.push(booking);
+      } else {
+        map.set(key, [booking]);
+      }
+    }
+    for (const list of map.values()) {
+      list.sort(
+        (a, b) =>
+          new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+      );
+    }
+    return map;
+  }, [baseFilteredBookings]);
+
+  const tableStats = useMemo(() => summarizeBookings(filteredBookings), [filteredBookings]);
+  const calendarStats = useMemo(
+    () => summarizeBookings(baseFilteredBookings),
+    [baseFilteredBookings]
+  );
+  const dayViewBookings = useMemo(
+    () => bookingsByDayKey.get(dayViewDate) || [],
+    [bookingsByDayKey, dayViewDate]
+  );
+  const dayViewStats = useMemo(() => summarizeBookings(dayViewBookings), [dayViewBookings]);
+  const dayViewLabel = useMemo(
+    () => format(parseISO(`${dayViewDate}T00:00:00`), 'EEEE, MMMM dd, yyyy'),
+    [dayViewDate]
+  );
+
+  const selectedMenu = useMemo(
+    () => menus.find((menu) => menu.id === form.menuId) || null,
+    [menus, form.menuId]
+  );
+
+  const partySize =
+    Math.max(0, form.adults) + Math.max(0, form.children) + Math.max(0, form.seniors);
+
+  const computedTotal = useMemo(() => {
+    if (!selectedMenu) return Math.max(0, safeNumber(form.totalPrice, 0));
+    return calculateRestaurantTotalFromAgeBreakdown({
+      priceAdult: safeNumber(selectedMenu.price_adult, 0),
+      priceChild: safeNumber(selectedMenu.price_child, 0),
+      priceSenior: safeNumber(selectedMenu.price_senior, safeNumber(selectedMenu.price_adult, 0)),
+      adults: Math.max(0, form.adults),
+      children: Math.max(0, form.children),
+      seniors: Math.max(0, form.seniors),
+    });
+  }, [selectedMenu, form.totalPrice, form.adults, form.children, form.seniors]);
+
+  const computedDue = useMemo(
+    () => Math.max(0, computedTotal - Math.max(0, safeNumber(form.amountPaid, 0))),
+    [computedTotal, form.amountPaid]
+  );
+  const adultRate = safeNumber(selectedMenu?.price_adult, 0);
+  const childRate = safeNumber(selectedMenu?.price_child, 0);
+  const seniorRate = safeNumber(selectedMenu?.price_senior, adultRate);
+  const adultSubtotal = Math.max(0, form.adults) * adultRate;
+  const childSubtotal = Math.max(0, form.children) * childRate;
+  const seniorSubtotal = Math.max(0, form.seniors) * seniorRate;
+
+  const openNewReservation = useCallback(() => {
+    const defaultMenuId = menus[0]?.id || '';
+    setEditingBooking(null);
+    setForm(
+      createDefaultForm(defaultMenuId, selectedDate || getDefaultRestaurantDateString())
+    );
+    setIsFormOpen(true);
+  }, [menus, selectedDate]);
+  const openNewReservationForDate = useCallback(
+    (dateOverride: string) => {
+      const defaultMenuId = menus[0]?.id || '';
+      setEditingBooking(null);
+      setForm(createDefaultForm(defaultMenuId, dateOverride || getDefaultRestaurantDateString()));
+      setIsFormOpen(true);
+    },
+    [menus]
+  );
+
+  const openEditReservation = useCallback(
+    (booking: RestaurantBooking) => {
+      const details = normalizeGuestDetails(booking.guest_details);
+      const menuId = extractMenuId(details) || menus[0]?.id || '';
+      const start = parseISO(booking.start_time);
+      const end = parseISO(booking.end_time);
+      const durationMinutes = Math.max(
+        30,
+        Number.isFinite(differenceInMinutes(end, start))
+          ? differenceInMinutes(end, start)
+          : DEFAULT_DURATION_MINUTES
+      );
+
+      setEditingBooking(booking);
+      setForm({
+        id: booking.id,
+        clientName: booking.client_name || '',
+        clientEmail: booking.client_email || '',
+        clientPhone: booking.client_phone || '',
+        date: format(start, 'yyyy-MM-dd'),
+        time: format(start, 'HH:mm'),
+        durationMinutes,
+        status: STATUS_OPTIONS.includes(booking.status as ReservationStatus)
+          ? (booking.status as ReservationStatus)
+          : 'Pending',
+        source: booking.source || 'manual',
+        menuId,
+        adults: extractGuestCount(details, 'adult'),
+        children: extractGuestCount(details, 'child'),
+        seniors: extractGuestCount(details, 'senior'),
+        amountPaid: safeNumber(booking.amount_paid, 0),
+        totalPrice: safeNumber(booking.total_price ?? booking.price, 0),
+        notes: booking.notes || '',
+      });
+      setIsFormOpen(true);
+    },
+    [menus]
+  );
+
+  useEffect(() => {
+    if (searchParams.get('action') !== 'new') return;
+    if (!canEdit) return;
+
+    openNewReservation();
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete('action');
+    const query = next.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [searchParams, canEdit, openNewReservation, pathname, router]);
+
+  const closeForm = useCallback(() => {
+    setIsFormOpen(false);
+    setEditingBooking(null);
+  }, []);
+
+  const syncPaidAmountWithLedger = useCallback(
+    async (bookingId: string, targetPaid: number, previousPaid: number) => {
+      const tolerance = 0.01;
+
+      const createManualPayment = async (amount: number, ref: string) => {
+        if (Math.abs(amount) < tolerance) return;
+        const response = await fetch('/api/payments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bookingId,
+            amount: Number(amount.toFixed(2)),
+            method: amount >= 0 ? 'transfer' : 'adjustment',
+            ref,
+            date: new Date().toISOString(),
+          }),
+        });
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null);
+          throw new Error(payload?.error || 'Could not write payment transaction.');
+        }
+      };
+
+      try {
+        const response = await fetch(`/api/payments?bookingId=${encodeURIComponent(bookingId)}`, {
+          cache: 'no-store',
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null);
+          throw new Error(payload?.error || 'Could not load booking payments.');
+        }
+
+        const payload = await response.json();
+        const transactions = (Array.isArray(payload?.transactions)
+          ? payload.transactions
+          : []) as PaymentTransactionRow[];
+        const succeeded = transactions.filter((tx) => tx.status === 'succeeded');
+        let ledgerPaid = succeeded.reduce((sum, tx) => sum + safeNumber(tx.amount, 0), 0);
+
+        if (succeeded.length === 0 && previousPaid > 0) {
+          await createManualPayment(previousPaid, 'Opening balance sync');
+          ledgerPaid = previousPaid;
+        }
+
+        const delta = Number((targetPaid - ledgerPaid).toFixed(2));
+        if (Math.abs(delta) >= tolerance) {
+          await createManualPayment(delta, 'Reservation editor adjustment');
+        }
+
+        return null;
+      } catch (error: any) {
+        return error?.message || 'Payment sync failed.';
+      }
+    },
+    []
+  );
+
+  const handleSave = useCallback(async () => {
+    if (!supabase || isSaving) return;
+    if (!canEdit) {
+      toast({
+        variant: 'destructive',
+        title: 'Permission denied',
+        description: 'You do not have permission to edit restaurant reservations.',
+      });
+      return;
+    }
+
+    if (!form.clientName.trim()) {
+      toast({ variant: 'destructive', title: 'Client name required' });
+      return;
+    }
+    if (!form.clientEmail.trim()) {
+      toast({ variant: 'destructive', title: 'Client email required' });
+      return;
+    }
+    if (!form.date || !form.time) {
+      toast({ variant: 'destructive', title: 'Date and time required' });
+      return;
+    }
+    if (!form.menuId) {
+      toast({ variant: 'destructive', title: 'Menu selection required' });
+      return;
+    }
+    if (partySize <= 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Guests required',
+        description: 'At least one guest is required for a reservation.',
+      });
+      return;
+    }
+
+    const start = toLisbonUtcDate(form.date, form.time);
+    if (!start) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid date/time',
+        description: 'Could not parse the selected reservation date and time.',
+      });
+      return;
+    }
+    const end = addMinutes(start, Math.max(30, safeNumber(form.durationMinutes, DEFAULT_DURATION_MINUTES)));
+
+    if (form.status !== 'Cancelled') {
+      const policy = getRestaurantBookingPolicy({
+        date: form.date,
+        time: form.time,
+        partySize,
+      });
+
+      if (!policy.isOpenDay || !policy.isOpenTime) {
+        const reason = !policy.isOpenDay ? 'closed_day' : 'closed_time';
+        toast({
+          variant: 'destructive',
+          title: 'Outside service window',
+          description: getAvailabilityReasonText(reason),
+        });
         return;
       }
 
-      const { error } = await supabase.from('restaurant_payments').insert({
-        booking_id: selectedBooking.id,
-        amount,
-        method,
-        reference,
-        notes
+      const comparisonBookings = bookings
+        .filter((booking) => booking.id !== editingBooking?.id)
+        .filter((booking) => booking.status !== 'Cancelled')
+        .map((booking) => ({
+          startTime: booking.start_time,
+          endTime: booking.end_time,
+          guests: safeNumber(booking.number_of_guests, 0),
+        }));
+
+      const availability = evaluateRestaurantAvailability({
+        date: form.date,
+        time: form.time,
+        partySize,
+        durationMinutes: Math.max(30, safeNumber(form.durationMinutes, DEFAULT_DURATION_MINUTES)),
+        bookings: comparisonBookings,
       });
 
+      if (!availability.available) {
+        toast({
+          variant: 'destructive',
+          title: 'Slot unavailable',
+          description: getAvailabilityReasonText(availability.reason),
+        });
+        return;
+      }
+
+    }
+
+    const menu = menuById.get(form.menuId);
+    const guestDetailsCandidates: RestaurantGuestDetail[] = [
+      {
+        ageGroup: 'adult',
+        quantity: Math.max(0, form.adults),
+        menuId: form.menuId,
+        price: safeNumber(menu?.price_adult, 0),
+      },
+      {
+        ageGroup: 'child',
+        quantity: Math.max(0, form.children),
+        menuId: form.menuId,
+        price: safeNumber(menu?.price_child, 0),
+      },
+      {
+        ageGroup: 'senior',
+        quantity: Math.max(0, form.seniors),
+        menuId: form.menuId,
+        price: safeNumber(menu?.price_senior, safeNumber(menu?.price_adult, 0)),
+      },
+    ];
+    const guestDetails = guestDetailsCandidates.filter((detail) => detail.quantity > 0);
+
+    const totalPrice = Math.max(0, computedTotal);
+    const amountPaid = Math.max(0, safeNumber(form.amountPaid, 0));
+    const paymentStatus =
+      amountPaid >= totalPrice ? 'fully_paid' : amountPaid > 0 ? 'deposit_paid' : 'unpaid';
+
+    const payload = {
+      client_name: form.clientName.trim(),
+      client_email: form.clientEmail.trim(),
+      client_phone: form.clientPhone.trim(),
+      start_time: start.toISOString(),
+      end_time: end.toISOString(),
+      status: form.status,
+      source: (form.source || 'manual').toLowerCase(),
+      notes: form.notes.trim(),
+      restaurant_table_id: null,
+      number_of_guests: partySize,
+      guest_details: guestDetails,
+      total_price: totalPrice,
+      price: totalPrice,
+      amount_paid: amountPaid,
+      payment_status: paymentStatus,
+      booking_type: 'restaurant_reservation',
+    };
+
+    setIsSaving(true);
+    try {
+      const bookingId = editingBooking?.id || crypto.randomUUID();
+      if (editingBooking?.id) {
+        const { error } = await supabase.from('bookings').update(payload).eq('id', editingBooking.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('bookings').insert({
+          id: bookingId,
+          ...payload,
+        });
+        if (error) throw error;
+      }
+
+      const paymentSyncWarning = await syncPaidAmountWithLedger(
+        bookingId,
+        amountPaid,
+        safeNumber(editingBooking?.amount_paid, 0)
+      );
+      if (paymentSyncWarning) {
+        toast({
+          variant: 'destructive',
+          title: 'Payment sync warning',
+          description: paymentSyncWarning,
+        });
+      }
+
+      toast({
+        title: 'Saved',
+        description: `Reservation ${editingBooking?.id ? 'updated' : 'created'} successfully.`,
+      });
+      closeForm();
+      await loadData({ silent: true });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Save failed',
+        description: error?.message || 'Could not save reservation.',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [
+    bookings,
+    canEdit,
+    closeForm,
+    computedTotal,
+    editingBooking?.id,
+    editingBooking?.amount_paid,
+    form,
+    isSaving,
+    loadData,
+    menuById,
+    partySize,
+    supabase,
+    syncPaidAmountWithLedger,
+    toast,
+  ]);
+
+  const handleDelete = useCallback(async () => {
+    if (!supabase || !deletingBooking?.id) return;
+    if (!canEdit) return;
+
+    try {
+      const { error } = await supabase.from('bookings').delete().eq('id', deletingBooking.id);
       if (error) throw error;
-      toast({ title: 'Success', description: 'Payment added successfully.' });
-      setIsAddingPayment(false);
-      setPaymentFormData({ method: 'cash', amount: 0, reference: '', notes: '' });
-      fetchPayments(selectedBooking.id);
 
-      // Update booking total paid
-      // We refetch payments to be absolutely sure of the total
-      const { data: latestPayments } = await supabase.from('restaurant_payments').select('amount').eq('booking_id', selectedBooking.id);
-      const newTotalPaid = (latestPayments || []).reduce((sum, p) => sum + p.amount, 0);
-
-      await supabase.from('bookings').update({
-        amount_paid: newTotalPaid,
-        payment_status: newTotalPaid >= (formData.total_price || 0) ? 'fully_paid' : (newTotalPaid > 0 ? 'deposit_paid' : 'unpaid')
-      }).eq('id', selectedBooking.id);
-
-      fetchBookings();
+      toast({
+        title: 'Deleted',
+        description: 'Reservation removed successfully.',
+      });
+      setIsDeleteDialogOpen(false);
+      setDeletingBooking(null);
+      if (editingBooking?.id === deletingBooking.id) {
+        closeForm();
+      }
+      await loadData({ silent: true });
     } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Error', description: error.message });
+      toast({
+        variant: 'destructive',
+        title: 'Delete failed',
+        description: error?.message || 'Could not delete reservation.',
+      });
     }
-  };
+  }, [canEdit, closeForm, deletingBooking, editingBooking?.id, loadData, supabase, toast]);
 
-  const handleDeletePayment = async (paymentId: string) => {
-    if (!supabase || !selectedBooking) return;
-    try {
-      const { error } = await supabase.from('restaurant_payments').delete().eq('id', paymentId);
-      if (error) throw error;
-      toast({ title: 'Success', description: 'Payment deleted.' });
+  if (isPermissionsLoading) {
+    return (
+      <div className="p-4">
+        <Skeleton className="mb-3 h-12 w-full rounded-xl" />
+        <Skeleton className="h-[640px] w-full rounded-xl" />
+      </div>
+    );
+  }
 
-      // Re-calculate and update booking
-      const { data: updatedPayments } = await supabase.from('restaurant_payments').select('amount').eq('booking_id', selectedBooking.id);
-      const newTotalPaid = (updatedPayments || []).reduce((sum, p) => sum + p.amount, 0);
+  if (!canView) {
+    return (
+      <div className="p-4">
+        <Card className="border border-border bg-card shadow-none">
+          <CardContent className="py-14 text-center">
+            <p className="text-base font-semibold text-foreground">Access denied</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              You do not have permission to view restaurant reservations.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
-      await supabase.from('bookings').update({
-        amount_paid: newTotalPaid,
-        payment_status: newTotalPaid >= (formData.total_price || 0) ? 'fully_paid' : (newTotalPaid > 0 ? 'deposit_paid' : 'unpaid')
-      }).eq('id', selectedBooking.id);
-
-      fetchPayments(selectedBooking.id);
-      fetchBookings();
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Error', description: error.message });
-    }
-  };
-
-  const handleBulkStatusUpdate = async () => {
-    if (!supabase || selectedIds.length === 0) return;
-    try {
-      await supabase.from('bookings').update({ status: bulkStatus }).in('id', selectedIds);
-      toast({ title: 'Success', description: 'Bulk status updated.' });
-      setSelectedIds([]);
-      setIsBulkStatusDialogOpen(false);
-      fetchBookings();
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Error', description: error.message });
-    }
-  };
-
-  const handleBulkDelete = async () => {
-    if (!supabase || selectedIds.length === 0) return;
-    try {
-      await supabase.from('bookings').delete().in('id', selectedIds);
-      toast({ title: 'Success', description: 'Bulk delete successful.' });
-      setSelectedIds([]);
-      setIsBulkDeleteDialogOpen(false);
-      fetchBookings();
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Error', description: error.message });
-    }
-  };
-
-  // Guest Management Helpers
-  const addGuest = () => {
-    const currentGuests = formData.guest_details || [];
-    setFormData({
-      ...formData,
-      guest_details: [
-        ...currentGuests,
-        { quantity: 1, ageGroup: 'adult', menuPackageId: packages[0]?.id || '' }
-      ]
-    });
-  };
-
-  const removeGuest = (index: number) => {
-    const currentGuests = [...(formData.guest_details || [])];
-    currentGuests.splice(index, 1);
-    setFormData({ ...formData, guest_details: currentGuests });
-  };
-
-  const updateGuest = (index: number, updates: Partial<GuestDetail>) => {
-    const currentGuests = [...(formData.guest_details || [])];
-    currentGuests[index] = { ...currentGuests[index], ...updates };
-    setFormData({ ...formData, guest_details: currentGuests });
-  };
-
-  const getDietaryIcon = (notes?: string) => {
-    if (!notes) return null;
-    const n = notes.toLowerCase();
-    if (n.includes('vegan') || n.includes('vegetarian')) return <Leaf className="h-3 w-3 text-green-600" />;
-    if (n.includes('gluten')) return <Wheat className="h-3 w-3 text-amber-600" />;
-    if (n.includes('lactose') || n.includes('dairy')) return <Milk className="h-3 w-3 text-blue-600" />;
-    if (n.includes('nut')) return <Nut className="h-3 w-3 text-amber-800" />;
-    if (n.includes('fish') || n.includes('seafood')) return <Fish className="h-3 w-3 text-cyan-600" />;
-    return null;
-  };
-
-  const getTableName = (id?: string) => {
-    if (!id) return 'Unknown';
-    if (id === 'manual') return 'Manual Assignment';
-    return tables.find(t => t.id === id)?.name || 'Table Assignment';
-  };
-
-
-  const toggleSelectAll = () => {
-    if (selectedIds.length === filteredBookings.length && filteredBookings.length > 0) setSelectedIds([]);
-    else setSelectedIds(filteredBookings.map(b => b.id));
-  };
-
-  const toggleSelect = (id: string) => {
-    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-  };
-
-  const handleSort = (key: keyof Booking) => {
-    setSortConfig({ key, direction: sortConfig?.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc' });
-  };
-
-  const exportToCSV = () => {
-    // ... (Keep existing implementation)
-    toast({ title: 'Info', description: 'Export logic preserved.' });
-  };
+  const showInitialLoading = isLoading && bookings.length === 0;
 
   return (
-    <div className="space-y-6 relative pb-20">
-      <PageHeader
-        title="Restaurant Reservations"
-        description="Manage restaurant table bookings, covers, and service periods."
-        actions={
-          <Button
-            onClick={handleNewClick}
-            className="h-10 rounded-full px-6 gap-2 bg-[#18230F] text-white border-none hover:bg-[#2a3b1a] transition-all font-black shadow-none ring-0"
-          >
-            <Plus className="h-4 w-4 shrink-0" /> New Reservation
-          </Button>
-        }
-      />
+    <div className="flex h-[calc(100vh-64px)] min-h-0 flex-col bg-background">
+      <div className="sticky top-14 z-20 border-b border-border bg-background/95 px-2 py-2.5 backdrop-blur sm:px-3">
+        <div className="mx-auto flex w-full max-w-[1700px] flex-wrap items-center gap-2">
+          <div className="relative min-w-[18rem] max-w-[30rem] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={localSearch}
+              onChange={(event) => setLocalSearch(event.target.value)}
+              placeholder="Search client, email, phone or reference..."
+              className="h-10 rounded-full border-border/80 bg-card/80 pl-9 text-sm shadow-none"
+            />
+          </div>
 
-      {/* View Toggle */}
-      <div className="flex justify-end mb-4">
-        <div className="bg-[#18230F]/5 p-1 rounded-xl flex gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setViewMode('list')}
-            className={cn("rounded-lg px-4 gap-2 font-bold", viewMode === 'list' ? "bg-white text-[#18230F] shadow-sm" : "text-[#18230F]/50")}
-          >
-            <List className="h-4 w-4" /> List View
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setViewMode('calendar')}
-            className={cn("rounded-lg px-4 gap-2 font-bold", viewMode === 'calendar' ? "bg-white text-[#18230F] shadow-sm" : "text-[#18230F]/50")}
-          >
-            <CalendarDays className="h-4 w-4" /> Calendar
-          </Button>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-10 w-[11rem] rounded-full border-border/80 bg-card/80 text-sm shadow-none">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              {STATUS_OPTIONS.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {status}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {viewMode === 'calendar' ? (
+            <div className="flex items-center rounded-full border border-border/80 bg-card/80 p-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-full"
+                onClick={() => {
+                  const next = addMonths(monthAnchorDate, -1);
+                  setCalendarDate(next);
+                  setSelectedDate(format(next, 'yyyy-MM-dd'));
+                }}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="px-2 text-sm font-medium text-foreground">{monthRangeLabel}</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-full"
+                onClick={() => {
+                  const next = addMonths(monthAnchorDate, 1);
+                  setCalendarDate(next);
+                  setSelectedDate(format(next, 'yyyy-MM-dd'));
+                }}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : null}
+
+          <div className="flex items-center rounded-full border border-border/80 bg-card/80 p-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                'h-8 rounded-full px-3',
+                viewMode === 'table' ? 'bg-muted text-foreground' : 'text-muted-foreground'
+              )}
+              onClick={() => setViewMode('table')}
+            >
+              <Table2 className="mr-1.5 h-4 w-4" />
+              Table
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                'h-8 rounded-full px-3',
+                viewMode === 'calendar' ? 'bg-muted text-foreground' : 'text-muted-foreground'
+              )}
+              onClick={() => setViewMode('calendar')}
+            >
+              <CalendarDays className="mr-1.5 h-4 w-4" />
+              Month
+            </Button>
+          </div>
+
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant="outline"
+              className="h-10 rounded-full px-4"
+              onClick={() => {
+                const today = format(new Date(), 'yyyy-MM-dd');
+                setSelectedDate(today);
+                setCalendarDate(parseISO(`${today}T00:00:00`));
+              }}
+            >
+              <CalendarDays className="mr-2 h-4 w-4" />
+              Today
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              title="Refresh reservations"
+              className="h-10 w-10 rounded-full"
+              onClick={() => void loadData({ silent: true })}
+            >
+              {isRefreshing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+            </Button>
+            <Button className="h-10 rounded-full px-4" onClick={openNewReservation} disabled={!canEdit}>
+              <Plus className="mr-2 h-4 w-4" />
+              New reservation
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Stats Cards (Updated with Covers) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="relative overflow-hidden border-none bg-[#F1F8F1] transition-all duration-300 rounded-2xl shadow-none">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-black text-[#18230F]">{stats.covers}</p>
-                <p className="text-xs font-bold text-[#18230F] uppercase tracking-wider">Total Covers</p>
+      <div className="flex min-h-0 flex-1 flex-col gap-2 p-2">
+        <Card className="flex min-h-0 flex-1 flex-col overflow-hidden border border-border bg-card shadow-none">
+          <CardHeader className="border-b border-border py-3">
+            <CardTitle className="text-base font-semibold text-foreground">
+              Restaurant reservations
+            </CardTitle>
+            <CardDescription className="text-xs uppercase tracking-wide text-muted-foreground">
+              {viewMode === 'table'
+                ? `${filteredBookings.length} reservations | ${tableStats.pending} pending | ${tableStats.totalCovers} covers`
+                : `${calendarStats.totalReservations} reservations | ${calendarStats.pending} pending | ${monthRangeLabel}`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="min-h-0 flex-1 p-0">
+            {showInitialLoading ? (
+              <div className="space-y-2 p-3">
+                <Skeleton className="h-12 w-full rounded-lg" />
+                <Skeleton className="h-12 w-full rounded-lg" />
+                <Skeleton className="h-12 w-full rounded-lg" />
               </div>
-              <div className="p-2.5 bg-white/50 rounded-xl">
-                <Users className="h-5 w-5 text-[#18230F]" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="relative overflow-hidden border-none bg-[#F1F8F1] transition-all duration-300 rounded-2xl shadow-none">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-black text-amber-600">{stats.avgPartySize}</p>
-                <p className="text-xs font-bold text-[#18230F] uppercase tracking-wider">Avg Party Size</p>
-              </div>
-              <div className="p-2.5 bg-white/50 rounded-xl">
-                <Users className="h-5 w-5 text-amber-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="relative overflow-hidden border-none bg-[#F1F8F1] transition-all duration-300 rounded-2xl shadow-none">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-black text-[#34C759]">{stats.confirmed}</p>
-                <p className="text-xs font-bold text-[#18230F] uppercase tracking-wider">Confirmed</p>
-              </div>
-              <div className="p-2.5 bg-white/50 rounded-xl">
-                <CheckCircle className="h-5 w-5 text-[#34C759]" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="relative overflow-hidden border-none bg-[#18230F] text-white transition-all duration-300 rounded-2xl shadow-none">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-black text-white">{stats.pending}</p>
-                <p className="text-xs font-bold text-white uppercase tracking-wider">Pending Action</p>
-              </div>
-              <div className="p-2.5 bg-white/10 rounded-xl">
-                <Clock className="h-5 w-5 text-[#34C759]" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* List View Mode */}
-      {viewMode === 'list' && (
-        <>
-          {/* Filters - High Fidelity Aesthetic */}
-          <div className="mb-6 px-1">
-            <div className="flex flex-col xl:flex-row items-center justify-between gap-2 w-full">
-              {/* Search */}
-              <div className="relative w-full lg:w-[450px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#854d0e]/60" />
-                <Input
-                  placeholder="Search client, email..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 h-10 bg-amber-100 border-[#18230F]/5 focus:bg-white focus:border-[#34C759]/30 rounded-full text-sm font-bold text-[#854d0e] placeholder:text-[#854d0e]/50 transition-all shadow-none ring-0"
-                />
-              </div>
-
-              {/* Filter Group */}
-              <div className="flex flex-wrap items-center justify-end gap-2 w-full xl:w-auto">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "h-10 rounded-full border-[#18230F]/5 bg-amber-100 text-[#854d0e] hover:border-[#34C759]/30 hover:bg-emerald-50 transition-all font-bold shadow-none ring-0",
-                        dateRange && "bg-[#34C759]/10 border-[#34C759]/20"
-                      )}
-                    >
-                      <Calendar className="mr-2 h-4 w-4 text-[#854d0e]/60" />
-                      {dateRange?.from ? (
-                        dateRange.to ? (
-                          `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}`
-                        ) : format(dateRange.from, "MMM dd")
-                      ) : "Pick Date"}
+            ) : viewMode === 'table' ? (
+              filteredBookings.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center gap-2 p-8 text-center">
+                  <CalendarDays className="h-10 w-10 text-muted-foreground/30" />
+                  <p className="text-sm font-semibold text-foreground">No reservations found</p>
+                  <p className="text-sm text-muted-foreground">
+                    Change filters or create a new reservation.
+                  </p>
+                  {canEdit ? (
+                    <Button className="mt-2 rounded-full px-4" onClick={openNewReservation}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      New reservation
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={2} />
-                  </PopoverContent>
-                </Popover>
-
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className={cn(
-                    "w-[140px] h-10 rounded-full border-[#18230F]/5 bg-amber-100 text-[#854d0e] hover:border-[#34C759]/30 hover:bg-emerald-50 transition-all font-bold shadow-none ring-0",
-                    statusFilter !== 'All' && "bg-[#34C759]/10 border-[#34C759]/20"
-                  )}>
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl border-[#18230F]/10 p-1">
-                    <SelectItem value="All" className="font-bold text-[#854d0e] focus:bg-[#82cc91]/20 rounded-lg">All Status</SelectItem>
-                    {STATUS_OPTIONS.map(s => (
-                      <SelectItem key={s} value={s} className="font-bold text-[#854d0e] focus:bg-[#82cc91]/20 rounded-lg">{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <div className="h-8 w-px bg-slate-200 mx-1 hidden xl:block" />
-
-                <Button
-                  onClick={exportToCSV}
-                  className="h-10 rounded-full px-6 gap-2 bg-[#70C167] text-[#18230F] border-none hover:bg-[#62ad5a] transition-all font-black shadow-none ring-0"
-                >
-                  <Download className="h-4 w-4 shrink-0" /> Export
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Table */}
-          <Card className="overflow-hidden border border-[#18230F]/10 bg-white rounded-2xl shadow-none">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-[#34C759]/5 border-b border-[#18230F]/10">
-                    <th className="py-2.5 px-4 text-left w-10">
-                      <Checkbox checked={selectedIds.length === filteredBookings.length && filteredBookings.length > 0} onCheckedChange={toggleSelectAll} className="rounded-md border-slate-300" />
-                    </th>
-                    <th className="py-2.5 px-4 text-left cursor-pointer" onClick={() => handleSort('client_name')}>Client</th>
-                    <th className="py-2.5 px-4 text-center cursor-pointer" onClick={() => handleSort('start_time')}>Date & Time</th>
-                    <th className="py-2.5 px-4 text-center cursor-pointer" onClick={() => handleSort('number_of_guests')}>Covers</th>
-                    <th className="py-2.5 px-4 text-center">Table</th>
-                    <th className="py-2.5 px-4 text-center">Status</th>
-                    <th className="py-2.5 px-4 text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#18230F]/5">
-                  {filteredBookings.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((booking) => {
-                    const isSelected = selectedIds.includes(booking.id);
-                    const statusStyle = statusStyles[booking.status] || statusStyles.Pending;
-                    const StatusIcon = statusStyle.icon;
-                    return (
-                      <tr key={booking.id} className={cn("border-b border-[#18230F]/5 transition-colors", isSelected ? "bg-[#34C759]/5" : "hover:bg-[#34C759]/5")}>
-                        <td className="py-2.5 px-4">
-                          <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(booking.id)} className="rounded-md border-slate-300" />
-                        </td>
-                        <td className="py-2.5 px-4">
-                          <div className="flex items-center gap-3">
-                            <div className="h-9 w-9 rounded-xl bg-[#34C759]/10 flex items-center justify-center text-[#18230F] font-bold text-xs shrink-0">
-                              {booking.client_name?.substring(0, 2).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <p className="font-bold text-[#18230F] text-sm truncate">{booking.client_name}</p>
-                                {getDietaryIcon(booking.notes)}
-                              </div>
-                              <p className="text-xs text-[#18230F]/60 truncate tracking-tight">{booking.client_email}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-2.5 px-4 text-center">
-                          <div className="text-sm font-bold text-[#18230F]">{format(parseISO(booking.start_time), 'MMM dd')}</div>
-                          <div className="text-xs text-[#18230F]/60">{format(parseISO(booking.start_time), 'HH:mm')}</div>
-                        </td>
-                        <td className="py-2.5 px-4 text-center">
-                          <div className="flex items-center justify-center gap-1.5 text-sm font-bold text-[#18230F]">
-                            <Users className="h-3.5 w-3.5 text-[#34C759]" />
-                            {booking.number_of_guests || 1}
-                          </div>
-                        </td>
-                        <td className="py-2.5 px-4 text-center">
-                          <span className="text-sm font-semibold text-[#18230F]">{getTableName(booking.restaurant_table_id)}</span>
-                        </td>
-                        <td className="py-2.5 px-4 text-center">
-                          <Badge className={cn('text-xs font-bold px-3 py-1 rounded-full border-none shadow-none', statusStyle.className)}>
-                            <StatusIcon className="h-3 w-3 mr-1.5" />
-                            {booking.status}
-                          </Badge>
-                        </td>
-                        <td className="py-2.5 px-4">
-                          <div className="flex items-center justify-center gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full opacity-40 hover:opacity-100" onClick={() => handleEditClick(booking)}><Pencil className="h-3.5 w-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full opacity-40 hover:opacity-100 text-red-600" onClick={() => { setSelectedBooking(booking); setIsDeleteDialogOpen(true); }}><Trash2 className="h-3.5 w-3.5" /></Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-
-          {/* Pagination - Reuse existing or similar */}
-          <div className="flex items-center justify-between px-4 py-4 pt-6">
-            {/* ... (Keep existing simple pagination logic) */}
-          </div>
-        </>
-      )}
-
-      {/* Calendar View Mode */}
-      {viewMode === 'calendar' && (
-        <div className="flex flex-col xl:flex-row gap-6 h-[calc(100vh-280px)] min-h-[600px]">
-          <Card className="flex-1 border-[#18230F]/10 rounded-2xl shadow-none overflow-hidden flex flex-col">
-            <CardHeader className="border-b border-[#18230F]/10 py-4">
-              <CardTitle className="text-lg font-bold flex items-center gap-2">
-                <CalendarDays className="h-5 w-5 text-[#34C759]" />
-                Monthly Overview
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 p-0 flex items-center justify-center bg-[#F1F8F1]/30">
-              <CalendarComponent
-                mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
-                className="rounded-xl border border-[#18230F]/5 bg-white shadow-sm p-4 scale-125"
-              // Add modifiers for days with bookings if possible using modifiers={{ booked: ... }}
-              />
-            </CardContent>
-          </Card>
-
-          <Card className="w-full xl:w-[450px] border-[#18230F]/10 rounded-2xl shadow-none flex flex-col overflow-hidden bg-white">
-            <CardHeader className="bg-[#18230F] text-white py-6">
-              <CardTitle className="text-xl font-black">
-                {selectedDate ? format(selectedDate, 'EEEE, MMM do') : 'Select a date'}
-              </CardTitle>
-              <CardDescription className="text-white/60 font-medium">
-                {dayBookings.length} bookings • {dayBookings.reduce((s, b) => s + (b.number_of_guests || 1), 0)} covers
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex-1 overflow-y-auto p-0">
-              {dayBookings.length > 0 ? (
-                <div className="divide-y divide-[#18230F]/5">
-                  {dayBookings.map(booking => (
-                    <div key={booking.id} className="p-4 hover:bg-[#F1F8F1] transition-colors cursor-pointer group" onClick={() => handleEditClick(booking)}>
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-xl bg-[#34C759]/10 flex items-center justify-center text-[#18230F] font-bold text-sm">
-                            {format(parseISO(booking.start_time), 'HH:mm')}
-                          </div>
-                          <div>
-                            <p className="font-bold text-[#18230F]">{booking.client_name}</p>
-                            <div className="flex items-center gap-2 text-xs text-[#18230F]/60">
-                              <Users className="h-3 w-3" />
-                              <span>{booking.number_of_guests || 1} guests</span>
-                              <span>•</span>
-                              <span className="font-medium text-[#18230F]">{getTableName(booking.restaurant_table_id)}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <Badge className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full border-none shadow-none', statusStyles[booking.status]?.className)}>
-                          {booking.status}
-                        </Badge>
-                      </div>
-                      {(booking.notes) && (
-                        <div className="ml-[52px] text-xs bg-amber-50 text-amber-900/80 p-2 rounded-lg flex items-start gap-2">
-                          <Utensils className="h-3 w-3 mt-0.5 shrink-0" />
-                          <span className="line-clamp-2">{booking.notes}</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                  ) : null}
                 </div>
               ) : (
-                <div className="h-full flex flex-col items-center justify-center text-[#18230F]/30 p-8 text-center">
-                  <Utensils className="h-12 w-12 mb-3 opacity-20" />
-                  <p className="font-bold">No reservations</p>
-                  <p className="text-sm">There are no bookings for this date.</p>
-                  <Button variant="outline" className="mt-4 rounded-full" onClick={handleNewClick}>
-                    <Plus className="h-4 w-4 mr-2" /> Add Booking
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
+                <div className="min-w-[980px] overflow-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 z-10 bg-card">
+                      <tr className="border-b border-border text-left">
+                        <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Schedule
+                        </th>
+                        <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Guest
+                        </th>
+                        <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Covers
+                        </th>
+                        <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Menu
+                        </th>
+                        <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Status
+                        </th>
+                        <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Financial
+                        </th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredBookings.map((booking) => {
+                        const total = safeNumber(booking.total_price ?? booking.price, 0);
+                        const paid = safeNumber(booking.amount_paid, 0);
+                        const due = Math.max(0, total - paid);
+                        const start = parseISO(booking.start_time);
+                        const end = parseISO(booking.end_time);
 
-      {/* Keeping existing Dialog implementation but updating the Content to include Dietary & Quick Time */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="w-full max-w-[95vw] lg:max-w-6xl max-h-[95vh] overflow-hidden p-0 gap-0 shadow-none border-none">
-          {/* ... (Header same as before) */}
-          <div className="flex flex-col h-[85vh] lg:h-[750px] max-h-[85vh]">
-            <div className="flex-none bg-[#18230F] text-white px-6 py-4">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center">
-                  <Utensils className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <DialogTitle className="text-lg font-bold">
-                    {selectedBooking ? 'Edit Reservation' : 'New Reservation'}
-                  </DialogTitle>
-                  <DialogDescription className="text-white/60 text-sm">
-                    Restaurant table booking system
-                  </DialogDescription>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
-              <div className="flex-1 flex flex-col min-w-0 border-r border-[#18230F]/10 overflow-hidden">
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-                  <div className="border-b bg-[#F1F8F1]/80 px-4">
-                    <TabsList className="h-10 bg-transparent p-0 gap-0">
-                      <TabsTrigger value="details" className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#34C759] data-[state=active]:bg-transparent px-4 text-sm font-bold text-[#18230F]">
-                        Details
-                      </TabsTrigger>
-                      <TabsTrigger value="menu-guests" className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#34C759] data-[state=active]:bg-transparent px-4 text-sm font-bold text-[#18230F]">
-                        Menu & Guests
-                      </TabsTrigger>
-                      <TabsTrigger value="payments" className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#34C759] data-[state=active]:bg-transparent px-4 text-sm font-bold text-[#18230F]">
-                        Payments
-                      </TabsTrigger>
-                      <TabsTrigger value="history" className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#34C759] data-[state=active]:bg-transparent px-4 text-sm font-bold text-[#18230F]">
-                        History
-                      </TabsTrigger>
-                    </TabsList>
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto min-h-0 p-6 space-y-6">
-                    <TabsContent value="details" className="mt-0 outline-none">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
-                        {/* Column 1: Booking Details */}
-                        <div className="space-y-4">
-                          <div className="bg-[#F8F9FA] rounded-md border-none overflow-hidden ring-1 ring-[#18230F]/5">
-                            <div className="px-4 py-3 flex items-center gap-2">
-                              <Calendar className="h-4 w-4 text-indigo-500" />
-                              <h3 className="font-bold text-[#18230F] text-sm">Booking Details</h3>
-                            </div>
-                            <div className="px-5 pb-5 space-y-4">
-                              {/* Row 1: Date & Time */}
-                              <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                  <Label className="text-[10px] font-black uppercase tracking-widest text-[#18230F] flex items-center gap-1.5">
-                                    Date <span className="text-red-500">*</span>
-                                  </Label>
-                                  <Input
-                                    type="date"
-                                    value={formData.start_time ? format(parseISO(formData.start_time), "yyyy-MM-dd") : ''}
-                                    onChange={e => {
-                                      const datePart = e.target.value;
-                                      const currentTime = formData.start_time ? format(parseISO(formData.start_time), "HH:mm") : '12:00';
-                                      if (datePart) {
-                                        setFormData({ ...formData, start_time: `${datePart}T${currentTime}:00.000Z` });
-                                      }
-                                    }}
-                                    className="h-11 rounded-2xl bg-white border-none ring-1 ring-[#18230F]/5 focus:ring-[#34C759]/30 transition-all font-medium"
-                                  />
-                                </div>
-                                <div className="space-y-1.5">
-                                  <Label className="text-[10px] font-black uppercase tracking-widest text-[#18230F]/40 flex items-center gap-1.5">
-                                    Time <span className="text-red-500">*</span>
-                                  </Label>
-                                  <Input
-                                    type="time"
-                                    value={formData.start_time ? format(parseISO(formData.start_time), "HH:mm") : ''}
-                                    onChange={e => {
-                                      const timePart = e.target.value;
-                                      const currentDate = formData.start_time ? format(parseISO(formData.start_time), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd");
-                                      if (timePart) {
-                                        setFormData({ ...formData, start_time: `${currentDate}T${timePart}:00.000Z` });
-                                      }
-                                    }}
-                                    className="h-9 rounded-md bg-white border-none ring-1 ring-[#18230F]/5 focus:ring-[#34C759]/30 transition-all font-medium text-sm"
-                                  />
-                                </div>
-                              </div>
-
-                              {/* Row 2: Adults & Kids (Mixed) */}
-                              <div className="grid grid-cols-2 gap-4 items-center">
-                                <div className="flex items-center justify-between bg-white/30 p-1 pl-3 rounded-md ring-1 ring-[#18230F]/5">
-                                  <Label className="text-[10px] font-black uppercase tracking-widest text-[#18230F]/40">Adults</Label>
-                                  <Input
-                                    type="number"
-                                    value={formData.guest_details?.find(g => g.ageGroup === 'adult')?.quantity || 0}
-                                    onChange={e => {
-                                      const qty = parseInt(e.target.value) || 0;
-                                      const newDetails = [...(formData.guest_details || [])];
-                                      const idx = newDetails.findIndex(g => g.ageGroup === 'adult');
-                                      if (idx >= 0) {
-                                        newDetails[idx] = { ...newDetails[idx], quantity: qty };
-                                      } else {
-                                        newDetails.push({ menuPackageId: packages[0]?.id || '', ageGroup: 'adult', quantity: qty });
-                                      }
-                                      const total = newDetails.reduce((sum, g) => sum + (g.quantity || 0), 0);
-                                      setFormData({ ...formData, guest_details: newDetails, number_of_guests: total });
-                                    }}
-                                    className="h-8 w-14 rounded-md bg-white border-none ring-1 ring-[#18230F]/5 focus:ring-[#34C759]/30 text-center font-black text-sm"
-                                  />
-                                </div>
-                                <div className="flex items-center justify-between bg-white/30 p-1 pl-3 rounded-md ring-1 ring-[#18230F]/5">
-                                  <Label className="text-[10px] font-black uppercase tracking-widest text-[#18230F]/40">Kids</Label>
-                                  <Input
-                                    type="number"
-                                    value={formData.guest_details?.find(g => g.ageGroup === 'child')?.quantity || 0}
-                                    onChange={e => {
-                                      const qty = parseInt(e.target.value) || 0;
-                                      const newDetails = [...(formData.guest_details || [])];
-                                      const idx = newDetails.findIndex(g => g.ageGroup === 'child');
-                                      if (idx >= 0) {
-                                        newDetails[idx] = { ...newDetails[idx], quantity: qty };
-                                      } else {
-                                        newDetails.push({ menuPackageId: packages[0]?.id || '', ageGroup: 'child', quantity: qty });
-                                      }
-                                      const total = newDetails.reduce((sum, g) => sum + (g.quantity || 0), 0);
-                                      setFormData({ ...formData, guest_details: newDetails, number_of_guests: total });
-                                    }}
-                                    className="h-8 w-14 rounded-md bg-white border-none ring-1 ring-[#18230F]/5 focus:ring-[#34C759]/30 text-center font-black text-sm"
-                                  />
-                                </div>
-                              </div>
-
-                              {/* Row 3: Status */}
-                              <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-[#18230F]/40 flex items-center gap-1">
-                                  Status <span className="text-red-500">*</span>
-                                </Label>
-                                <div className="flex gap-2">
-                                  {STATUS_OPTIONS.map(s => (
-                                    <Button
-                                      key={s}
-                                      variant="outline"
-                                      onClick={() => setFormData({ ...formData, status: s as any })}
-                                      className={cn(
-                                        "flex-1 h-9 rounded-md font-black text-[9px] uppercase tracking-wider border-none transition-all",
-                                        formData.status === s
-                                          ? "bg-[#34C759] text-white shadow-sm shadow-emerald-500/10"
-                                          : "bg-white text-[#18230F]/40 ring-1 ring-[#18230F]/5 hover:bg-slate-50"
-                                      )}
-                                    >
-                                      {s}
-                                    </Button>
-                                  ))}
-                                </div>
-                              </div>
-
-                              {/* Row 4: Dietary */}
-                              <div className="space-y-1.5">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-[#18230F]/40">Dietary Requirements</Label>
-                                <Input
-                                  placeholder="e.g. Vegan, Gluten Free..."
-                                  value={formData.dietaryNotes || ''}
-                                  onChange={e => setFormData({ ...formData, dietaryNotes: e.target.value })}
-                                  className="h-9 rounded-md border-none ring-1 ring-amber-200/50 bg-amber-50/40 text-amber-900 placeholder:text-amber-900/30 focus:ring-amber-200 transition-all font-medium text-sm"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-
-                        {/* Column 2: Client Details */}
-                        <div className="space-y-4">
-                          <div className="bg-[#F8F9FA] rounded-md border-none overflow-hidden ring-1 ring-[#18230F]/5">
-                            <div className="px-4 py-3 flex items-center gap-2">
-                              <User className="h-4 w-4 text-[#34C759]" />
-                              <h3 className="font-bold text-[#18230F] text-sm">Client Details</h3>
-                            </div>
-                            <div className="px-5 pb-5 space-y-2">
-                              <div className="space-y-1">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-[#18230F] flex items-center gap-1">
-                                  Full Name <span className="text-red-500">*</span>
-                                </Label>
-                                <Input
-                                  value={formData.client_name || ''}
-                                  onChange={e => setFormData({ ...formData, client_name: e.target.value })}
-                                  placeholder="Enter client name"
-                                  className="h-9 rounded-md bg-white border-none ring-1 ring-[#18230F]/5 focus:ring-[#34C759]/30 transition-all font-medium text-sm"
-                                />
-                              </div>
-                              <div className="space-y-1">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-[#18230F]">Phone Number</Label>
-                                <Input
-                                  value={formData.client_phone || ''}
-                                  onChange={e => setFormData({ ...formData, client_phone: e.target.value })}
-                                  placeholder="+351 ..."
-                                  className="h-9 rounded-md bg-white border-none ring-1 ring-[#18230F]/5 focus:ring-[#34C759]/30 transition-all font-medium text-sm"
-                                />
-                              </div>
-                              <div className="space-y-1">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-[#18230F]">Email Address</Label>
-                                <Input
-                                  value={formData.client_email || ''}
-                                  onChange={e => setFormData({ ...formData, client_email: e.target.value })}
-                                  placeholder="client@example.com"
-                                  className="h-9 rounded-md bg-white border-none ring-1 ring-[#18230F]/5 focus:ring-[#34C759]/30 transition-all font-medium text-sm"
-                                />
-                              </div>
-                              <div className="space-y-1">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-[#18230F]">Notes</Label>
-                                <Textarea
-                                  value={formData.notes || ''}
-                                  onChange={e => setFormData({ ...formData, notes: e.target.value })}
-                                  className="min-h-[80px] rounded-md bg-white border-none ring-1 ring-[#18230F]/5 focus:ring-[#34C759]/30 transition-all resize-none p-3 font-medium text-sm"
-                                  placeholder="Any special requests or notes..."
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="menu-guests" className="mt-0 outline-none">
-                      <div className="p-6 space-y-6">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h4 className="text-base font-black text-[#18230F]">Menu Selection</h4>
-                            <p className="text-[10px] font-bold text-[#18230F]/40 uppercase tracking-widest">Select menu packages and quantity</p>
-                          </div>
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={addGuest}
-                            className="rounded-full border-none bg-[#34C759] text-[#18230F] font-black px-6 hover:bg-[#2eaa4c] h-9 shadow-lg shadow-emerald-500/10"
+                        return (
+                          <tr
+                            key={booking.id}
+                            className="border-b border-border/60 hover:bg-muted/20"
                           >
-                            <Plus className="h-4 w-4 mr-2" /> Add Package
-                          </Button>
-                        </div>
-
-                        <div className="space-y-2">
-                          {formData.guest_details?.map((group, index) => (
-                            <div key={index} className="bg-white ring-1 ring-[#18230F]/5 rounded-3xl p-3 px-5 transition-all group hover:ring-[#34C759]/30">
-                              <div className="flex items-center gap-4">
-                                <div className="space-y-1 flex-1">
-                                  <Label className="text-[9px] font-black uppercase tracking-widest text-[#18230F]/40 pl-1">Menu Package</Label>
-                                  <Select value={group.menuPackageId} onValueChange={val => updateGuest(index, { menuPackageId: val })}>
-                                    <SelectTrigger className="h-11 rounded-2xl bg-slate-50 border-none ring-1 ring-[#18230F]/5 focus:ring-[#34C759]/30 focus:bg-white font-bold text-sm transition-all">
-                                      <SelectValue placeholder="Select Package" />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-2xl border-none ring-1 ring-[#18230F]/10 shadow-xl p-1">
-                                      {packages.map(p => (
-                                        <SelectItem key={p.id} value={p.id} className="rounded-xl font-medium focus:bg-[#34C759]/10">{p.name}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                <div className="space-y-1 w-32">
-                                  <Label className="text-[9px] font-black uppercase tracking-widest text-[#18230F]/40 pl-1">Age Group</Label>
-                                  <Select value={group.ageGroup} onValueChange={val => updateGuest(index, { ageGroup: val as any })}>
-                                    <SelectTrigger className="h-11 rounded-2xl bg-slate-50 border-none ring-1 ring-[#18230F]/5 focus:ring-[#34C759]/30 focus:bg-white font-bold text-sm transition-all">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-2xl border-none ring-1 ring-[#18230F]/10 shadow-xl p-1">
-                                      <SelectItem value="adult" className="rounded-xl font-medium focus:bg-[#34C759]/10 text-xs">Adult</SelectItem>
-                                      <SelectItem value="child" className="rounded-xl font-medium focus:bg-[#34C759]/10 text-xs">Child</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                <div className="space-y-1 w-20">
-                                  <Label className="text-[9px] font-black uppercase tracking-widest text-[#18230F]/40 pl-1">Qty</Label>
-                                  <Input
-                                    type="number"
-                                    value={group.quantity || 1}
-                                    onChange={e => updateGuest(index, { quantity: parseInt(e.target.value) || 1 })}
-                                    className="h-11 rounded-2xl bg-slate-50 border-none ring-1 ring-[#18230F]/5 focus:ring-[#34C759]/30 focus:bg-white font-black text-center text-lg transition-all"
-                                    min="1"
-                                  />
-                                </div>
-                                <div className="space-y-1">
-                                  <Label className="text-[9px] font-black uppercase tracking-widest text-transparent select-none">X</Label>
+                            <td
+                              className="cursor-pointer px-3 py-2 align-top"
+                              onClick={() => openEditReservation(booking)}
+                            >
+                              <p className="font-medium text-foreground">{format(start, 'EEE, MMM dd')}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {format(start, 'HH:mm')} - {format(end, 'HH:mm')}
+                              </p>
+                            </td>
+                            <td
+                              className="cursor-pointer px-3 py-2 align-top"
+                              onClick={() => openEditReservation(booking)}
+                            >
+                              <p className="font-medium text-foreground">{booking.client_name || 'Unnamed guest'}</p>
+                              <p className="text-xs text-muted-foreground">{booking.client_email || 'No email'}</p>
+                              <p className="text-xs text-muted-foreground">{booking.client_phone || 'No phone'}</p>
+                            </td>
+                            <td
+                              className="cursor-pointer px-3 py-2 align-top text-foreground"
+                              onClick={() => openEditReservation(booking)}
+                            >
+                              <span className="inline-flex items-center gap-1">
+                                <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                                {clampInteger(booking.number_of_guests, 0)}
+                              </span>
+                            </td>
+                            <td
+                              className="cursor-pointer px-3 py-2 align-top text-foreground"
+                              onClick={() => openEditReservation(booking)}
+                            >
+                              {getBookingMenuName(booking, menuById)}
+                            </td>
+                            <td
+                              className="cursor-pointer px-3 py-2 align-top"
+                              onClick={() => openEditReservation(booking)}
+                            >
+                              <Badge className={cn('border text-xs', getStatusBadgeClass(booking.status))}>
+                                {booking.status}
+                              </Badge>
+                            </td>
+                            <td
+                              className="cursor-pointer px-3 py-2 align-top"
+                              onClick={() => openEditReservation(booking)}
+                            >
+                              <p className="font-medium text-foreground">{formatCurrency(total)}</p>
+                              <p
+                                className={cn(
+                                  'text-xs',
+                                  due > 0
+                                    ? 'font-semibold text-amber-700 dark:text-amber-300'
+                                    : 'text-muted-foreground'
+                                )}
+                              >
+                                Paid {formatCurrency(paid)} / Due {formatCurrency(due)}
+                              </p>
+                            </td>
+                            <td className="px-3 py-2 align-top">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-lg"
+                                  title="Edit reservation"
+                                  onClick={() => openEditReservation(booking)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                {canEdit ? (
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    onClick={() => removeGuest(index)}
-                                    className="h-11 w-11 rounded-2xl text-red-500 hover:bg-red-50 hover:text-red-600 transition-all shrink-0"
+                                    className="h-8 w-8 rounded-lg text-destructive hover:text-destructive"
+                                    title="Delete reservation"
+                                    onClick={() => {
+                                      setDeletingBooking(booking);
+                                      setIsDeleteDialogOpen(true);
+                                    }}
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
-                                </div>
+                                ) : null}
                               </div>
-                            </div>
-                          ))}
-
-                          {(!formData.guest_details || formData.guest_details.length === 0) && (
-                            <div className="text-center py-20 bg-slate-50/50 rounded-[2.5rem] border-2 border-dashed border-[#18230F]/5">
-                              <Users className="h-12 w-12 mx-auto mb-4 text-[#18230F]/10" />
-                              <p className="text-base font-bold text-[#18230F]/30 uppercase tracking-widest">No menu selected</p>
-                              <Button variant="link" onClick={addGuest} className="text-[#34C759] font-black text-sm mt-2">Pick a menu package</Button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="payments" className="mt-0 outline-none">
-                      <div className="p-6 space-y-4">
-                        {/* Compact Header */}
-
-                        {/* Payment Link Section */}
-                        {/* Payment Link Section */}
-                        {/* Payment Link Section - Replaced with Popover */}
-                        <div className="bg-[#34C759]/10 rounded-lg p-3 border border-[#34C759]/20 flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <h4 className="font-black uppercase tracking-widest text-[9px] text-[#18230F]">Online Payment Link</h4>
-                            <p className="text-[10px] text-[#18230F]/60 font-medium">Generate a secure link for the client to pay online.</p>
-                          </div>
-
-                          {selectedBooking && (
-                            <PaymentLinkPopover
-                              booking={selectedBooking}
-                              compact
-                              trigger={
-                                <Button
-                                  className="bg-[#34C759] text-white hover:bg-[#2da84a] font-bold rounded-md shadow-sm shadow-emerald-500/20 text-[10px] uppercase tracking-wider h-8 px-4"
-                                >
-                                  <Link className="h-3 w-3 mr-2" />
-                                  Configure Link
-                                </Button>
-                              }
-                            />
-                          )}
-                        </div>
-
-
-                        {/* Inline Entry Form - Always Visible */}
-                        <div className="bg-[#F8F9FA] rounded-md ring-1 ring-[#34C759]/20 p-3 space-y-3">
-                          <div className="flex items-center gap-2 mb-0">
-                            <Plus className="h-3 w-3 text-[#34C759]" />
-                            <h4 className="font-black uppercase tracking-widest text-[9px] text-[#18230F]">Record New Transaction</h4>
-                          </div>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
-                            <div className="space-y-1">
-                              <Label className="text-[9px] font-black uppercase tracking-widest text-[#18230F]/40">Amount (€)</Label>
-                              <Input
-                                type="number"
-                                value={paymentFormData.amount || ''}
-                                onChange={e => setPaymentFormData({ ...paymentFormData, amount: parseFloat(e.target.value) })}
-                                className="h-9 rounded-md bg-white border-none ring-1 ring-[#18230F]/5 focus:ring-[#34C759]/30 font-black text-sm"
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-[9px] font-black uppercase tracking-widest text-[#18230F]/40">Method</Label>
-                              <Select value={paymentFormData.method} onValueChange={val => setPaymentFormData({ ...paymentFormData, method: val as any })}>
-                                <SelectTrigger className="h-9 rounded-md bg-white border-none ring-1 ring-[#18230F]/5 focus:ring-[#34C759]/30 font-bold text-xs">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-md border-none ring-1 ring-[#18230F]/10 shadow-xl p-1">
-                                  {['cash', 'card', 'transfer', 'stripe', 'other'].map(m => (
-                                    <SelectItem key={m} value={m} className="rounded-sm font-medium focus:bg-[#34C759]/10 text-[10px] uppercase">{m}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-[9px] font-black uppercase tracking-widest text-[#18230F]/40">Ref#</Label>
-                              <Input
-                                value={paymentFormData.reference || ''}
-                                onChange={e => setPaymentFormData({ ...paymentFormData, reference: e.target.value })}
-                                className="h-9 rounded-md bg-white border-none ring-1 ring-[#18230F]/5 focus:ring-[#34C759]/30 font-medium text-xs"
-                              />
-                            </div>
-                            <Button onClick={handleAddPayment} className="rounded-md bg-[#18230F] text-white font-black hover:bg-[#2a3b1a] h-9 shadow-md uppercase tracking-widest text-[9px]">
-                              Add Record
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* Transaction Table / List */}
-                        <div className="bg-white rounded-md ring-1 ring-[#18230F]/5 overflow-hidden">
-                          {/* ... table content remains same as previous implemention but ensured it is here ... */}
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                              <thead className="bg-[#F8F9FA] border-b border-[#18230F]/5">
-                                <tr>
-                                  <th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-[#18230F]/40">Date & Time</th>
-                                  <th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-[#18230F]/40">Method</th>
-                                  <th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-[#18230F]/40">Reference</th>
-                                  <th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-[#18230F]/40 text-right">Amount</th>
-                                  <th className="px-5 py-3 w-10"></th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-[#18230F]/5">
-                                {payments.length > 0 ? (
-                                  payments.map((payment) => (
-                                    <tr key={payment.id} className="group hover:bg-slate-50/50 transition-colors">
-                                      <td className="px-5 py-3">
-                                        <p className="text-xs font-bold text-[#18230F]">{format(parseISO(payment.created_at), 'MMM dd, HH:mm')}</p>
-                                      </td>
-                                      <td className="px-5 py-3">
-                                        <Badge className="text-[9px] font-black uppercase bg-[#18230F]/5 text-[#18230F]/60 h-5 border-none rounded-md px-1.5">{payment.method}</Badge>
-                                      </td>
-                                      <td className="px-5 py-3">
-                                        <span className="text-[10px] font-medium text-[#18230F]/40">{payment.reference || '-'}</span>
-                                      </td>
-                                      <td className="px-5 py-3 text-right">
-                                        <p className="font-black text-[#18230F] text-sm">€{payment.amount.toFixed(2)}</p>
-                                      </td>
-                                      <td className="px-5 py-3 text-right">
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          onClick={() => handleDeletePayment(payment.id)}
-                                          className="h-8 w-8 rounded-lg text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                      </td>
-                                    </tr>
-                                  ))
-                                ) : (
-                                  <tr>
-                                    <td colSpan={5} className="px-5 py-12 text-center text-[#18230F]/10">
-                                      <div className="flex flex-col items-center gap-2">
-                                        <CreditCard className="h-10 w-10 opacity-10" />
-                                        <p className="text-[10px] font-black uppercase tracking-widest">No payments recorded</p>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="history" className="mt-0 space-y-4">
-                      <div className="text-center py-12 text-[#18230F]/40">
-                        <History className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                        <p className="font-bold">Reservation History</p>
-                        <p className="text-sm">Activity logs will appear here</p>
-                      </div>
-                    </TabsContent>
-                  </div>
-
-                  {/* Footer Actions */}
-                  <div className="flex-none p-6 border-t bg-slate-50/50 flex items-center justify-between">
-                    <Button variant="ghost" className="font-bold text-red-600 hover:bg-red-50 rounded-full px-6" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
-                    <Button className="bg-[#34C759] text-[#18230F] hover:bg-[#2eaa4c] font-black rounded-full px-8 shadow-lg shadow-emerald-500/20" onClick={handleSaveChanges} disabled={isLoading}>
-                      {selectedBooking ? 'Save Changes' : 'Create Reservation'}
-                    </Button>
-                  </div>
-                </Tabs>
-              </div>
-
-
-              <div className="w-full lg:w-[320px] bg-[#F1F8F1] p-5 space-y-5 flex-shrink-0 border-l border-[#18230F]/10 hidden lg:block overflow-y-auto custom-scrollbar">
-                <div className="space-y-5">
-                  <div>
-                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-[#18230F] border-b border-[#18230F]/10 pb-3 mb-4">Reservation Overview</h3>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-[#18230F]">Status</span>
-                        <Badge className={cn(
-                          "rounded-full px-4 py-1 font-black text-[10px] uppercase tracking-wider border-none",
-                          formData.status === 'confirmed' ? "bg-[#34C759] text-white" :
-                            formData.status === 'pending' ? "bg-amber-100 text-amber-900" :
-                              "bg-[#18230F]/5 text-[#18230F]"
-                        )}>
-                          {formData.status}
-                        </Badge>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-[#18230F]">
-                          <Users className="h-4 w-4" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">Total Covers</span>
-                        </div>
-                        <span className="font-black text-[#18230F] text-lg">
-                          {formData.guest_details?.reduce((sum, g) => sum + (g.quantity || 0), 0) || 0}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-[#18230F]">
-                          <Calendar className="h-4 w-4" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">Schedule</span>
-                        </div>
-                        <span className="font-black text-[#18230F] text-sm">
-                          {formData.start_time ? format(parseISO(formData.start_time), 'MMM dd, HH:mm') : '-'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 border-b border-[#18230F]/10 pb-2">
-                      <CreditCard className="h-4 w-4 text-[#34C759]" />
-                      <h3 className="font-black text-[10px] uppercase tracking-widest text-[#18230F]">Financial Status</h3>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-[#18230F] font-bold uppercase tracking-widest">Total Price</span>
-                        <span className="font-black text-[#18230F]">€{(formData.total_price || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-[#18230F] font-bold uppercase tracking-widest">Amount Paid</span>
-                        <span className="font-black text-[#34C759]">€{(formData.amount_paid || 0).toFixed(2)}</span>
-                      </div>
-
-                      <div className="pt-2 border-t border-[#18230F]/5">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[9px] font-black uppercase tracking-widest text-[#34C759]">Settlement Balance</span>
-                          <Badge variant="outline" className={cn(
-                            "text-[8px] font-black uppercase h-5 border-none",
-                            ((formData.total_price || 0) - (formData.amount_paid || 0)) <= 0 ? "bg-[#34C759]/10 text-[#34C759]" : "bg-amber-100 text-amber-900"
-                          )}>
-                            {((formData.total_price || 0) - (formData.amount_paid || 0)) <= 0 ? 'SETTLED' : 'PENDING'}
-                          </Badge>
-                        </div>
-                        <p className="text-3xl font-black text-[#18230F]">
-                          €{Math.max(0, (formData.total_price || 0) - (formData.amount_paid || 0)).toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <h3 className="text-[10px] font-black uppercase tracking-widest text-[#18230F]/40">Active Packages</h3>
-                    <div className="space-y-2">
-                      {formData.guest_details?.map((group, i) => {
-                        const pkg = packages.find(p => p.id === group.menuPackageId);
-                        const price = group.ageGroup === 'adult' ? pkg?.prices.adult : pkg?.prices.child;
-                        return (
-                          <div key={i} className="flex items-center justify-between text-[11px] bg-white/30 p-3 rounded-xl ring-1 ring-[#18230F]/5">
-                            <div className="flex flex-col">
-                              <span className="font-black text-[#18230F] uppercase tracking-tighter truncate max-w-[140px]">{pkg?.name || 'Unknown'}</span>
-                              <span className="text-[9px] text-[#18230F]/40 font-bold">{group.quantity}x {group.ageGroup}</span>
-                            </div>
-                            <span className="font-black text-[#34C759]">€{((price || 0) * (group.quantity || 0)).toFixed(2)}</span>
-                          </div>
+                            </td>
+                          </tr>
                         );
                       })}
-                    </div>
-                  </div>
+                    </tbody>
+                  </table>
+                </div>
+              )
+            ) : (
+              <div className="custom-scrollbar h-full overflow-auto p-2">
+                <div className="grid gap-3 xl:grid-cols-2">
+                  {dualMonthViews.map((monthView) => {
+                    const monthReservationCount = monthView.days.reduce((sum, day) => {
+                      const key = format(day, 'yyyy-MM-dd');
+                      return sum + (bookingsByDayKey.get(key)?.length || 0);
+                    }, 0);
+
+                    return (
+                      <section
+                        key={monthView.label}
+                        className="overflow-hidden rounded-xl border border-border bg-card"
+                      >
+                        <div className="flex items-center justify-between border-b border-border/70 px-3 py-2">
+                          <p className="text-sm font-semibold text-foreground">{monthView.label}</p>
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                            {monthReservationCount} reservations
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-7 border-b border-border/80 bg-muted/10">
+                          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label) => (
+                            <div
+                              key={`${monthView.label}-${label}`}
+                              className="border-r border-border/80 px-1.5 py-1 text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground last:border-r-0"
+                            >
+                              {label}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div
+                          className="grid grid-cols-7"
+                          style={{
+                            gridTemplateRows: `repeat(${monthView.rowCount}, minmax(82px, 82px))`,
+                          }}
+                        >
+                          {monthView.days.map((day, index) => {
+                            const dayKey = format(day, 'yyyy-MM-dd');
+                            const dayBookings = bookingsByDayKey.get(dayKey) || [];
+                            const isActiveMonth = isSameMonth(day, monthView.anchorDate);
+                            const isSelected = dayKey === selectedDate;
+                            const isCurrentDay = isToday(day);
+                            const totalPeople = dayBookings.reduce(
+                              (sum, booking) => sum + clampInteger(booking.number_of_guests, 0),
+                              0
+                            );
+
+                            return (
+                              <div
+                                key={dayKey}
+                                className={cn(
+                                  'flex h-[82px] cursor-pointer flex-col overflow-hidden border-r border-b border-border/80 p-1.5 transition-colors',
+                                  (index + 1) % 7 === 0 && 'border-r-0',
+                                  !isActiveMonth && 'bg-muted/10',
+                                  dayBookings.length > 0 && 'ring-1 ring-inset ring-primary/30',
+                                  isSelected && 'ring-2 ring-inset ring-primary/55',
+                                  isCurrentDay && 'ring-1 ring-inset ring-primary/40'
+                                )}
+                                onClick={() => {
+                                  setCalendarDate(day);
+                                  setSelectedDate(dayKey);
+                                  setDayViewDate(dayKey);
+                                  setIsDayViewOpen(true);
+                                }}
+                              >
+                                <div className="mb-1 flex items-center justify-between">
+                                  <span
+                                    className={cn(
+                                      'inline-flex min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold',
+                                      isSelected
+                                        ? 'bg-primary text-primary-foreground'
+                                        : isActiveMonth
+                                          ? 'text-foreground'
+                                          : 'text-muted-foreground'
+                                    )}
+                                  >
+                                    {format(day, 'd')}
+                                  </span>
+                                </div>
+
+                                {dayBookings.length > 0 ? (
+                                  <div className="mt-auto flex flex-wrap gap-1">
+                                    <div className="inline-flex w-fit rounded-full border border-primary/35 bg-primary/12 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
+                                      {dayBookings.length}{' '}
+                                      {dayBookings.length === 1 ? 'reservation' : 'reservations'}
+                                    </div>
+                                    <div className="inline-flex w-fit items-center rounded-full border border-emerald-400/35 bg-emerald-500/12 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-800 dark:text-emerald-200">
+                                      <Users className="mr-1 h-3 w-3" />
+                                      {totalPeople} people
+                                    </div>
+                                  </div>
+                                ) : null}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    );
+                  })}
                 </div>
               </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {errorMessage && !showInitialLoading ? (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {errorMessage}
+          </div>
+        ) : null}
+      </div>
+
+      <Dialog
+        open={isFormOpen}
+        onOpenChange={(open: boolean) => {
+          if (open) {
+            setIsFormOpen(true);
+            return;
+          }
+          closeForm();
+        }}
+      >
+        <DialogContent className="flex max-h-[92vh] w-[97vw] max-w-4xl flex-col gap-0 overflow-hidden border border-border bg-card p-0 shadow-none">
+          <DialogHeader className="border-b border-border px-6 py-4">
+            <DialogTitle>{editingBooking ? 'Edit reservation' : 'New reservation'}</DialogTitle>
+            <DialogDescription>
+              {editingBooking
+                ? `Ref ${editingBooking.id.slice(0, 8).toUpperCase()}`
+                : 'Compact reservation form with clear sections for operations.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-4">
+            <div className="grid gap-4 lg:grid-cols-2">
+              <section className="h-full space-y-3 rounded-xl border border-border bg-muted/20 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Guest info
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="guest-name">Client name</Label>
+                    <Input
+                      id="guest-name"
+                      className="h-9"
+                      value={form.clientName}
+                      onChange={(event) =>
+                        setForm((prev) => ({ ...prev, clientName: event.target.value }))
+                      }
+                      disabled={!canEdit}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="guest-email">Client email</Label>
+                    <Input
+                      id="guest-email"
+                      className="h-9"
+                      type="email"
+                      value={form.clientEmail}
+                      onChange={(event) =>
+                        setForm((prev) => ({ ...prev, clientEmail: event.target.value }))
+                      }
+                      disabled={!canEdit}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="guest-phone">Client phone</Label>
+                    <Input
+                      id="guest-phone"
+                      className="h-9"
+                      value={form.clientPhone}
+                      onChange={(event) =>
+                        setForm((prev) => ({ ...prev, clientPhone: event.target.value }))
+                      }
+                      disabled={!canEdit}
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section className="h-full space-y-3 rounded-xl border border-border bg-muted/20 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Menu and covers
+                </p>
+                <div>
+                  <Label htmlFor="reservation-menu">Menu</Label>
+                  <Select
+                    value={form.menuId}
+                    onValueChange={(value) => setForm((prev) => ({ ...prev, menuId: value }))}
+                    disabled={!canEdit}
+                  >
+                    <SelectTrigger id="reservation-menu" className="h-9">
+                      <SelectValue placeholder="Menu" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {menus.map((menu) => (
+                        <SelectItem key={menu.id} value={menu.id}>
+                          {menu.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <Label htmlFor="covers-adults">Adults</Label>
+                    <Input
+                      id="covers-adults"
+                      className="h-9"
+                      type="number"
+                      min={0}
+                      value={form.adults}
+                      onChange={(event) =>
+                        setForm((prev) => ({ ...prev, adults: clampInteger(event.target.value, 0) }))
+                      }
+                      disabled={!canEdit}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="covers-children">Children</Label>
+                    <Input
+                      id="covers-children"
+                      className="h-9"
+                      type="number"
+                      min={0}
+                      value={form.children}
+                      onChange={(event) =>
+                        setForm((prev) => ({ ...prev, children: clampInteger(event.target.value, 0) }))
+                      }
+                      disabled={!canEdit}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="covers-seniors">Seniors</Label>
+                    <Input
+                      id="covers-seniors"
+                      className="h-9"
+                      type="number"
+                      min={0}
+                      value={form.seniors}
+                      onChange={(event) =>
+                        setForm((prev) => ({ ...prev, seniors: clampInteger(event.target.value, 0) }))
+                      }
+                      disabled={!canEdit}
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section className="h-full space-y-3 rounded-xl border border-border bg-muted/20 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Reservation details
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label htmlFor="reservation-date">Date</Label>
+                    <Input
+                      id="reservation-date"
+                      className="h-9"
+                      type="date"
+                      value={form.date}
+                      onChange={(event) => setForm((prev) => ({ ...prev, date: event.target.value }))}
+                      disabled={!canEdit}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="reservation-time">Time</Label>
+                    <Select
+                      value={form.time}
+                      onValueChange={(value) => setForm((prev) => ({ ...prev, time: value }))}
+                      disabled={!canEdit}
+                    >
+                      <SelectTrigger id="reservation-time" className="h-9">
+                        <SelectValue placeholder="Time" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {RESTAURANT_TIME_OPTIONS.map((time) => (
+                          <SelectItem key={time} value={time}>
+                            {time}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="duration-minutes">Duration</Label>
+                    <Select
+                      value={String(form.durationMinutes)}
+                      onValueChange={(value) =>
+                        setForm((prev) => ({ ...prev, durationMinutes: Number(value) }))
+                      }
+                      disabled={!canEdit}
+                    >
+                      <SelectTrigger id="duration-minutes" className="h-9">
+                        <SelectValue placeholder="Duration" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="90">90 min</SelectItem>
+                        <SelectItem value="120">120 min</SelectItem>
+                        <SelectItem value="150">150 min</SelectItem>
+                        <SelectItem value="180">180 min</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="reservation-status">Status</Label>
+                    <Select
+                      value={form.status}
+                      onValueChange={(value) =>
+                        setForm((prev) => ({ ...prev, status: value as ReservationStatus }))
+                      }
+                      disabled={!canEdit}
+                    >
+                      <SelectTrigger id="reservation-status" className="h-9">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STATUS_OPTIONS.map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {status}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </section>
+
+              <section className="h-full space-y-3 rounded-xl border border-border bg-muted/20 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Pricing breakdown
+                </p>
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>
+                      Adults ({Math.max(0, form.adults)}) x {formatCurrency(adultRate)}
+                    </span>
+                    <span className="text-foreground">{formatCurrency(adultSubtotal)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>
+                      Children ({Math.max(0, form.children)}) x {formatCurrency(childRate)}
+                    </span>
+                    <span className="text-foreground">{formatCurrency(childSubtotal)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>
+                      Seniors ({Math.max(0, form.seniors)}) x {formatCurrency(seniorRate)}
+                    </span>
+                    <span className="text-foreground">{formatCurrency(seniorSubtotal)}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-border pt-2">
+                    <span className="text-muted-foreground">Estimated total</span>
+                    <span className="font-semibold text-foreground">{formatCurrency(computedTotal)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Outstanding</span>
+                    <span className="font-semibold text-foreground">{formatCurrency(computedDue)}</span>
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="amount-paid-input">Amount paid</Label>
+                  <Input
+                    id="amount-paid-input"
+                    className="h-9"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={form.amountPaid}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, amountPaid: safeNumber(event.target.value, 0) }))
+                    }
+                    disabled={!canEdit}
+                  />
+                </div>
+              </section>
+
+              <section className="space-y-3 rounded-xl border border-border bg-muted/20 p-4 lg:col-span-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Internal notes
+                </p>
+                <Textarea
+                  id="internal-notes"
+                  value={form.notes}
+                  onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
+                  placeholder="Special requests, allergies, internal notes..."
+                  className="min-h-[96px]"
+                  disabled={!canEdit}
+                />
+              </section>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
 
-      {/* Delete and Bulk Alerts */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent className="rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete the reservation for {selectedBooking?.client_name}.
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-full font-bold">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700 rounded-full font-bold">
-              Delete Reservation
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Dialog open={isBulkStatusDialogOpen} onOpenChange={setIsBulkStatusDialogOpen}>
-        <DialogContent className="rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Update Status</DialogTitle>
-          </DialogHeader>
-          <div className="py-4 flex flex-wrap gap-2">
-            {STATUS_OPTIONS.map(s => (
-              <Button key={s} variant="outline" size="sm" onClick={() => setBulkStatus(s)} className={cn("rounded-full px-4 font-bold border-none transition-all", bulkStatus === s ? statusColors[s] : "bg-[#F1F8F1] text-[#18230F]/40")}>{s}</Button>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsBulkStatusDialogOpen(false)}>Cancel</Button>
-            <Button className="bg-[#34C759] text-[#18230F] font-bold rounded-full" onClick={handleBulkStatusUpdate}>Update</Button>
+          <DialogFooter className="shrink-0 border-t border-border bg-card px-6 py-4">
+            <div className="flex w-full items-center justify-between gap-2">
+              <div>
+                {editingBooking && canEdit ? (
+                  <Button
+                    variant="outline"
+                    className="rounded-xl border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => {
+                      setDeletingBooking(editingBooking);
+                      setIsDeleteDialogOpen(true);
+                    }}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </Button>
+                ) : null}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" className="rounded-xl" onClick={closeForm}>
+                  Cancel
+                </Button>
+                {canEdit ? (
+                  <Button className="rounded-xl" onClick={() => void handleSave()} disabled={isSaving}>
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : editingBooking ? (
+                      'Save changes'
+                    ) : (
+                      'Create reservation'
+                    )}
+                  </Button>
+                ) : null}
+              </div>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <AlertDialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
-        <AlertDialogContent className="rounded-2xl">
-          <AlertDialogHeader><AlertDialogTitle>Delete {selectedIds.length} Reservations?</AlertDialogTitle></AlertDialogHeader>
+
+      <Dialog open={isDayViewOpen} onOpenChange={setIsDayViewOpen}>
+        <DialogContent className="flex max-h-[88vh] w-[96vw] max-w-3xl flex-col gap-0 overflow-hidden border border-border bg-card p-0 shadow-none">
+          <DialogHeader className="border-b border-border px-6 py-4">
+            <DialogTitle>{dayViewLabel}</DialogTitle>
+            <DialogDescription>
+              {dayViewBookings.length} reservations | {dayViewStats.totalCovers} people | Due{' '}
+              {formatCurrency(dayViewStats.totalDue)}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-4">
+            {dayViewBookings.length === 0 ? (
+              <div className="flex h-full min-h-[260px] flex-col items-center justify-center gap-2 text-center">
+                <CalendarDays className="h-10 w-10 text-muted-foreground/40" />
+                <p className="text-sm font-semibold text-foreground">No reservations on this day</p>
+                <p className="text-sm text-muted-foreground">
+                  Create a reservation for this date or pick another day.
+                </p>
+                {canEdit ? (
+                  <Button
+                    className="mt-2 rounded-full px-4"
+                    onClick={() => {
+                      setIsDayViewOpen(false);
+                      setSelectedDate(dayViewDate);
+                      setCalendarDate(parseISO(`${dayViewDate}T00:00:00`));
+                      openNewReservationForDate(dayViewDate);
+                    }}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    New reservation
+                  </Button>
+                ) : null}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {dayViewBookings.map((booking) => {
+                  const start = parseISO(booking.start_time);
+                  const end = parseISO(booking.end_time);
+                  const total = safeNumber(booking.total_price ?? booking.price, 0);
+                  const paid = safeNumber(booking.amount_paid, 0);
+                  const due = Math.max(0, total - paid);
+
+                  return (
+                    <article
+                      key={booking.id}
+                      className="rounded-xl border border-border/70 bg-muted/20 p-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-foreground">
+                            {booking.client_name || 'Unnamed guest'}
+                          </p>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            <span className="inline-flex items-center rounded-full border border-primary/35 bg-primary/14 px-2.5 py-1 text-xs font-bold text-primary">
+                              <Clock3 className="mr-1.5 h-3.5 w-3.5" />
+                              {format(start, 'HH:mm')} - {format(end, 'HH:mm')}
+                            </span>
+                            <span className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-500/14 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:text-emerald-200">
+                              <Users className="mr-1.5 h-3.5 w-3.5" />
+                              {clampInteger(booking.number_of_guests, 0)} people
+                            </span>
+                          </div>
+                        </div>
+                        <Badge className={cn('border text-xs', getStatusBadgeClass(booking.status))}>
+                          {booking.status}
+                        </Badge>
+                      </div>
+
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                        <p className="truncate text-muted-foreground">
+                          Menu: {getBookingMenuName(booking, menuById)}
+                        </p>
+                        <p
+                          className={cn(
+                            'text-right',
+                            due > 0 && booking.status !== 'Cancelled'
+                              ? 'font-semibold text-amber-700 dark:text-amber-300'
+                              : 'text-muted-foreground'
+                          )}
+                        >
+                          Due {formatCurrency(due)}
+                        </p>
+                        <p className="truncate text-muted-foreground">
+                          {booking.client_email || 'No email'}
+                        </p>
+                        <p className="truncate text-right text-muted-foreground">
+                          {booking.client_phone || 'No phone'}
+                        </p>
+                      </div>
+
+                      <div className="mt-3 flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 rounded-lg"
+                          onClick={() => {
+                            setIsDayViewOpen(false);
+                            openEditReservation(booking);
+                          }}
+                        >
+                          <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                          Open details
+                        </Button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="shrink-0 border-t border-border bg-card px-6 py-4">
+            <div className="flex w-full items-center justify-end gap-2">
+              <Button variant="outline" className="rounded-xl" onClick={() => setIsDayViewOpen(false)}>
+                Close
+              </Button>
+              {canEdit ? (
+                <Button
+                  className="rounded-xl"
+                  onClick={() => {
+                    setIsDayViewOpen(false);
+                    setSelectedDate(dayViewDate);
+                    setCalendarDate(parseISO(`${dayViewDate}T00:00:00`));
+                    openNewReservationForDate(dayViewDate);
+                  }}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  New reservation
+                </Button>
+              ) : null}
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent className="border border-border bg-card shadow-none">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-semibold text-foreground">
+              Delete reservation?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground">
+              This will permanently remove the reservation for{' '}
+              <strong>{deletingBooking?.client_name || 'this guest'}</strong>. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-full">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleBulkDelete} className="bg-red-600 hover:bg-red-700 rounded-full">Delete All</AlertDialogAction>
+            <AlertDialogCancel
+              className="rounded-xl"
+              onClick={() => {
+                setDeletingBooking(null);
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => void handleDelete()}
+            >
+              Delete reservation
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

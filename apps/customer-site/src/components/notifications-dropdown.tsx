@@ -29,7 +29,7 @@ type Booking = {
   dismissed?: boolean;
   houseboatId?: string; //Mapped from houseboat_id
   restaurantTableId?: string; //Mapped from restaurant_table_id
-  dailyTravelPackageId?: string; //Mapped from daily_travel_package_id
+  riverCruisePackageId?: string; //Mapped from daily_travel_package_id
 };
 
 const getBookingType = (booking: Booking) => {
@@ -47,12 +47,12 @@ const getBookingType = (booking: Booking) => {
     bg: 'bg-orange-50 dark:bg-orange-900/20',
     label: 'Restaurant'
   };
-  if (booking.dailyTravelPackageId) return {
+  if (booking.riverCruisePackageId) return {
     icon: Calendar,
-    path: '/dashboard/daily-travel-reservations',
+    path: '/dashboard/river-cruise-reservations',
     color: 'text-purple-600 dark:text-purple-400',
     bg: 'bg-purple-50 dark:bg-purple-900/20',
-    label: 'Daily Travel'
+    label: 'River Cruise'
   };
   return {
     icon: Calendar,
@@ -142,7 +142,7 @@ export function NotificationsDropdown() {
     dismissed: data.dismissed,
     houseboatId: data.houseboat_id || data.houseboatId,
     restaurantTableId: data.restaurant_table_id || data.restaurantTableId,
-    dailyTravelPackageId: data.daily_travel_package_id || data.dailyTravelPackageId,
+    riverCruisePackageId: data.daily_travel_package_id || data.riverCruisePackageId,
   });
 
   // Fetch notifications

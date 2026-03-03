@@ -1,0 +1,219 @@
+.text-display {
+  font-family: var(--font-heading), "Avenir Next", "Trebuchet MS", sans-serif;
+  font-size: clamp(2.1rem, 5.8vw, 4.8rem);
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+}
+
+.font-display,
+.font-headline,
+.font-subheading {
+  font-family: var(--font-heading), "Avenir Next", "Trebuchet MS", sans-serif;
+}
+
+.text-h1 {
+  font-family: var(--font-heading), "Avenir Next", "Trebuchet MS", sans-serif;
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+.text-h2 {
+  font-family: var(--font-heading), "Avenir Next", "Trebuchet MS", sans-serif;
+  font-size: clamp(1.6rem, 3vw, 2.6rem);
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  font-weight: 700;
+}
+
+.text-h3 {
+  font-family: var(--font-heading), "Avenir Next", "Trebuchet MS", sans-serif;
+  font-size: clamp(1.3rem, 2vw, 2rem);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-weight: 700;
+}
+
+.text-body-lg {
+  font-size: clamp(1.05rem, 1.35vw, 1.2rem);
+  line-height: 1.6;
+}
+
+.text-body {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.text-caption {
+  font-size: 0.8rem;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+}
+
+.professional-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.professional-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: hsl(var(--muted) / 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.professional-table thead tr {
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.professional-table thead th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: hsl(var(--muted-foreground));
+}
+
+.professional-table tbody tr {
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+  transition: background-color 200ms ease;
+}
+
+.professional-table tbody tr:hover {
+  background-color: hsl(var(--muted) / 0.3);
+}
+
+.professional-table tbody td {
+  padding: 1rem;
+  font-size: 0.875rem;
+}
+
+.professional-table tbody tr .table-actions {
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.professional-table tbody tr:hover .table-actions {
+  opacity: 1;
+}
+
+.table-card {
+  border-radius: 0.75rem;
+  border: 1px solid hsl(var(--border));
+  background-color: hsl(var(--card));
+  overflow: hidden;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  text-align: center;
+}
+
+.empty-state-icon {
+  height: 3rem;
+  width: 3rem;
+  color: hsl(var(--muted-foreground) / 0.4);
+  margin-bottom: 1rem;
+}
+
+.empty-state-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  margin-bottom: 0.25rem;
+}
+
+.empty-state-description {
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.shadow-elevation {
+  box-shadow: none;
+}
+
+:root:not(.dark) .shadow-sm {
+  box-shadow: none;
+}
+
+:root:not(.dark) .card-lift {
+  background-color: hsl(var(--card)) !important;
+  box-shadow: none;
+  border-color: hsl(var(--border)) !important;
+  transition:
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:root:not(.dark) .card-lift:hover {
+  box-shadow: none;
+  transform: translateY(-3px);
+  border-color: hsl(var(--accent) / 0.56) !important;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.section-frame {
+  border: 1px solid hsl(var(--border) / 0.85);
+  border-radius: 1.5rem;
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.88));
+  box-shadow: 0 24px 52px -34px rgba(7, 23, 58, 0.34);
+}
+
+.media-gradient-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(7, 23, 58, 0.62) 0%, rgba(7, 23, 58, 0.34) 44%, rgba(7, 23, 58, 0.18) 100%);
+}
+
+.spotlight-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(110, 199, 255, 0.34);
+  background: rgba(255, 255, 255, 0.14);
+  padding: 0.38rem 0.9rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: #f8fbff;
+}
+
+.accent-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  border: 1px solid #b7deb0;
+  background: #eef8eb;
+  color: #2f6a2c;
+}
+
+.accent-highlight {
+  border-radius: 0.4rem;
+  background: #eaf6e7;
+  color: #2f6a2c;
+}
+
+.accent-icon {
+  color: #2f6a2c;
+}

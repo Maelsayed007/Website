@@ -8,6 +8,7 @@ export default {
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/features/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
     container: {
@@ -19,15 +20,22 @@ export default {
     },
     extend: {
       fontFamily: {
-        body: ['var(--font-outfit)', 'sans-serif'],
-        headline: ['var(--font-outfit)', 'sans-serif'],
-        display: ['var(--font-display)', 'system-ui', 'sans-serif'],
-        subheading: ['var(--font-outfit)', 'sans-serif'],
+        body: ['var(--font-body)', 'sans-serif'],
+        headline: ['var(--font-heading)', 'sans-serif'],
+        display: ['var(--font-heading)', 'sans-serif'],
+        subheading: ['var(--font-heading)', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
+        brand: {
+          ink: 'var(--brand-ink)',
+          primary: 'var(--brand-primary)',
+          'primary-strong': 'var(--brand-primary-strong)',
+          accent: 'var(--brand-accent)',
+          surface: 'var(--brand-surface)',
+        },
         card: {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',

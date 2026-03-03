@@ -1,537 +1,744 @@
 'use client';
 
-import { v4 as uuidv4 } from 'uuid';
-import { Suspense, useState, useEffect, useCallback } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { eachDayOfInterval, format, differenceInCalendarDays, parseISO, getDay } from 'date-fns';
+import { eachDayOfInterval, differenceInCalendarDays, format, getDay, parseISO } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
-import { useAuth, useSupabase } from '@/components/providers/supabase-provider';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Users, BedDouble, DoorClosed, Bath, CookingPot, Check, ArrowLeft, CreditCard, X, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Anchor, Fuel, Clock, ShieldCheck, CalendarDays, MapPin } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  ArrowLeft,
+  Bath,
+  BedDouble,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  CreditCard,
+  DoorClosed,
+  Fuel,
+  ShieldCheck,
+  Users,
+  Waves,
+  X,
+} from 'lucide-react';
+
+import { useSupabase } from '@/components/providers/supabase-provider';
+import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Calendar as CalendarPicker } from '@/components/ui/calendar';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import Link from 'next/link';
-import { cn } from '@/lib/utils';
-import { AnimatePresence, motion } from 'framer-motion';
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { applyHouseboatRecurringDiscount } from '@/lib/booking-rules';
 
+type HouseboatDetailProps = {
+  slug: string;
+  serverData?: {
+    model: any;
+    prices: any[];
+    units: any[];
+    bookings: any[];
+  };
+  locale: string;
+};
 
-type HouseboatDetailProps = { slug: string };
+type BookingType = 'overnight' | 'day_charter';
 
-function Lightbox({ images, initialIndex, onClose }: { images: string[], initialIndex: number, onClose: () => void }) {
-    const [index, setIndex] = useState(initialIndex);
-    const next = useCallback((e?: React.MouseEvent) => { e?.stopPropagation(); setIndex((i) => (i + 1) % images.length); }, [images.length]);
-    const prev = useCallback((e?: React.MouseEvent) => { e?.stopPropagation(); setIndex((i) => (i - 1 + images.length) % images.length); }, [images.length]);
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); if (e.key === 'ArrowRight') next(); if (e.key === 'ArrowLeft') prev(); };
-        document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [next, prev, onClose]);
-    return (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4" onClick={onClose}>
-            <Button variant="ghost" className="absolute top-4 right-4 text-white hover:bg-white/10" onClick={onClose}><X className="w-6 h-6" /></Button>
-            <Button variant="ghost" className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/10 h-12 w-12 rounded-full" onClick={prev}><ChevronLeft className="w-6 h-6" /></Button>
-            <Button variant="ghost" className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/10 h-12 w-12 rounded-full" onClick={next}><ChevronRight className="w-6 h-6" /></Button>
-            <motion.div key={index} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative w-full max-w-5xl aspect-[16/9]" onClick={(e) => e.stopPropagation()}>
-                <Image src={images[index]} alt="" fill className="object-contain" priority />
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white px-3 py-1 rounded-full text-sm">{index + 1} / {images.length}</div>
-            </motion.div>
-        </motion.div>
-    );
+function toNumber(value: unknown, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function HouseboatDetailContent({ slug: modelId }: { slug: string }) {
-    const { supabase } = useSupabase();
-    const { user } = useAuth();
-    const router = useRouter();
-    const { toast } = useToast();
-    const searchParams = useSearchParams();
+function getMaximumBookableGuests(houseboat: any) {
+  if (!houseboat) return 10;
 
-    const [houseboat, setHouseboat] = useState<any | null>(null);
-    const [prices, setPrices] = useState<any[]>([]);
-    const [boats, setBoats] = useState<any[]>([]);
-    const [allBookings, setAllBookings] = useState<any[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-    const [lightboxIndex, setLightboxIndex] = useState(0);
-    const [extras, setExtras] = useState<any[]>([]);
-    const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
-    const [selectedDateRange, setSelectedDateRange] = useState<DateRange | undefined>(() => {
-        const from = searchParams.get('from'), to = searchParams.get('to');
-        if (from && to) { try { return { from: parseISO(from), to: parseISO(to) }; } catch { return undefined; } }
-        return undefined;
+  const optimal = toNumber(houseboat.optimal_capacity ?? houseboat.optimalCapacity, 0);
+  const maximum = toNumber(houseboat.maximum_capacity ?? houseboat.maximumCapacity, optimal || 10);
+
+  if (optimal > 0) {
+    return Math.max(1, Math.min(maximum, optimal + 2));
+  }
+
+  return Math.max(1, maximum);
+}
+
+function getDynamicTaxesAndFees(priceRow: any, baseAmount: number): number {
+  if (!priceRow) return 0;
+
+  const fixedKeys = ['taxes_fees', 'taxes_and_fees', 'tax_fee', 'service_fee', 'fees_total'];
+  for (const key of fixedKeys) {
+    const value = toNumber(priceRow?.[key], 0);
+    if (value > 0) return value;
+  }
+
+  const percentKeys = ['tax_percent', 'tax_rate', 'fees_percent', 'service_fee_percent', 'vat_percent'];
+  for (const key of percentKeys) {
+    const percent = toNumber(priceRow?.[key], 0);
+    if (percent > 0) return (baseAmount * percent) / 100;
+  }
+
+  return 0;
+}
+
+function Lightbox({ images, initialIndex, onClose }: { images: string[]; initialIndex: number; onClose: () => void }) {
+  const [index, setIndex] = useState(initialIndex);
+  const next = useCallback((e?: ReactMouseEvent) => {
+    e?.stopPropagation();
+    setIndex((i) => (i + 1) % images.length);
+  }, [images.length]);
+  const prev = useCallback((e?: ReactMouseEvent) => {
+    e?.stopPropagation();
+    setIndex((i) => (i - 1 + images.length) % images.length);
+  }, [images.length]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowRight') next();
+      if (e.key === 'ArrowLeft') prev();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [next, onClose, prev]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4"
+      onClick={onClose}
+    >
+      <Button variant="ghost" className="absolute right-4 top-4 text-white hover:bg-white/10" onClick={onClose}>
+        <X className="h-6 w-6" />
+      </Button>
+      <Button variant="ghost" className="absolute left-4 top-1/2 h-12 w-12 -translate-y-1/2 rounded-full text-white hover:bg-white/10" onClick={prev}>
+        <ChevronLeft className="h-6 w-6" />
+      </Button>
+      <Button variant="ghost" className="absolute right-4 top-1/2 h-12 w-12 -translate-y-1/2 rounded-full text-white hover:bg-white/10" onClick={next}>
+        <ChevronRight className="h-6 w-6" />
+      </Button>
+      <motion.div
+        key={index}
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="relative aspect-[16/9] w-full max-w-6xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Image src={images[index]} alt="" fill className="object-contain" priority />
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-3 py-1 text-sm text-white">
+          {index + 1} / {images.length}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function money(value: number) {
+  return `EUR ${Math.round(value).toLocaleString()}`;
+}
+
+function HouseboatDetailContent({ slug: modelId, serverData, locale }: HouseboatDetailProps) {
+  const { supabase } = useSupabase();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { toast } = useToast();
+
+  const bookingType: BookingType = searchParams.get('type') === 'day_charter' ? 'day_charter' : 'overnight';
+
+  const [houseboat, setHouseboat] = useState<any | null>(serverData?.model || null);
+  const [prices, setPrices] = useState<any[]>(serverData?.prices || []);
+  const [isLoading, setIsLoading] = useState(!serverData);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [selectedDateRange, setSelectedDateRange] = useState<DateRange | undefined>(() => {
+    const from = searchParams.get('from');
+    const to = searchParams.get('to');
+    try {
+      if (from && to) return { from: parseISO(from), to: parseISO(to) };
+      if (from) {
+        const parsed = parseISO(from);
+        return bookingType === 'day_charter' ? { from: parsed, to: parsed } : { from: parsed, to: undefined };
+      }
+    } catch {
+      return undefined;
+    }
+    return undefined;
+  });
+  const [numGuests, setNumGuests] = useState<number>(() => {
+    const parsed = Number.parseInt(searchParams.get('guests') || '2', 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 2;
+  });
+  const [bookingCost, setBookingCost] = useState<{
+    total: number;
+    weekdayNights: number;
+    weekendNights: number;
+    weekdayPrice: number;
+    weekendPrice: number;
+    preparationFee: number;
+    deposit: number;
+    recurringDiscountPercent: number;
+    recurringDiscountAmount: number;
+  } | null>(null);
+
+  const getTranslated = (obj: any, field: string, fallback: string) => {
+    if (!obj?.translations?.[locale]?.[field]) return fallback;
+    return obj.translations[locale][field];
+  };
+
+  useEffect(() => {
+    if (serverData) {
+      setIsLoading(false);
+      return;
+    }
+
+    const fetchData = async () => {
+      if (!supabase) return;
+      setIsLoading(true);
+      try {
+        const [{ data: modelData }, { data: pricesData }] = await Promise.all([
+          supabase.from('houseboat_models').select('*').eq('id', modelId).single(),
+          supabase.from('houseboat_prices').select('*').eq('model_id', modelId),
+        ]);
+        setHouseboat(modelData);
+        setPrices(pricesData || []);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [modelId, serverData, supabase]);
+
+  const maxBookableGuests = useMemo(() => getMaximumBookableGuests(houseboat), [houseboat]);
+
+  useEffect(() => {
+    setNumGuests((current) => {
+      if (current < 1) return 1;
+      if (current > maxBookableGuests) return maxBookableGuests;
+      return current;
     });
-    const [numGuests, setNumGuests] = useState<number>(() => parseInt(searchParams.get('guests') || '2'));
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [bookingCost, setBookingCost] = useState<{ total: number; weekdayNights: number; weekendNights: number; weekdayPrice: number; weekendPrice: number; preparationFee: number; deposit: number; extrasTotal: number } | null>(null);
-    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-    const [clientDetails, setClientDetails] = useState({ name: '', email: '', phone: '' });
-    const [isBookBarExpanded, setIsBookBarExpanded] = useState(false);
+  }, [maxBookableGuests]);
 
+  useEffect(() => {
+    if (!selectedDateRange?.from || !houseboat) {
+      setBookingCost(null);
+      return;
+    }
 
-    useEffect(() => {
-        const fetchData = async () => {
-            if (!supabase) return;
-            setIsLoading(true);
-            try {
-                const [{ data: modelData }, { data: pricesData }, { data: boatsData }, { data: bookingsData }, { data: extrasData }] = await Promise.all([
-                    supabase.from('houseboat_models').select('*').eq('id', modelId).single(),
-                    supabase.from('houseboat_prices').select('*').eq('model_id', modelId),
-                    supabase.from('boats').select('*').eq('model_id', modelId),
-                    supabase.from('bookings').select('*'),
-                    supabase.from('extras').select('*').in('type', ['all', 'houseboat'])
-                ]);
-                setHouseboat(modelData);
-                setPrices(pricesData || []);
-                setBoats(boatsData || []);
-                setAllBookings(bookingsData || []);
-                setExtras(extrasData || []);
-            } catch (e) { console.error(e); }
-            finally { setIsLoading(false); }
-        };
-        fetchData();
-    }, [supabase, modelId]);
+    const defaultWeekday = toNumber(prices?.[0]?.weekday_price, toNumber(houseboat?.starting_price, 150));
+    const defaultWeekend = toNumber(prices?.[0]?.weekend_price, defaultWeekday);
 
-    useEffect(() => {
-        if (!selectedDateRange?.from || !selectedDateRange?.to || !prices) { setBookingCost(null); return; }
-        const nights = differenceInCalendarDays(selectedDateRange.to, selectedDateRange.from);
-        if (nights <= 0) { setBookingCost(null); return; }
-        const priceObj = prices[0] || { weekday_price: 150, weekend_price: 150 };
-        let weekdayCount = 0, weekendCount = 0;
-        eachDayOfInterval({ start: selectedDateRange.from, end: selectedDateRange.to }).slice(0, -1).forEach(d => { const day = getDay(d); if (day === 5 || day === 6) weekendCount++; else weekdayCount++; });
-        const preparationFee = 76;
-        let extrasTotal = 0;
-        selectedExtras.forEach(id => { const extra = extras.find(e => e.id === id); if (extra) extrasTotal += extra.price_type === 'per_day' ? extra.price * nights : extra.price; });
-        const total = (weekdayCount * priceObj.weekday_price) + (weekendCount * priceObj.weekend_price) + preparationFee + extrasTotal;
-        setBookingCost({ total, weekdayNights: weekdayCount, weekendNights: weekendCount, weekdayPrice: priceObj.weekday_price, weekendPrice: priceObj.weekend_price, preparationFee, deposit: Math.ceil(total * 0.30), extrasTotal });
-    }, [selectedDateRange, prices, selectedExtras, extras]);
+    if (bookingType === 'day_charter') {
+      const total = toNumber(houseboat.diaria_price, defaultWeekday);
+      setBookingCost({
+        total,
+        weekdayNights: 0,
+        weekendNights: 0,
+        weekdayPrice: defaultWeekday,
+        weekendPrice: defaultWeekend,
+        preparationFee: 0,
+        deposit: Math.ceil(total * 0.3),
+        recurringDiscountPercent: 0,
+        recurringDiscountAmount: 0,
+      });
+      return;
+    }
 
-    const checkAvailability = () => {
-        if (!selectedDateRange?.from || !selectedDateRange?.to || !boats.length) return null;
-        const req = { start: selectedDateRange.from, end: selectedDateRange.to };
-        const available = boats.filter(boat => {
-            const bookings = allBookings.filter((b: any) => b.houseboat_id === boat.id && b.status !== 'Cancelled');
-            return !bookings.some((b: any) => b.start_time && b.end_time && req.start < new Date(b.end_time) && req.end > new Date(b.start_time));
-        });
-        return available.length > 0 ? available[0].id : null;
-    };
+    if (!selectedDateRange.to) {
+      setBookingCost(null);
+      return;
+    }
 
-    const handleRequestBooking = () => {
-        if (!selectedDateRange?.from || !selectedDateRange?.to) { toast({ variant: "destructive", title: "Select dates" }); return; }
-        if (!houseboat) { toast({ variant: "destructive", title: "Houseboat data not loaded" }); return; }
+    const nights = differenceInCalendarDays(selectedDateRange.to, selectedDateRange.from);
+    if (nights <= 0) {
+      setBookingCost(null);
+      return;
+    }
 
-        const params = new URLSearchParams({
-            boatId: houseboat.id,
-            from: selectedDateRange.from.toISOString(),
-            to: selectedDateRange.to.toISOString(),
-            guests: numGuests.toString()
-        });
+    let weekdayCount = 0;
+    let weekendCount = 0;
+    eachDayOfInterval({ start: selectedDateRange.from, end: selectedDateRange.to })
+      .slice(0, -1)
+      .forEach((day) => {
+        const weekday = getDay(day);
+        if (weekday === 5 || weekday === 6) weekendCount += 1;
+        else weekdayCount += 1;
+      });
 
-        if (selectedExtras.length > 0) {
-            params.append('extras', selectedExtras.join(','));
-        }
+    const preparationFee = 76;
+    const overnightBase = (weekdayCount * defaultWeekday) + (weekendCount * defaultWeekend);
+    const recurring = applyHouseboatRecurringDiscount({
+      bookingType: 'overnight',
+      baseOvernightPrice: overnightBase,
+      bookingDate: new Date(),
+      checkInDate: selectedDateRange.from,
+      guests: numGuests,
+      nights,
+    });
+    const total = recurring.discountedBasePrice + preparationFee;
+    setBookingCost({
+      total,
+      weekdayNights: weekdayCount,
+      weekendNights: weekendCount,
+      weekdayPrice: defaultWeekday,
+      weekendPrice: defaultWeekend,
+      preparationFee,
+      deposit: Math.ceil(total * 0.3),
+      recurringDiscountPercent: recurring.discountPercent,
+      recurringDiscountAmount: recurring.discountAmount,
+    });
+  }, [bookingType, houseboat, numGuests, prices, selectedDateRange]);
 
-        router.push(`/checkout?${params.toString()}`);
-    };
+  const handleRequestBooking = () => {
+    if (!selectedDateRange?.from) {
+      toast({ variant: 'destructive', title: 'Select dates first' });
+      return;
+    }
+    if (bookingType === 'overnight' && !selectedDateRange.to) {
+      toast({ variant: 'destructive', title: 'Select check-out date' });
+      return;
+    }
+    if (!houseboat) {
+      toast({ variant: 'destructive', title: 'Houseboat data not loaded' });
+      return;
+    }
 
-    const openLightbox = (i: number) => { setLightboxIndex(i); setIsLightboxOpen(true); };
+    const params = new URLSearchParams({
+      boatId: houseboat.id,
+      from: selectedDateRange.from.toISOString(),
+      to: (bookingType === 'day_charter' ? selectedDateRange.from : selectedDateRange.to!).toISOString(),
+      guests: numGuests.toString(),
+      type: bookingType,
+    });
+    router.push(`/checkout?${params.toString()}`);
+  };
 
-    if (isLoading) return <HouseboatDetailSkeleton />;
-    if (!houseboat) return <div className="p-20 text-center text-xl">Houseboat not found.</div>;
+  const openLightbox = (index: number) => {
+    setLightboxIndex(index);
+    setIsLightboxOpen(true);
+  };
 
-    const { name, description, optimal_capacity, maximum_capacity, kitchens, bathrooms, bedrooms, image_urls, double_beds, single_beds, sofa_beds } = houseboat;
-    const images = image_urls || [];
-    const totalBeds = (double_beds || 0) + (single_beds || 0) + (sofa_beds || 0);
+  if (isLoading) return <HouseboatDetailSkeleton />;
+  if (!houseboat) return <div className="min-h-screen p-16 text-center text-xl">Houseboat not found.</div>;
 
-    return (
-        <>
-            <AnimatePresence>{isLightboxOpen && <Lightbox images={images} initialIndex={lightboxIndex} onClose={() => setIsLightboxOpen(false)} />}</AnimatePresence>
+  const images = Array.isArray(houseboat.image_urls)
+    ? (houseboat.image_urls as string[])
+    : (Array.isArray(houseboat.imageUrls) ? houseboat.imageUrls as string[] : []);
+  const galleryImages = images.length > 0 ? images : ['/placeholder-houseboat.jpg'];
+  const startingPrice = toNumber(houseboat?.starting_price, toNumber(prices?.[0]?.weekday_price, 150));
+  const nightsCount = selectedDateRange?.from && selectedDateRange?.to
+    ? Math.max(1, differenceInCalendarDays(selectedDateRange.to, selectedDateRange.from))
+    : 1;
+  const stayLabel = bookingType === 'day_charter'
+    ? 'Day charter'
+    : `${nightsCount} night${nightsCount > 1 ? 's' : ''}`;
 
-            <div className="bg-white min-h-screen pt-[72px]">
-                <div className="container mx-auto max-w-7xl px-4 py-6">
-                    <Link href="/houseboats" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-[#34C759] font-bold mb-4 transition-colors">
-                        <ArrowLeft className="w-4 h-4" /> Back to Houseboats
-                    </Link>
+  const optimalCapacity = toNumber(houseboat.optimal_capacity ?? houseboat.optimalCapacity, 0);
+  const maximumCapacity = toNumber(houseboat.maximum_capacity ?? houseboat.maximumCapacity, optimalCapacity || 0);
+  const bedrooms = toNumber(houseboat.bedrooms, 0);
+  const bathrooms = toNumber(houseboat.bathrooms, 0);
+  const kitchens = toNumber(houseboat.kitchens, 0);
+  const extraBedGuests = Math.max(0, maxBookableGuests - optimalCapacity);
 
-                    {/* Hero: Photos */}
-                    <div className="grid lg:grid-cols-[1.5fr,1fr] gap-8 mb-12">
-                        {/* Left Column: Photos */}
-                        <div className="space-y-4">
-                            <div className="relative aspect-[3/2] rounded-2xl overflow-hidden cursor-pointer shadow-lg" onClick={() => openLightbox(0)}>
-                                {images[0] ? <Image src={images[0]} alt={name} fill className="object-cover hover:scale-105 transition-transform duration-500" priority /> : <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400">No Image</div>}
-                            </div>
-                            <div className="grid grid-cols-5 gap-3">
-                                {[1, 2, 3, 4, 5].map(i => (
-                                    <div key={i} className="relative aspect-square rounded-xl overflow-hidden cursor-pointer shadow-md" onClick={() => openLightbox(i)}>
-                                        {images[i] ? <Image src={images[i]} alt="" fill className="object-cover hover:opacity-90 transition-opacity" /> : <div className="w-full h-full bg-gray-100" />}
-                                        {i === 5 && images.length > 6 && <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-lg rounded-xl">+{images.length - 6}</div>}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+  const amenities: string[] = Array.isArray(houseboat.amenities) ? houseboat.amenities : [];
+  const displayAmenities: string[] = amenities.length > 0
+    ? amenities.map((a) => a.replace(/_/g, ' '))
+    : ['Sun deck', 'Kitchen equipment', 'Comfortable cabins', 'Panoramic windows', 'Dining area', 'Outdoor seating'];
+  const boatDescription =
+    getTranslated(houseboat, 'description', houseboat.description) ||
+    'Enjoy calm lake days and comfortable nights aboard a fully equipped houseboat designed for easy navigation.';
+  const policyCards = [
+    {
+      title: 'Payment',
+      description: 'A 30% deposit confirms the reservation. The remaining amount is paid at check-in.',
+      icon: CreditCard,
+    },
+    {
+      title: 'Responsibility Terms',
+      description: 'A responsibility term is signed at check-in and only applies in case of damages.',
+      icon: ShieldCheck,
+    },
+    {
+      title: 'Fuel',
+      description: 'The boat is delivered with full fuel. Consumption during your stay is charged at check-out.',
+      icon: Fuel,
+    },
+    {
+      title: 'Check-in and Check-out',
+      description: bookingType === 'day_charter'
+        ? 'Day-charter timing is confirmed by operations before departure.'
+        : 'Check-in and check-out windows are confirmed by marina operations.',
+      icon: Clock3,
+    },
+  ];
 
-                        {/* Right Column: About, Features & Policies */}
-                        <div className="flex flex-col">
-                            {/* About Section */}
-                            <div className="mb-8">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <h3 className="font-display text-3xl text-[#18230F] tracking-tight">About This Boat</h3>
-                                    <div className="h-px bg-gray-100 flex-1"></div>
-                                </div>
-                                <div className="prose prose-sm max-w-none text-gray-600 leading-relaxed font-medium">
-                                    <p>{description || "Experience the Alqueva Lake like never before aboard this stunning houseboat."}</p>
-                                </div>
-                            </div>
+  const topFacts = [
+    {
+      label: 'Ideal capacity',
+      value: `${optimalCapacity || '-'} guests`,
+      icon: Users,
+    },
+    {
+      label: 'Maximum capacity',
+      value: `${maximumCapacity || '-'} guests`,
+      icon: Users,
+    },
+    {
+      label: 'Bedrooms',
+      value: String(bedrooms),
+      icon: BedDouble,
+    },
+    {
+      label: 'Bathrooms',
+      value: String(bathrooms),
+      icon: Bath,
+    },
+    {
+      label: 'Kitchens',
+      value: String(kitchens),
+      icon: DoorClosed,
+    },
+    {
+      label: 'Navigation',
+      value: 'Licence free',
+      icon: Waves,
+    },
+  ];
 
-                            {/* Features Section */}
-                            <div className="mb-8">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <h3 className="font-display text-3xl text-[#18230F] tracking-tight">Boat Features</h3>
-                                    <div className="h-px bg-gray-100 flex-1"></div>
-                                </div>
+  const showExtraBedNotice = optimalCapacity > 0 && numGuests > optimalCapacity && extraBedGuests > 0;
+  const selectedExtraBedGuests = showExtraBedNotice
+    ? Math.min(numGuests - optimalCapacity, extraBedGuests)
+    : 0;
+  const weekdaySubtotal = bookingType === 'overnight' && bookingCost
+    ? bookingCost.weekdayNights * bookingCost.weekdayPrice
+    : 0;
+  const weekendSubtotal = bookingType === 'overnight' && bookingCost
+    ? bookingCost.weekendNights * bookingCost.weekendPrice
+    : 0;
+  const preparationSubtotal = bookingCost?.preparationFee || 0;
+  const breakdownTotal = bookingCost?.total || startingPrice;
+  const breakdownDeposit = bookingCost?.deposit || Math.ceil(breakdownTotal * 0.3);
+  const taxesAndFees = Math.max(0, getDynamicTaxesAndFees(
+    prices?.[0],
+    Math.max(0, weekdaySubtotal + weekendSubtotal + preparationSubtotal),
+  ));
 
-                                <div className="flex items-center gap-2 overflow-x-auto pb-4 scrollbar-hide">
-                                    <div className="bg-white border border-gray-100 rounded-xl p-3 text-center shadow-sm hover:border-[#34C759]/30 transition-all min-w-[85px] flex-1">
-                                        <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-2">
-                                            <Users className="w-4 h-4 text-[#34C759] stroke-[1.5]" />
-                                        </div>
-                                        <p className="font-bold text-xl text-[#18230F] leading-none mb-1">{optimal_capacity}</p>
-                                        <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest">GUESTS</p>
-                                    </div>
-                                    <div className="bg-white border border-gray-100 rounded-xl p-3 text-center shadow-sm hover:border-[#34C759]/30 transition-all min-w-[85px] flex-1">
-                                        <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-2">
-                                            <DoorClosed className="w-4 h-4 text-[#34C759] stroke-[1.5]" />
-                                        </div>
-                                        <p className="font-bold text-xl text-[#18230F] leading-none mb-1">{bedrooms}</p>
-                                        <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest">CABINS</p>
-                                    </div>
+  return (
+    <>
+      <AnimatePresence>
+        {isLightboxOpen && (
+          <Lightbox
+            images={galleryImages}
+            initialIndex={lightboxIndex}
+            onClose={() => setIsLightboxOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
-                                    <div className="bg-white border border-gray-100 rounded-xl p-3 text-center shadow-sm hover:border-[#34C759]/30 transition-all min-w-[85px] flex-1">
-                                        <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-2">
-                                            <BedDouble className="w-4 h-4 text-[#34C759] stroke-[1.5]" />
-                                        </div>
-                                        <p className="font-bold text-base text-[#18230F] leading-none mb-1 line-clamp-1 whitespace-nowrap">
-                                            {double_beds > 0 ? `${double_beds} Double` : (single_beds > 0 ? `${single_beds} Single` : `${totalBeds} Beds`)}
-                                        </p>
-                                        <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest">BED</p>
-                                    </div>
+      <div className="min-h-screen bg-[#f6f8fc] pb-24 pt-28 lg:pb-16 lg:pt-32">
+        <div className="mx-auto w-full max-w-[1320px] px-4 md:px-6">
+          <div className="mb-5 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+            <Link href="/houseboats" className="inline-flex items-center gap-2 font-medium text-slate-700 hover:text-slate-900">
+              <ArrowLeft className="h-4 w-4" />
+              Back to search
+            </Link>
+            <span className="text-slate-400">/</span>
+            <span className="text-slate-400">Houseboats</span>
+            <span className="text-slate-400">/</span>
+            <span className="truncate font-semibold text-slate-800">{houseboat.name}</span>
+          </div>
 
-                                    <div className="bg-white border border-gray-100 rounded-xl p-3 text-center shadow-sm hover:border-[#34C759]/30 transition-all min-w-[85px] flex-1">
-                                        <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-2">
-                                            <Bath className="w-4 h-4 text-[#34C759] stroke-[1.5]" />
-                                        </div>
-                                        <p className="font-bold text-xl text-[#18230F] leading-none mb-1">{bathrooms}</p>
-                                        <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest">BATHS</p>
-                                    </div>
-                                    <div className="bg-white border border-gray-100 rounded-xl p-3 text-center shadow-sm hover:border-[#34C759]/30 transition-all min-w-[85px] flex-1">
-                                        <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-2">
-                                            <CookingPot className="w-4 h-4 text-[#34C759] stroke-[1.5]" />
-                                        </div>
-                                        <p className="font-bold text-xl text-[#18230F] leading-none mb-1">{kitchens}</p>
-                                        <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest">KITCHEN</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Policies Section */}
-                            <div className="mb-10">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <h3 className="font-display text-3xl text-[#18230F] tracking-tight">Houseboat Policies</h3>
-                                    <div className="h-px bg-gray-100 flex-1"></div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:border-[#34C759]/30 transition-all group">
-                                        <div className="flex items-center gap-3 mb-2">
-                                            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-[#34C759] flex items-center justify-center group-hover:bg-[#34C759] group-hover:text-white transition-colors"><CreditCard className="w-4 h-4" /></div>
-                                            <h4 className="font-black text-[#18230F] text-xs uppercase tracking-wider">Payment</h4>
-                                        </div>
-                                        <p className="text-[10px] text-gray-500 leading-relaxed font-medium">30% deposit to confirm. Balance at check-in.</p>
-                                    </div>
-                                    <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:border-[#34C759]/30 transition-all group">
-                                        <div className="flex items-center gap-3 mb-2">
-                                            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-[#34C759] flex items-center justify-center group-hover:bg-[#34C759] group-hover:text-white transition-colors"><Fuel className="w-4 h-4" /></div>
-                                            <h4 className="font-black text-[#18230F] text-xs uppercase tracking-wider">Fuel</h4>
-                                        </div>
-                                        <p className="text-[10px] text-gray-500 leading-relaxed font-medium">Boats full. Consumption charged at check-out.</p>
-                                    </div>
-                                    <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:border-[#34C759]/30 transition-all group">
-                                        <div className="flex items-center gap-3 mb-2">
-                                            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-[#34C759] flex items-center justify-center group-hover:bg-[#34C759] group-hover:text-white transition-colors"><ShieldCheck className="w-4 h-4" /></div>
-                                            <h4 className="font-black text-[#18230F] text-xs uppercase tracking-wider">Security</h4>
-                                        </div>
-                                        <p className="text-[10px] text-gray-500 leading-relaxed font-medium">Term signed at check-in. Damages charged accordingly.</p>
-                                    </div>
-                                    <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:border-[#34C759]/30 transition-all group">
-                                        <div className="flex items-center gap-3 mb-2">
-                                            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-[#34C759] flex items-center justify-center group-hover:bg-[#34C759] group-hover:text-white transition-colors"><Clock className="w-4 h-4" /></div>
-                                            <h4 className="font-black text-[#18230F] text-xs uppercase tracking-wider">Check-in</h4>
-                                        </div>
-                                        <p className="text-[10px] text-gray-500 leading-relaxed font-medium">Based on availability. Late check-out possible.</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Relocated Extras Section */}
-                            {extras.length > 0 && (
-                                <div>
-                                    <div className="flex items-center gap-3 mb-6">
-                                        <h3 className="font-display text-3xl text-[#18230F] tracking-tight">Add Extras to Your Trip</h3>
-                                        <div className="h-px bg-gray-100 flex-1"></div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {extras.map(extra => (
-                                            <div key={extra.id} className={cn("p-3 rounded-2xl border cursor-pointer transition-all flex items-center justify-between", selectedExtras.includes(extra.id) ? "bg-emerald-50 border-[#34C759] shadow-sm" : "bg-white border-gray-100 hover:border-[#34C759]/30")} onClick={() => setSelectedExtras(prev => prev.includes(extra.id) ? prev.filter(e => e !== extra.id) : [...prev, extra.id])}>
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold text-sm text-[#18230F]">{extra.name}</span>
-                                                    <p className="text-[#34C759] font-black text-xs">€{extra.price}</p>
-                                                </div>
-                                                <div className={cn("w-5 h-5 rounded-full border flex items-center justify-center transition-colors", selectedExtras.includes(extra.id) ? "bg-[#34C759] border-[#34C759]" : "bg-gray-50 border-gray-100")}>
-                                                    {selectedExtras.includes(extra.id) && <Check className="w-3 h-3 text-white" />}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                </div>
+          <section className="overflow-hidden rounded-[28px] border border-[#d7deea] bg-white p-4 md:p-6">
+            <div className="max-w-4xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#2f5ecf]">Houseboat model</p>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <h1 className="font-display text-[2.05rem] font-bold leading-[1.02] tracking-tight text-[#1f4ea8] md:text-[2.8rem]">
+                  {houseboat.name}
+                </h1>
+                <span className="rounded-full border border-[#70c167]/40 bg-[#ecf9e6] px-3 py-1.5 text-xs font-semibold text-[#23543f]">
+                  No licence required
+                </span>
+                {showExtraBedNotice && (
+                  <span className="rounded-full border border-[#d3dcf0] bg-[#f4f7ff] px-3 py-1.5 text-xs font-semibold text-[#3858ad]">
+                    +{selectedExtraBedGuests} guest{selectedExtraBedGuests > 1 ? 's' : ''} with extra bed
+                  </span>
+                )}
+              </div>
+              <p className="mt-2 text-sm leading-6 text-slate-600 md:text-base">
+                Private lake stays with easy booking and comfortable cabins.
+              </p>
             </div>
 
+            <div className="mt-4 grid gap-3 lg:h-[520px] lg:grid-cols-[1.45fr_1fr]">
+              <button
+                type="button"
+                onClick={() => openLightbox(0)}
+                className="relative aspect-[4/3] overflow-hidden rounded-[22px] lg:h-full lg:aspect-auto"
+              >
+                <Image src={galleryImages[0]} alt={houseboat.name} fill className="object-cover" priority />
+              </button>
 
-
-            {/* Sticky Bottom Booking Bar */}
-            <div className="fixed bottom-0 left-0 right-0 z-[50] pb-[env(safe-area-inset-bottom)]">
-                <AnimatePresence>
-                    {isBookBarExpanded && (
-                        <motion.div
-                            initial={{ y: "100%" }}
-                            animate={{ y: 0 }}
-                            exit={{ y: "100%" }}
-                            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                            className="bg-white border-t border-gray-100 shadow-[0_-15px_50px_rgba(0,0,0,0.1)] overflow-hidden rounded-t-[40px]"
-                        >
-                            <div className="bg-white border-b border-gray-100 p-6 flex items-center justify-between">
-                                <div>
-                                    <p className="text-[10px] tracking-[0.25em] font-medium text-gray-400">Plan your stay</p>
-                                    <p className="text-3xl font-display font-bold text-[#18230F]">{name}</p>
-                                </div>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="text-gray-300 hover:text-[#18230F] hover:bg-gray-50 rounded-full h-12 w-12"
-                                    onClick={() => setIsBookBarExpanded(false)}
-                                >
-                                    <ChevronDown className="w-7 h-7" />
-                                </Button>
-                            </div>
-
-                            <div className="max-w-7xl mx-auto p-6 lg:p-8 grid md:grid-cols-2 gap-8">
-                                <div className="space-y-6">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <button className="flex flex-col items-start p-5 bg-gray-50 rounded-2xl border border-transparent hover:border-[#34C759]/40 hover:bg-white transition-all text-left group shadow-sm">
-                                                    <span className="text-xs text-gray-400 font-medium mb-2 group-hover:text-[#34C759] transition-colors">Check-in</span>
-                                                    <span className="text-lg font-black text-[#18230F]">{selectedDateRange?.from ? format(selectedDateRange.from, 'MMM d, yyyy') : 'Select date'}</span>
-                                                </button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0 border-none shadow-2xl rounded-3xl overflow-hidden" align="start">
-                                                <CalendarPicker mode="range" selected={selectedDateRange} onSelect={setSelectedDateRange} disabled={(d) => d < new Date()} />
-                                            </PopoverContent>
-                                        </Popover>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <button className="flex flex-col items-start p-5 bg-gray-50 rounded-2xl border border-transparent hover:border-[#34C759]/40 hover:bg-white transition-all text-left group shadow-sm">
-                                                    <span className="text-xs text-gray-400 font-medium mb-2 group-hover:text-[#34C759] transition-colors">Check-out</span>
-                                                    <span className="text-lg font-black text-[#18230F]">{selectedDateRange?.to ? format(selectedDateRange.to, 'MMM d, yyyy') : 'Select date'}</span>
-                                                </button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0 border-none shadow-2xl rounded-3xl overflow-hidden" align="start">
-                                                <CalendarPicker mode="range" selected={selectedDateRange} onSelect={setSelectedDateRange} disabled={(d) => d < new Date()} />
-                                            </PopoverContent>
-                                        </Popover>
-                                    </div>
-
-                                    <div>
-                                        <Label className="text-xs text-gray-400 font-medium mb-3 block px-1">Guests</Label>
-                                        <Select value={String(numGuests)} onValueChange={val => setNumGuests(Number(val))}>
-                                            <SelectTrigger className="w-full h-[64px] bg-gray-50 border-transparent rounded-2xl text-[#18230F] font-black px-6 hover:border-[#34C759]/40 hover:bg-white transition-all shadow-sm">
-                                                <div className="flex items-center gap-4">
-                                                    <Users className="w-5 h-5 text-[#34C759]" />
-                                                    <span className="text-lg">{numGuests} Guest{numGuests > 1 ? 's' : ''}</span>
-                                                </div>
-                                            </SelectTrigger>
-                                            <SelectContent className="rounded-2xl border-gray-100 shadow-xl">
-                                                {[...Array(maximum_capacity || 6)].map((_, i) => (
-                                                    <SelectItem key={i + 1} value={String(i + 1)} className="font-bold py-3 hover:bg-emerald-50 focus:bg-emerald-50">{i + 1} Guest{i > 0 ? 's' : ''}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-
-                                        {numGuests > (Number(optimal_capacity) || 2) && (
-                                            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mt-4 p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-4">
-                                                <div className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
-                                                    <span className="text-amber-600 font-black text-sm">!</span>
-                                                </div>
-                                                <p className="text-sm text-amber-900 leading-relaxed font-medium">
-                                                    For {numGuests} guests, an extra bed will be made in the living room table area.
-                                                </p>
-                                            </motion.div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="flex flex-col justify-between">
-                                    <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
-                                        <div className="p-6 md:p-7 space-y-4">
-                                            {bookingCost ? (
-                                                <>
-                                                    {bookingCost.weekdayNights > 0 && (
-                                                        <div className="flex justify-between items-center">
-                                                            <span className="text-gray-400 font-medium text-[10px] tracking-widest">{bookingCost.weekdayNights} × €{bookingCost.weekdayPrice} Weekday</span>
-                                                            <span className="font-black text-[#18230F]">€{bookingCost.weekdayNights * bookingCost.weekdayPrice}</span>
-                                                        </div>
-                                                    )}
-                                                    {bookingCost.weekendNights > 0 && (
-                                                        <div className="flex justify-between items-center">
-                                                            <span className="text-gray-400 font-medium text-[10px] tracking-widest">{bookingCost.weekendNights} × €{bookingCost.weekendPrice} Weekend</span>
-                                                            <span className="font-black text-[#18230F]">€{bookingCost.weekendNights * bookingCost.weekendPrice}</span>
-                                                        </div>
-                                                    )}
-                                                    <div className="flex justify-between items-center pt-4 border-t border-gray-50">
-                                                        <span className="text-gray-400 font-medium text-[10px] tracking-widest">Prep & taxes</span>
-                                                        <span className="font-black text-[#18230F]">€{bookingCost.preparationFee}</span>
-                                                    </div>
-                                                    {bookingCost.extrasTotal > 0 && (
-                                                        <div className="flex justify-between items-center">
-                                                            <span className="text-gray-400 font-medium text-[10px] tracking-widest">Extras</span>
-                                                            <span className="font-black text-[#34C759]">+{bookingCost.extrasTotal}€</span>
-                                                        </div>
-                                                    )}
-                                                </>
-                                            ) : (
-                                                <div className="py-12 text-center bg-gray-50/50 border border-dashed border-gray-100 rounded-3xl">
-                                                    <CalendarDays className="w-10 h-10 mx-auto text-gray-200 mb-3 stroke-[1.5]" />
-                                                    <p className="text-xs text-gray-400 font-black uppercase tracking-widest">Select dates to calculate price</p>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {bookingCost && (
-                                            <div className="bg-[#18230F] p-6 md:p-7">
-                                                <div className="flex justify-between items-end text-white mb-4">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[10px] tracking-[0.2em] font-medium opacity-50 mb-1">Total amount</span>
-                                                        <span className="font-black text-4xl">€{bookingCost.total}</span>
-                                                    </div>
-                                                </div>
-                                                <div className="bg-[#34C759]/10 border border-[#34C759]/20 rounded-xl py-3 px-4 text-center">
-                                                    <p className="text-[10px] text-[#34C759] font-black uppercase tracking-widest">SECURE WITH MINI. €{bookingCost.deposit} DEPOSIT (30%)</p>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="mt-8">
-                                        <Button
-                                            onClick={handleRequestBooking}
-                                            className="w-full h-12 md:h-14 font-display text-lg md:text-xl font-bold rounded-full bg-[#34C759] hover:bg-[#2DA64D] text-[#18230F] shadow-xl transition-all active:scale-[0.98] disabled:opacity-50"
-                                            disabled={!selectedDateRange?.from || !selectedDateRange?.to}
-                                        >
-                                            {isSubmitting ? "Processing..." : "Request a Reservation"}
-                                        </Button>
-                                        <div className="flex items-center justify-center gap-2 mt-5">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                            <p className="text-center text-[10px] text-gray-400 font-medium tracking-widest">No charge until confirmation • Free cancellation</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </motion.div>
+              <div className="grid grid-cols-2 gap-3 lg:h-full lg:grid-rows-2">
+                {[1, 2, 3, 4].map((idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => openLightbox(idx)}
+                    className="relative aspect-[4/3] overflow-hidden rounded-[16px] lg:h-full lg:aspect-auto"
+                  >
+                    <Image src={galleryImages[idx] || galleryImages[0]} alt="" fill className="object-cover" />
+                    {idx === 4 && galleryImages.length > 5 && (
+                      <div className="absolute inset-0 flex items-end justify-end bg-black/25 p-3">
+                        <span className="rounded-full bg-white/95 px-4 py-2 text-sm font-semibold text-slate-800">
+                          See all {galleryImages.length} photos
+                        </span>
+                      </div>
                     )}
-                </AnimatePresence>
-
-                {/* Collapsed Bar - Always Visible */}
-                <div className="bg-white border-t border-gray-100 px-6 md:px-12 lg:px-20 py-3 md:py-4 shadow-[0_-15px_50px_rgba(0,0,0,0.08)] relative z-10">
-                    <div className="max-w-7xl mx-auto flex items-center justify-between">
-                        {/* Left Side: Segments */}
-                        <div className="flex items-center gap-8 lg:gap-12">
-                            <h4 className="font-display text-2xl md:text-3xl font-bold text-[#18230F] whitespace-nowrap tracking-tight leading-tight">{name}</h4>
-
-                            <div className="h-12 w-px bg-gray-100 hidden sm:block" />
-
-                            <div className="hidden sm:flex flex-col group cursor-pointer" onClick={() => setIsBookBarExpanded(true)}>
-                                <span className="text-sm text-gray-500 font-medium mb-1 group-hover:text-[#34C759] transition-colors">Dates</span>
-                                <span className="text-base font-black text-[#18230F] whitespace-nowrap">
-                                    {selectedDateRange?.from ? format(selectedDateRange.from, 'MMM d') : 'Add dates'}
-                                    {selectedDateRange?.to ? ` - ${format(selectedDateRange.to, 'MMM d')}` : ''}
-                                </span>
-                            </div>
-
-                            <div className="h-12 w-px bg-gray-100 hidden md:block" />
-
-                            <div className="hidden md:flex flex-col group cursor-pointer" onClick={() => setIsBookBarExpanded(true)}>
-                                <span className="text-sm text-gray-500 font-medium mb-1 group-hover:text-[#34C759] transition-colors">Guests</span>
-                                <span className="text-base font-black text-[#18230F] whitespace-nowrap">
-                                    {numGuests} Guest{numGuests > 1 ? 's' : ''}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Right Side: Total & Button */}
-                        <div className="flex items-center gap-8 lg:gap-12">
-                            <div className="flex flex-col items-end">
-                                <span className="text-2xl md:text-4xl font-black text-[#18230F]">
-                                    {bookingCost ? `${bookingCost.total}€` : (houseboat?.starting_price ? `${houseboat.starting_price}€` : '150€')}
-                                </span>
-                                <button
-                                    onClick={() => setIsBookBarExpanded(!isBookBarExpanded)}
-                                    className="text-xs font-black text-[#34C759] hover:text-[#2DA64D] hover:underline transition-all cursor-pointer mt-0.5"
-                                >
-                                    {isBookBarExpanded ? 'Hide info' : 'Detailed price'}
-                                </button>
-                            </div>
-
-                            <Button
-                                onClick={handleRequestBooking}
-                                className="h-12 md:h-14 px-8 md:px-12 font-display text-lg md:text-xl font-bold rounded-full bg-[#34C759] hover:bg-[#2DA64D] text-[#18230F] shadow-lg shadow-emerald-500/10 transition-all active:scale-[0.98] shrink-0"
-                                disabled={!selectedDateRange?.from || !selectedDateRange?.to}
-                            >
-                                Request Reservation
-                            </Button>
-                        </div>
-                    </div>
-                </div>
+                  </button>
+                ))}
+              </div>
             </div>
-        </>
-    );
+          </section>
+
+          <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_370px] xl:grid-cols-[minmax(0,1fr)_390px]">
+            <main className="space-y-4">
+              <section className="rounded-2xl border border-[#d8deea] bg-[#fbfcff] p-4 md:p-5">
+                <h2 className="font-display text-[1.75rem] font-bold tracking-tight text-[#0e1738]">At a glance</h2>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {topFacts.map((fact) => (
+                    <div key={fact.label} className="rounded-xl border border-[#dbe3f2] bg-white px-3 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <fact.icon className="h-4 w-4 text-[#2d5fd9]" />
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{fact.label}</p>
+                      </div>
+                      <p className="mt-1.5 text-base font-semibold leading-none text-[#0e1738]">{fact.value}</p>
+                    </div>
+                  ))}
+                  {displayAmenities.map((item) => (
+                    <div key={`amenity-${item}`} className="rounded-xl border border-[#dbe3f2] bg-white px-3 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-[#2d5fd9]" />
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Amenity</p>
+                      </div>
+                      <p className="mt-1.5 text-base font-semibold leading-none capitalize text-[#0e1738]">{item}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-[#d8deea] bg-white p-4 md:p-5">
+                <h2 className="font-display text-[1.75rem] font-bold tracking-tight text-[#0e1738]">About this model</h2>
+                <p className="mt-2 max-w-4xl text-sm leading-7 text-slate-600 md:text-base">{boatDescription}</p>
+              </section>
+
+              <section className="rounded-2xl border border-[#d8deea] bg-white p-4 md:p-5">
+                <h2 className="font-display text-[1.75rem] font-bold tracking-tight text-[#0e1738]">Before you sail</h2>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {policyCards.map((policy) => (
+                    <div key={policy.title} className="rounded-xl border border-[#dbe2f0] bg-[#f8fafe] p-3.5">
+                      <div className="flex items-center gap-2">
+                        <policy.icon className="h-4 w-4 text-[#2d5fd9]" />
+                        <p className="text-base font-semibold text-[#0e1738]">{policy.title}</p>
+                      </div>
+                      <p className="mt-1.5 text-sm leading-6 text-slate-600">{policy.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </main>
+
+            <aside className="lg:sticky lg:top-24 lg:self-start">
+              <div className="rounded-2xl border border-[#d5deee] bg-[#eef3fb] p-4 md:p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-display text-[1.55rem] font-bold tracking-tight text-[#0e1738]">Price breakdown</p>
+                  <span className="rounded-full border border-[#d2ddf4] bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#3f5eaa]">
+                    {stayLabel}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-xs text-slate-600">Select dates and guests to calculate the final total.</p>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button type="button" className="mt-3 w-full rounded-xl border border-[#d8e0ee] bg-white text-left">
+                      <div className="grid grid-cols-2">
+                        <div className="border-r border-[#e1e7f2] p-2.5">
+                          <p className="text-[11px] uppercase tracking-wide text-slate-500">Check-in</p>
+                          <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                            {selectedDateRange?.from ? format(selectedDateRange.from, 'dd/MM/yyyy') : 'Add date'}
+                          </p>
+                        </div>
+                        <div className="p-2.5">
+                          <p className="text-[11px] uppercase tracking-wide text-slate-500">Check-out</p>
+                          <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                            {bookingType === 'day_charter'
+                              ? (selectedDateRange?.from ? format(selectedDateRange.from, 'dd/MM/yyyy') : 'Same day')
+                              : (selectedDateRange?.to ? format(selectedDateRange.to, 'dd/MM/yyyy') : 'Add date')}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto border border-[#d8e0ee] p-0 shadow-xl" align="start">
+                    {bookingType === 'day_charter' ? (
+                      <CalendarPicker
+                        mode="single"
+                        selected={selectedDateRange?.from}
+                        onSelect={(value: Date | undefined) => setSelectedDateRange(value ? { from: value, to: value } : undefined)}
+                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                        initialFocus
+                      />
+                    ) : (
+                      <CalendarPicker
+                        mode="range"
+                        selected={selectedDateRange}
+                        onSelect={setSelectedDateRange}
+                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                        initialFocus
+                      />
+                    )}
+                  </PopoverContent>
+                </Popover>
+
+                <div className="mt-2.5 rounded-xl border border-[#d8e0ee] bg-white p-2.5">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Guests</p>
+                  <Select value={String(numGuests)} onValueChange={(value) => setNumGuests(Number(value))}>
+                    <SelectTrigger className="mt-0.5 h-auto border-none p-0 text-sm font-semibold text-slate-900 shadow-none focus:ring-0">
+                      {numGuests} guest{numGuests > 1 ? 's' : ''}
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: maxBookableGuests }, (_, index) => index + 1).map((value) => (
+                        <SelectItem key={value} value={String(value)}>
+                          {value} guest{value > 1 ? 's' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {showExtraBedNotice && (
+                    <p className="mt-1.5 text-xs font-medium text-[#3858ad]">
+                      Includes +{selectedExtraBedGuests} guest{selectedExtraBedGuests > 1 ? 's' : ''} with extra bed.
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-2.5 rounded-xl border border-[#d8e0ee] bg-white p-3 text-sm">
+                  {bookingType === 'day_charter' && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Day charter</span>
+                      <span className="font-semibold text-slate-900">{money(bookingCost?.total || toNumber(houseboat.diaria_price, startingPrice))}</span>
+                    </div>
+                  )}
+                  {bookingType === 'overnight' && bookingCost?.weekdayNights ? (
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">
+                        {bookingCost.weekdayNights} weeknight{bookingCost.weekdayNights > 1 ? 's' : ''}
+                      </span>
+                      <span className="font-semibold text-slate-900">{money(weekdaySubtotal)}</span>
+                    </div>
+                  ) : null}
+                  {bookingType === 'overnight' && bookingCost?.weekendNights ? (
+                    <div className="mt-1.5 flex items-center justify-between">
+                      <span className="text-slate-500">
+                        {bookingCost.weekendNights} weekend night{bookingCost.weekendNights > 1 ? 's' : ''}
+                      </span>
+                      <span className="font-semibold text-slate-900">{money(weekendSubtotal)}</span>
+                    </div>
+                  ) : null}
+                  {bookingCost?.recurringDiscountAmount ? (
+                    <div className="mt-1.5 flex items-center justify-between text-emerald-700">
+                      <span>Permanent offer ({bookingCost.recurringDiscountPercent}% off)</span>
+                      <span className="font-semibold">- {money(bookingCost.recurringDiscountAmount)}</span>
+                    </div>
+                  ) : null}
+                  <div className="mt-1.5 flex items-center justify-between">
+                    <span className="text-slate-500">Preparation fee</span>
+                    <span className="font-semibold text-slate-900">{money(preparationSubtotal)}</span>
+                  </div>
+                  {taxesAndFees > 0 && (
+                    <div className="mt-1.5 flex items-center justify-between">
+                      <span className="text-slate-500">Taxes and fees</span>
+                      <span className="font-semibold text-slate-900">{money(taxesAndFees)}</span>
+                    </div>
+                  )}
+                  <div className="my-2 border-t border-dashed border-slate-200" />
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-[#0e1738]">Total amount</span>
+                    <span className="font-display text-2xl font-bold leading-none text-[#1f4ea8]">{money(breakdownTotal)}</span>
+                  </div>
+                </div>
+
+                <div className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
+                  Deposit due today: <span className="font-semibold">{money(breakdownDeposit)}</span> (30%)
+                </div>
+
+                <Button
+                  onClick={handleRequestBooking}
+                  className="cta-shimmer mt-3 h-11 w-full rounded-xl text-sm font-semibold text-white"
+                  disabled={!selectedDateRange?.from || (bookingType === 'overnight' && !selectedDateRange?.to)}
+                >
+                  Reserve this houseboat
+                </Button>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#d7deeb] bg-white/95 p-3 backdrop-blur lg:hidden">
+          <div className="mx-auto flex w-full max-w-[1320px] items-center gap-3 px-1">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs uppercase tracking-[0.14em] text-slate-500">{houseboat.name}</p>
+              <p className="font-display text-xl font-bold leading-none text-[#1f4ea8]">{money(breakdownTotal)}</p>
+            </div>
+            <Button
+              onClick={handleRequestBooking}
+              className="cta-shimmer h-11 rounded-xl px-5 text-sm font-semibold text-white"
+              disabled={!selectedDateRange?.from || (bookingType === 'overnight' && !selectedDateRange?.to)}
+            >
+              Reserve
+            </Button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
 }
 
 function HouseboatDetailSkeleton() {
-    return (
-        <div className="min-h-screen pt-20 container mx-auto px-4 max-w-7xl">
-            <div className="space-y-4 mb-8">
-                <Skeleton className="aspect-[16/9] rounded-2xl" />
-                <div className="grid grid-cols-5 gap-3">
-                    {[...Array(5)].map((_, i) => <Skeleton key={i} className="aspect-square rounded-xl" />)}
-                </div>
-            </div>
-            <div className="grid lg:grid-cols-2 gap-8">
-                <Skeleton className="h-[200px] rounded-2xl" />
-                <Skeleton className="h-[200px] rounded-2xl" />
-            </div>
+  return (
+    <div className="min-h-screen bg-[#f6f8fc] pt-28 lg:pt-32">
+      <div className="mx-auto w-full max-w-[1320px] space-y-6 px-4 md:px-6">
+        <Skeleton className="h-7 w-72" />
+        <Skeleton className="h-36 rounded-[28px]" />
+        <div className="grid gap-3 lg:grid-cols-[1.45fr_1fr]">
+          <Skeleton className="aspect-[4/3] rounded-[22px]" />
+          <div className="grid grid-cols-2 gap-3">
+            <Skeleton className="aspect-[4/3] rounded-[16px]" />
+            <Skeleton className="aspect-[4/3] rounded-[16px]" />
+            <Skeleton className="aspect-[4/3] rounded-[16px]" />
+            <Skeleton className="aspect-[4/3] rounded-[16px]" />
+          </div>
         </div>
-    );
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="space-y-4">
+            <Skeleton className="h-56 rounded-2xl" />
+            <Skeleton className="h-44 rounded-2xl" />
+            <Skeleton className="h-56 rounded-2xl" />
+          </div>
+          <Skeleton className="h-[420px] rounded-2xl" />
+        </div>
+      </div>
+    </div>
+  );
 }
 
-export default function HouseboatDetail({ slug }: HouseboatDetailProps) {
-    return <Suspense fallback={<HouseboatDetailSkeleton />}><HouseboatDetailContent slug={slug} /></Suspense>;
+export default function HouseboatDetail({ slug, serverData, locale }: HouseboatDetailProps) {
+  return (
+    <Suspense fallback={<HouseboatDetailSkeleton />}>
+      <HouseboatDetailContent slug={slug} serverData={serverData} locale={locale} />
+    </Suspense>
+  );
 }

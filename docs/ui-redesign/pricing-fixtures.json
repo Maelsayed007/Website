@@ -1,0 +1,76 @@
+{
+  "houseboat_overnight": {
+    "input": {
+      "mode": "houseboat",
+      "bookingType": "overnight",
+      "weekdayNights": 3,
+      "weekendNights": 2,
+      "weekdayPrice": 150,
+      "weekendPrice": 180,
+      "preparationFee": 76,
+      "extras": [
+        { "price": 20, "priceType": "per_day", "days": 5 },
+        { "price": 35, "priceType": "per_stay", "days": 1 }
+      ]
+    },
+    "expected": {
+      "baseTotal": 810,
+      "extrasTotal": 135,
+      "total": 1021,
+      "deposit": 307
+    }
+  },
+  "houseboat_day_charter": {
+    "input": {
+      "mode": "houseboat",
+      "bookingType": "day_charter",
+      "dayPrice": 220,
+      "preparationFee": 0,
+      "extras": [
+        { "price": 15, "priceType": "per_day", "days": 1 }
+      ]
+    },
+    "expected": {
+      "baseTotal": 220,
+      "extrasTotal": 15,
+      "total": 235,
+      "deposit": 71
+    }
+  },
+  "combo_offer": {
+    "input": {
+      "mode": "combo",
+      "adults": 2,
+      "children": 1,
+      "seniors": 1,
+      "manualAdultPrice": 70,
+      "manualChildPrice": 45,
+      "manualSeniorPrice": 60
+    },
+    "expected": {
+      "total": 245,
+      "deposit": 74
+    }
+  },
+  "river_cruise_package": {
+    "input": {
+      "mode": "river-cruise",
+      "pricingType": "shared",
+      "adults": 2,
+      "children": 1,
+      "seniors": 1,
+      "adultBase": 40,
+      "childBase": 25,
+      "seniorBase": 30,
+      "menuSelections": [
+        { "quantity": 2, "priceAdult": 18 }
+      ],
+      "offerDiscountType": "percentage",
+      "offerDiscountValue": 10
+    },
+    "expected": {
+      "total": 124.2,
+      "deposit": 38
+    }
+  }
+}

@@ -1,0 +1,12 @@
+
+> @amieira/customer-site@0.1.0 dev
+> next dev --webpack -p 9002 --webpack -p 9002
+
+▲ Next.js 16.1.1 (webpack)
+- Local:         http://localhost:9002
+- Network:       http://192.168.1.30:9002
+- Environments: .env
+
+✓ Starting...
+✓ Ready in 4.9s
+○ Compiling /dashboard/river-cruise-reservations ...

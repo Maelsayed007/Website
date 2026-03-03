@@ -7,14 +7,13 @@ import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 
 type ActivityCardProps = {
-  id: string;
   icon: LucideIcon;
   clientName: string;
   details: string;
   timestamp: Date;
   status: 'Pending' | 'Confirmed' | 'Cancelled';
   href: string;
-  type: 'houseboat' | 'restaurant' | 'dailyTravel';
+  type: 'houseboat' | 'restaurant' | 'riverCruise';
 };
 
 const statusColors = {
@@ -26,11 +25,10 @@ const statusColors = {
 const typeColors = {
   houseboat: 'bg-blue-100/50 text-blue-600',
   restaurant: 'bg-orange-100/50 text-orange-600',
-  dailyTravel: 'bg-purple-100/50 text-purple-600',
+  riverCruise: 'bg-purple-100/50 text-purple-600',
 };
 
 export function ActivityCard({
-  id,
   icon: Icon,
   clientName,
   details,
@@ -72,3 +70,4 @@ export function ActivityCard({
     </Link>
   );
 }
+

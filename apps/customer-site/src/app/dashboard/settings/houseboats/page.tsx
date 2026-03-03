@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { useSupabase } from '@/components/providers/supabase-provider';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -54,6 +53,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { amenityDetails, type Amenity } from '@/lib/data';
 import { Checkbox } from '@/components/ui/checkbox';
 import { getAIDescription } from '@/lib/actions';
+import { uploadMediaFile } from '@/lib/media/upload';
 import { v4 as uuidv4 } from 'uuid';
 
 // Data Types
@@ -90,6 +90,9 @@ type HouseboatModel = {
   amenities: Amenity[];
   image_urls: string[];
   fuel_rate_per_hour?: number;
+  diaria_enabled: boolean;
+  diaria_price: number;
+  diaria_description: string;
 };
 
 type FullHouseboatModel = HouseboatModel & {
@@ -109,9 +112,11 @@ export default function HouseboatsSettingsPage() {
   const [tariffs, setTariffs] = useState<Tariff[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(true);
   const [isLoadingTariffs, setIsLoadingTariffs] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isPhotoUploading, setIsPhotoUploading] = useState(false);
 
   // Helper: Fetch Data
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!supabase) return;
     setIsLoadingModels(true);
     setIsLoadingTariffs(true);
@@ -142,11 +147,11 @@ export default function HouseboatsSettingsPage() {
       setIsLoadingModels(false);
       setIsLoadingTariffs(false);
     }
-  };
+  }, [supabase, toast]);
 
   useEffect(() => {
     fetchData();
-  }, [supabase]);
+  }, [fetchData]);
 
 
   const [isModelDialogOpen, setIsModelDialogOpen] = useState(false);
@@ -158,7 +163,7 @@ export default function HouseboatsSettingsPage() {
   const [boatsState, setBoatsState] = useState<Partial<Houseboat>[]>([{ name: '' }]);
 
   const openNewModelDialog = () => {
-    if (!session) return;
+    // We don't strictly need session to open the UI
     setEditingModel(null);
     setModelState({
       name: '',
@@ -173,6 +178,9 @@ export default function HouseboatsSettingsPage() {
       amenities: [],
       image_urls: [],
       fuel_rate_per_hour: 0,
+      diaria_enabled: false,
+      diaria_price: 0,
+      diaria_description: '',
     });
     setPricesState(
       (tariffs || []).map(t => ({
@@ -186,7 +194,7 @@ export default function HouseboatsSettingsPage() {
   };
 
   const openEditModelDialog = async (model: HouseboatModel) => {
-    if (!supabase || !session) return;
+    if (!supabase) return;
     setEditingModel(null);
     setIsModelDialogOpen(true);
     setModelState(model); // Set basic details
@@ -296,23 +304,33 @@ export default function HouseboatsSettingsPage() {
     setBoatsState(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Note: For real file uploads, we'd use Supabase Storage.
-  // For the migration, we'll keep the current "Data URI" behavior or existing URLs.
-  // Ideally, this should be refactored to upload to 'boat-images' bucket.
-  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = e => {
-      const dataUri = e.target?.result as string;
+    setIsPhotoUploading(true);
+    try {
+      const imageUrl = await uploadMediaFile(file, {
+        folder: 'houseboats/models',
+      });
       setModelState(prev => ({
         ...prev,
-        image_urls: [...(prev.image_urls || []), dataUri],
+        image_urls: [...(prev.image_urls || []), imageUrl],
       }));
-    };
-    reader.readAsDataURL(file);
-    event.target.value = '';
+      toast({
+        title: 'Photo uploaded',
+        description: 'Image stored as URL.',
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Upload failed',
+        description: error?.message || 'Could not upload model photo.',
+      });
+    } finally {
+      event.target.value = '';
+      setIsPhotoUploading(false);
+    }
   };
 
   const triggerPhotoUpload = () => {
@@ -371,7 +389,8 @@ export default function HouseboatsSettingsPage() {
   };
 
   const handleSaveModel = async () => {
-    if (!supabase || !session) return;
+    if (!supabase) return;
+    setIsSaving(true);
     if (!modelState.name) {
       toast({
         variant: 'destructive',
@@ -403,6 +422,9 @@ export default function HouseboatsSettingsPage() {
         amenities: modelState.amenities || [],
         image_urls: modelState.image_urls || [],
         fuel_rate_per_hour: modelState.fuel_rate_per_hour || 0,
+        diaria_enabled: modelState.diaria_enabled || false,
+        diaria_price: modelState.diaria_price || 0,
+        diaria_description: modelState.diaria_description || '',
         // slug: ... generate if needed
       };
 
@@ -460,6 +482,8 @@ export default function HouseboatsSettingsPage() {
         title: 'Error',
         description: error.message || 'Failed to save houseboat model.',
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -491,7 +515,11 @@ export default function HouseboatsSettingsPage() {
           ) : (
             <div className="space-y-4">
               {houseboatModels.map(model => (
-                <Card key={model.id} className="flex items-center p-4 shadow-sm transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1">
+                <Card
+                  key={model.id}
+                  className="flex items-center p-4 shadow-sm transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1 cursor-pointer"
+                  onClick={() => openEditModelDialog(model)}
+                >
                   <div className="flex-shrink-0">
                     <Image
                       src={model.image_urls?.[0] || 'https://placehold.co/600x400/E2E8F0/A0AEC0?text=No+Image'}
@@ -516,7 +544,11 @@ export default function HouseboatsSettingsPage() {
                     </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="icon">
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <Trash2 className="h-4 w-4" />
                           <span className="sr-only">Delete Model</span>
                         </Button>
@@ -571,10 +603,11 @@ export default function HouseboatsSettingsPage() {
           <div className="flex-grow overflow-y-auto">
             <Tabs defaultValue="details" className="h-full flex flex-col">
               <div className="px-6">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-5">
                   <TabsTrigger value="details">Details</TabsTrigger>
                   <TabsTrigger value="photos">Photos &amp; Amenities</TabsTrigger>
                   <TabsTrigger value="pricing">Pricing</TabsTrigger>
+                  <TabsTrigger value="diaria">Day Charter</TabsTrigger>
                   <TabsTrigger value="units">Boat Units</TabsTrigger>
                 </TabsList>
               </div>
@@ -686,11 +719,14 @@ export default function HouseboatsSettingsPage() {
                       <Button
                         type="button"
                         variant="outline"
+                        disabled={isPhotoUploading}
                         className="aspect-[3/2] flex-col gap-2 border-2 border-dashed hover:border-primary hover:text-primary transition-colors"
                         onClick={triggerPhotoUpload}
                       >
                         <Camera className="h-8 w-8 text-muted-foreground" />
-                        <span className="text-xs font-medium text-center">Add Photo</span>
+                        <span className="text-xs font-medium text-center">
+                          {isPhotoUploading ? 'Uploading...' : 'Add Photo'}
+                        </span>
                       </Button>
                     </div>
                   </div>
@@ -792,6 +828,51 @@ export default function HouseboatsSettingsPage() {
 
                 </TabsContent>
 
+                <TabsContent value="diaria" className="mt-0 space-y-6">
+                  <div className="flex items-center justify-between p-4 border rounded-lg bg-indigo-50 border-indigo-100">
+                    <div className="space-y-0.5">
+                      <Label className="text-base text-indigo-900 font-bold">Enable Day Charter (Diaria)</Label>
+                      <p className="text-sm text-indigo-700/70">Allow this model to be booked for single-day trips.</p>
+                    </div>
+                    <Checkbox
+                      checked={modelState.diaria_enabled || false}
+                      onCheckedChange={(checked) => setModelState(prev => ({ ...prev, diaria_enabled: !!checked }))}
+                      className="h-6 w-6"
+                    />
+                  </div>
+
+                  {modelState.diaria_enabled && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-top-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="diaria-price">Day Charter Price (€)</Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2.5 text-muted-foreground font-bold">€</span>
+                          <Input
+                            id="diaria-price"
+                            type="number"
+                            className="pl-7"
+                            value={modelState.diaria_price || ''}
+                            onChange={e => setModelState(prev => ({ ...prev, diaria_price: Number(e.target.value) }))}
+                            placeholder="e.g., 250"
+                          />
+                        </div>
+                        <p className="text-[11px] text-muted-foreground italic">Fixed price for a full day. No tariffs or cleaning fees apply.</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="diaria-description">Day Charter Description (Public Site)</Label>
+                        <Textarea
+                          id="diaria-description"
+                          value={modelState.diaria_description || ''}
+                          onChange={e => setModelState(prev => ({ ...prev, diaria_description: e.target.value }))}
+                          placeholder="Tell customers about the Day Charter experience for this boat..."
+                          className="min-h-[120px]"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+
                 <TabsContent value="units" className="mt-0 space-y-4">
                   <p className="text-sm text-muted-foreground">List the specific boat units that belong to this model.</p>
                   <div className="space-y-2">
@@ -823,8 +904,17 @@ export default function HouseboatsSettingsPage() {
           </div>
           <div className="p-6 border-t bg-background">
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsModelDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleSaveModel}>Save Model</Button>
+              <Button variant="outline" onClick={() => setIsModelDialogOpen(false)} disabled={isSaving}>Cancel</Button>
+              <Button onClick={handleSaveModel} disabled={isSaving || isPhotoUploading}>
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  isPhotoUploading ? 'Uploading photo...' : 'Save Model'
+                )}
+              </Button>
             </div>
           </div>
         </DialogContent>

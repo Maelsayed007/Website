@@ -9,13 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Loader2, X, Trash2, Info, Plus, Banknote, CreditCard, Receipt, Trash, LayoutList, User, Minus } from 'lucide-react';
+import { CalendarIcon, Loader2, X, Trash2, Info, Plus, Banknote, CreditCard, Receipt, Trash, LayoutList, User, Minus, Percent, Tag, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Booking, Boat, HouseboatModel, PaymentTransaction } from '@/lib/types';
+import type { Booking, Boat, HouseboatModel, PaymentTransaction, SpecialOffer } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
-import { calculateHouseboatPrice, PriceBreakdown } from '@/lib/pricing';
+import { calculateHouseboatPrice, PriceBreakdown, applyOfferDiscount } from '@/lib/pricing';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
+import { useSupabase } from '@/components/providers/supabase-provider';
 
 interface BookingSidebarProps {
     isOpen: boolean;
@@ -33,6 +34,7 @@ interface BookingSidebarProps {
     preselectedSlot?: 'AM' | 'PM';
     preselectedEndDate?: Date;
     preselectedEndSlot?: 'AM' | 'PM';
+    initialSelectedOfferIds?: string[];
 }
 
 export default function BookingSidebar({
@@ -50,8 +52,10 @@ export default function BookingSidebar({
     preselectedDate,
     preselectedSlot,
     preselectedEndDate,
-    preselectedEndSlot
+    preselectedEndSlot,
+    initialSelectedOfferIds
 }: BookingSidebarProps) {
+    const { supabase } = useSupabase();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [breakdown, setBreakdown] = useState<PriceBreakdown | null>(null);
     const [formData, setFormData] = useState({
@@ -69,8 +73,12 @@ export default function BookingSidebar({
         notes: '',
         price: 0,
         discount: 0,
-        selectedExtras: [] as { id: string; quantity: number }[]
+        selectedExtras: [] as { id: string; quantity: number }[],
+        selectedOffers: initialSelectedOfferIds || [] as string[]
     });
+
+    const [availableOffers, setAvailableOffers] = useState<SpecialOffer[]>([]);
+    const [isLoadingOffers, setIsLoadingOffers] = useState(false);
 
     // Payments State
     const [transactions, setTransactions] = useState<PaymentTransaction[]>([]);
@@ -116,8 +124,10 @@ export default function BookingSidebar({
                 discount: booking.discount || 0,
                 selectedExtras: Array.isArray((booking as any).selectedExtras || (booking as any).extras)
                     ? ((booking as any).selectedExtras || (booking as any).extras).map((e: any) => typeof e === 'string' ? { id: e, quantity: 1 } : e)
-                    : []
+                    : [],
+                selectedOffers: [] // Will be populated by fetchBookingOffers
             });
+            fetchBookingOffers(booking.id);
         } else {
             setFormData({
                 houseboatId: preselectedBoatId || '',
@@ -134,10 +144,54 @@ export default function BookingSidebar({
                 notes: '',
                 price: 0,
                 discount: 0,
-                selectedExtras: []
+                selectedExtras: [],
+                selectedOffers: []
             });
         }
     }, [booking, preselectedBoatId, preselectedDate, preselectedSlot, preselectedEndDate, preselectedEndSlot, isOpen]);
+
+    const fetchBookingOffers = async (bookingId: string) => {
+        try {
+            const { data, error } = await (window as any).supabase
+                .from('booking_offers')
+                .select('offer_id')
+                .eq('booking_id', bookingId);
+
+            if (error) throw error;
+            if (data) {
+                const offerIds = data.map((d: any) => d.offer_id);
+                setFormData(prev => ({ ...prev, selectedOffers: offerIds }));
+            }
+        } catch (error) {
+            console.error('Error fetching booking offers:', error);
+        }
+    };
+
+    // Fetch Offers
+    const fetchOffers = async () => {
+        if (!supabase) return;
+        setIsLoadingOffers(true);
+        try {
+            const { data, error } = await supabase
+                .from('special_offers')
+                .select('*')
+                .eq('is_active', true)
+                .order('sort_order', { ascending: true });
+
+            if (error) throw error;
+            setAvailableOffers(data || []);
+        } catch (error) {
+            console.error('Error fetching offers:', error);
+        } finally {
+            setIsLoadingOffers(false);
+        }
+    };
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchOffers();
+        }
+    }, [isOpen]);
 
     // Fetch Payments
     const fetchPayments = async () => {
@@ -208,7 +262,7 @@ export default function BookingSidebar({
     };
 
     const totalPaid = transactions
-        .filter(t => t.status === 'paid')
+        .filter(t => t.status === 'paid' || t.status === 'succeeded')
         .reduce((sum, t) => sum + (t.amount || 0), 0);
 
     const balanceDue = (formData.price || 0) - totalPaid;
@@ -263,16 +317,108 @@ export default function BookingSidebar({
             });
 
             const totalPostExtras = baseBreakdown.total + extrasTotal;
-            const finalTotal = totalPostExtras - (formData.discount || 0);
+
+            // Calculate Offers Discount
+            const validOffers: SpecialOffer[] = [];
+            const activeOfferDetails: any[] = [];
+
+            if (formData.selectedOffers.length > 0) {
+                const nights = Math.max(1, Math.ceil((formData.checkOutDate.getTime() - formData.checkInDate.getTime()) / (1000 * 60 * 60 * 24)));
+
+                formData.selectedOffers.forEach(offerId => {
+                    const offer = availableOffers.find(o => o.id === offerId);
+                    if (!offer) return;
+
+                    // Validate Conditions
+                    const conditions = offer.conditions || {};
+
+                    // 1. Min Nights
+                    if (conditions.min_nights && nights < conditions.min_nights) return;
+
+                    // 2. Max Nights
+                    if (conditions.max_nights && nights > conditions.max_nights) return;
+
+                    // 3. Min Boats
+                    const numBoats = parseInt(formData.houseboatId ? '1' : '0'); // Simplification for sidebar
+                    if (conditions.min_boats && numBoats < conditions.min_boats) return;
+
+                    // 4. Allowed Models
+                    if (conditions.allowed_models && conditions.allowed_models.length > 0) {
+                        const boat = boats.find(b => b.id === formData.houseboatId);
+                        if (!boat || !boat.model_id || !conditions.allowed_models.includes(boat.model_id)) return;
+                    }
+
+                    // 5. Date Range
+                    const checkIn = formData.checkInDate!;
+                    if (conditions.start_date && checkIn < new Date(conditions.start_date as string)) return;
+                    if (conditions.end_date && checkIn > new Date(conditions.end_date as string)) return;
+
+                    // 6. Days In Advance (Early Bird)
+                    if (conditions.days_in_advance) {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const diffTime = checkIn.getTime() - today.getTime();
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        if (diffDays < conditions.days_in_advance) return;
+                    }
+
+                    // 7. Guests (Min/Max People)
+                    const numPeople = formData.numberOfGuests;
+                    if (conditions.min_people && numPeople < conditions.min_people) return;
+                    if (conditions.max_people && numPeople > conditions.max_people) return;
+
+                    validOffers.push(offer);
+                });
+            }
+
+            // Apply Offers using the Pricing Engine
+            // We pass a breakdown that includes the extras in the total, because discounts might apply to the whole package
+            // (Standard practice: usually discount is on base, but specific logic might vary. 
+            // The applyOfferDiscount function applies % to the .total field.)
+            // If we want discount ONLY on base, we should pass baseBreakdown.total.
+            // But let's assume discounts apply to the package price for now unless specified otherwise.
+            // Actually, usually extras are NOT discounted.
+            // Let's stick to base price discount for safety, or check if we want to support both.
+            // The previous logic applied % to `baseBreakdown.total`. I will stick to that to avoid breaking changes.
+
+            // To do this with applyOfferDiscount which uses .total, we create a temporary breakdown
+            const tempBreakdown = { ...baseBreakdown, offerDiscount: 0 };
+            const discountedBase = applyOfferDiscount(tempBreakdown, validOffers);
+
+            const finalOffersDiscount = discountedBase.offerDiscount;
+
+            // Re-construct the active details for UI from the valid offers
+            validOffers.forEach(offer => {
+                let amount = 0;
+                if (offer.discount_type === 'percentage') {
+                    // We calculate what IT would have been individually for display, 
+                    // but the engine handles the cumulative cap
+                    amount = baseBreakdown.total * ((offer.discount_value || 0) / 100);
+                } else {
+                    amount = offer.discount_value || 0;
+                }
+                activeOfferDetails.push({
+                    id: offer.id,
+                    title: offer.title,
+                    amount: amount // This is estimated individual amount, final total is capped
+                });
+            });
+
+            const isCapped = finalOffersDiscount < activeOfferDetails.reduce((sum, o) => sum + o.amount, 0); // Rough check if cap hit
+
+            const finalTotal = totalPostExtras - (formData.discount || 0) - finalOffersDiscount;
 
             setBreakdown(prev => {
-                if (prev?.total === finalTotal && (prev as any).extrasTotal === extrasTotal && (prev as any).discount === formData.discount && (prev as any).tariffName === tariffName) return prev;
+                if (prev?.total === finalTotal && (prev as any).extrasTotal === extrasTotal && (prev as any).discount === formData.discount && (prev as any).offersDiscount === finalOffersDiscount && (prev as any).tariffName === tariffName) return prev;
                 return {
                     ...baseBreakdown,
                     total: finalTotal,
-                    deposit: Math.ceil(finalTotal * 0.30),
+                    deposit: ['nicols', 'ancorado'].includes(formData.source) ? 0 : Math.ceil(finalTotal * 0.30),
                     extrasTotal,
                     discount: formData.discount || 0,
+                    offersDiscount: finalOffersDiscount,
+                    isOffersDiscountCapped: isCapped,
+                    activeOffers: activeOfferDetails,
                     tariffName
                 };
             });
@@ -323,10 +469,15 @@ export default function BookingSidebar({
             }
 
             const checkInTime = new Date(formData.checkInDate);
-            checkInTime.setHours(formData.checkInSlot === 'AM' ? 10 : 15, 0, 0, 0);
-
             const checkOutTime = new Date(formData.checkOutDate);
-            checkOutTime.setHours(formData.checkOutSlot === 'AM' ? 10 : 15, 0, 0, 0);
+
+            if (formData.source === 'diaria') {
+                checkInTime.setHours(9, 0, 0, 0);
+                checkOutTime.setHours(17, 0, 0, 0);
+            } else {
+                checkInTime.setHours(formData.checkInSlot === 'AM' ? 10 : 15, 0, 0, 0);
+                checkOutTime.setHours(formData.checkOutSlot === 'AM' ? 10 : 15, 0, 0, 0);
+            }
 
             // Auto-confirm if paid (or if Nicols)
             let finalStatus = formData.status;
@@ -337,14 +488,8 @@ export default function BookingSidebar({
                 console.log('Payment detected - auto-confirming');
             }
 
-            // Prevent confirming without payment (unless Nicols)
-            if (finalStatus === 'Confirmed' && totalPaid <= 0 && formData.source !== 'nicols') {
-                finalStatus = 'Pending';
-                console.log('No payment (excluding Nicols) - staying/reverting to Pending');
-            }
-
-            // Nicols is always confirmed
-            if (formData.source === 'nicols' && finalStatus !== 'Cancelled' && finalStatus !== 'Maintenance') {
+            // Agencies (Nicols & Ancorado) are always confirmed
+            if (['nicols', 'ancorado'].includes(formData.source) && finalStatus !== 'Cancelled' && finalStatus !== 'Maintenance') {
                 finalStatus = 'Confirmed';
             }
 
@@ -360,6 +505,7 @@ export default function BookingSidebar({
                 endTime: checkOutTime.toISOString(),
                 status: finalStatus,
                 source: formData.source,
+                booking_type: formData.source === 'diaria' ? 'day_charter' : 'overnight',
                 notes: formData.notes,
                 price: formData.price,
                 discount: formData.discount
@@ -380,6 +526,32 @@ export default function BookingSidebar({
             bookingData.extras = extrasWithData; // For the interface / frontend
 
             await onSave(bookingData);
+
+            // Record Offer Usage in booking_offers
+            if (formData.selectedOffers.length > 0) {
+                const newBookingId = (booking?.id) || (await fetchNewestBookingId()); // We need the ID if it's new
+                if (newBookingId) {
+                    // First delete old ones if editing
+                    if (booking?.id) {
+                        await (window as any).supabase
+                            .from('booking_offers')
+                            .delete()
+                            .eq('booking_id', booking.id);
+                    }
+
+                    const bookingOffers = (breakdown as any).activeOffers?.map((offer: any) => ({
+                        booking_id: newBookingId,
+                        offer_id: offer.id,
+                        discount_applied: offer.amount
+                    })) || [];
+
+                    if (bookingOffers.length > 0) {
+                        await (window as any).supabase
+                            .from('booking_offers')
+                            .insert(bookingOffers);
+                    }
+                }
+            }
         } catch (error) {
             console.error('Error saving booking:', error);
         } finally {
@@ -387,45 +559,55 @@ export default function BookingSidebar({
         }
     };
 
+    const fetchNewestBookingId = async () => {
+        const { data, error } = await (window as any).supabase
+            .from('bookings')
+            .select('id')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+        return data?.id;
+    };
+
 
     if (!isOpen) return null;
 
     return (
-        <div className="w-[440px] bg-background border-l flex flex-col h-full animate-in slide-in-from-right duration-300">
-            <div className="px-5 py-4 border-b flex items-center justify-between bg-white/50 backdrop-blur-md sticky top-0 z-10">
+        <div className="w-full max-w-[470px] bg-card border-l border-border flex flex-col h-full">
+            <div className="px-5 py-4 border-b border-border flex items-center justify-between bg-card sticky top-0 z-10">
                 <div>
-                    <h2 className="font-bold text-xl tracking-tight text-slate-900">{booking ? 'Edit Reservation' : 'New Reservation'}</h2>
+                    <h2 className="font-semibold text-xl tracking-tight text-foreground">{booking ? 'Edit Reservation' : 'New Reservation'}</h2>
                     <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] text-slate-400 font-bold tracking-wider bg-slate-100 px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] text-muted-foreground font-semibold tracking-wider bg-muted px-1.5 py-0.5 rounded">
                             {booking ? `Ref: #${booking.id.slice(0, 8)}` : 'Manual Entry'}
                         </span>
                     </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-slate-100 transition-colors">
-                    <X className="h-5 w-5 text-slate-500" />
+                <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full transition-colors">
+                    <X className="h-5 w-5 text-muted-foreground" />
                 </Button>
             </div>
 
             <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="flex-1 flex flex-col min-h-0">
-                <div className="px-6 py-4 border-b bg-slate-50/30">
-                    <TabsList className="grid w-full grid-cols-3 bg-slate-100/80 p-1.5 rounded-xl h-11">
+                <div className="px-6 py-4 border-b border-border bg-card">
+                    <TabsList className="grid w-full grid-cols-3 bg-muted p-1.5 rounded-xl h-11">
                         <TabsTrigger
                             value="booking"
-                            className="flex items-center justify-center gap-2 font-black text-[9px] uppercase tracking-widest rounded-lg data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm transition-all duration-200"
+                            className="flex items-center justify-center gap-2 font-semibold text-[9px] uppercase tracking-widest rounded-lg data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-none transition-all duration-200"
                         >
                             <LayoutList className="h-3.5 w-3.5" />
                             Booking
                         </TabsTrigger>
                         <TabsTrigger
                             value="client"
-                            className="flex items-center justify-center gap-2 font-black text-[9px] uppercase tracking-widest rounded-lg data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm transition-all duration-200"
+                            className="flex items-center justify-center gap-2 font-semibold text-[9px] uppercase tracking-widest rounded-lg data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-none transition-all duration-200"
                         >
                             <User className="h-3.5 w-3.5" />
                             Client
                         </TabsTrigger>
                         <TabsTrigger
                             value="payments"
-                            className="flex items-center justify-center gap-2 font-black text-[9px] uppercase tracking-widest rounded-lg data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm transition-all duration-200"
+                            className="flex items-center justify-center gap-2 font-semibold text-[9px] uppercase tracking-widest rounded-lg data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-none transition-all duration-200"
                         >
                             <CreditCard className="h-3.5 w-3.5" />
                             Finances
@@ -598,6 +780,57 @@ export default function BookingSidebar({
                                 </div>
                             </div>
 
+                            <div className="space-y-4 pt-2">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-[10px] font-black tracking-widest text-slate-400 uppercase flex items-center gap-2">
+                                        <Tag className="w-3 h-3" />
+                                        Special Offers
+                                    </Label>
+                                </div>
+                                <div className="grid grid-cols-1 gap-2">
+                                    {availableOffers.length === 0 && (
+                                        <div className="text-xs text-slate-400 italic px-2">No active offers available.</div>
+                                    )}
+                                    {availableOffers.map(offer => {
+                                        const isSelected = formData.selectedOffers.includes(offer.id);
+                                        return (
+                                            <div
+                                                key={offer.id}
+                                                onClick={() => {
+                                                    setFormData(prev => ({
+                                                        ...prev,
+                                                        selectedOffers: isSelected
+                                                            ? prev.selectedOffers.filter(id => id !== offer.id)
+                                                            : [...prev.selectedOffers, offer.id]
+                                                    }));
+                                                }}
+                                                className={cn(
+                                                    "group flex items-center justify-between p-3 rounded-xl border transition-all duration-200 cursor-pointer",
+                                                    isSelected
+                                                        ? "border-emerald-600 bg-emerald-50/50 shadow-sm"
+                                                        : "border-slate-100 bg-white hover:border-emerald-200"
+                                                )}
+                                            >
+                                                <div className="flex flex-col">
+                                                    <span className={cn("text-xs font-bold leading-tight", isSelected ? "text-emerald-900" : "text-slate-700")}>
+                                                        {offer.title}
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400 mt-0.5">
+                                                        {offer.discount_type === 'percentage' ? `${offer.discount_value}% Off` : `€${offer.discount_value} Off`}
+                                                    </span>
+                                                </div>
+                                                <div className={cn(
+                                                    "w-5 h-5 rounded-full flex items-center justify-center transition-colors",
+                                                    isSelected ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-300 group-hover:bg-slate-200"
+                                                )}>
+                                                    <Check className="w-3 h-3" />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
                             {breakdown && (
                                 <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4 space-y-3 shadow-sm">
                                     <div className="flex items-center justify-between">
@@ -646,6 +879,27 @@ export default function BookingSidebar({
                                             <div className="flex justify-between items-center text-rose-600 font-bold pt-1 border-t border-rose-100/50">
                                                 <span>Staff Discount</span>
                                                 <span>-€{(breakdown as any).discount.toLocaleString()}</span>
+                                            </div>
+                                        )}
+
+                                        {(breakdown as any).offersDiscount > 0 && (
+                                            <div className="space-y-1 pt-1 border-t border-emerald-100/50">
+                                                {(breakdown as any).activeOffers?.map((offer: any) => (
+                                                    <div key={offer.id} className="flex justify-between items-center text-emerald-600 font-medium text-[10px]">
+                                                        <span>{offer.title}</span>
+                                                        <span>-€{offer.amount.toLocaleString()}</span>
+                                                    </div>
+                                                ))}
+                                                {(breakdown as any).isOffersDiscountCapped && (
+                                                    <div className="flex justify-between items-center text-amber-600 font-bold text-[10px] bg-amber-50 p-1 rounded">
+                                                        <span>Cumulative Discount Cap (25%)</span>
+                                                        <span>Calculated</span>
+                                                    </div>
+                                                )}
+                                                <div className="flex justify-between items-center text-emerald-700 font-bold">
+                                                    <span>Total Offers Discount</span>
+                                                    <span>-€{(breakdown as any).offersDiscount.toLocaleString()}</span>
+                                                </div>
                                             </div>
                                         )}
 
@@ -803,6 +1057,64 @@ export default function BookingSidebar({
                                 </div>
                             </div>
 
+                            <div className="space-y-4 pt-2">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-[10px] font-black tracking-widest text-slate-400 uppercase flex items-center gap-2">
+                                        <Plus className="w-3 h-3" />
+                                        Special Offers
+                                    </Label>
+                                </div>
+                                <div className="space-y-2">
+                                    {availableOffers.map(offer => {
+                                        const isSelected = formData.selectedOffers.includes(offer.id);
+                                        const isValid = true; // For now admit all, calculateTotal handles real validation
+
+                                        return (
+                                            <button
+                                                key={offer.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setFormData(prev => ({
+                                                        ...prev,
+                                                        selectedOffers: isSelected
+                                                            ? prev.selectedOffers.filter(id => id !== offer.id)
+                                                            : [...prev.selectedOffers, offer.id]
+                                                    }));
+                                                }}
+                                                className={cn(
+                                                    "w-full flex items-center justify-between p-3 rounded-xl border transition-all duration-200 text-left",
+                                                    isSelected
+                                                        ? "border-emerald-600 bg-emerald-50/50 shadow-sm"
+                                                        : "border-slate-100 bg-white hover:border-emerald-200"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className={cn(
+                                                        "w-8 h-8 rounded-lg flex items-center justify-center",
+                                                        isSelected ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-400"
+                                                    )}>
+                                                        {offer.badge_icon === 'percent' ? <Percent className="w-4 h-4" /> : <Tag className="w-4 h-4" />}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs font-bold text-slate-800">{offer.title}</p>
+                                                        <p className="text-[10px] text-slate-500">{offer.subtitle}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-black text-emerald-700">
+                                                        {offer.discount_type === 'percentage' ? `-${offer.discount_value}%` : `-€${offer.discount_value}`}
+                                                    </span>
+                                                    {isSelected && <Check className="w-4 h-4 text-emerald-600" />}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                    {availableOffers.length === 0 && (
+                                        <p className="text-[10px] text-slate-400 italic text-center py-2">No active offers available.</p>
+                                    )}
+                                </div>
+                            </div>
+
                             <div className={cn(
                                 "p-4 rounded-xl border flex items-center justify-between transition-all",
                                 balanceDue <= 0
@@ -840,14 +1152,21 @@ export default function BookingSidebar({
                                 <h3 className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
                                     Transaction History
                                 </h3>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 rounded-full text-[11px] font-bold tracking-tight gap-1.5 text-primary hover:bg-primary/5 px-3"
-                                    onClick={() => setIsAddingPayment(!isAddingPayment)}
-                                >
-                                    <Plus className="h-3.5 w-3.5" /> {isAddingPayment ? 'Close' : 'Add Payment'}
-                                </Button>
+                                {!['nicols', 'ancorado'].includes(formData.source) ? (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 rounded-full text-[11px] font-bold tracking-tight gap-1.5 text-primary hover:bg-primary/5 px-3"
+                                        onClick={() => setIsAddingPayment(!isAddingPayment)}
+                                    >
+                                        <Plus className="h-3.5 w-3.5" /> {isAddingPayment ? 'Close' : 'Add Payment'}
+                                    </Button>
+                                ) : (
+                                    <div className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 border border-indigo-100 rounded-full">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                                        <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-tight">Managed via Credit Agreement</span>
+                                    </div>
+                                )}
                             </div>
 
                             {isAddingPayment && (
@@ -930,13 +1249,13 @@ export default function BookingSidebar({
                                                         tx.method === 'card' ? <CreditCard className="h-4 w-4" /> : <Banknote className="h-4 w-4" />}
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-bold text-slate-900 leading-none mb-1">€{tx.amount.toLocaleString()}</p>
+                                                    <p className="text-sm font-bold text-slate-900 leading-none mb-1">€{(tx.amount || 0).toLocaleString()}</p>
                                                     <div className="flex items-center gap-1.5">
                                                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">
                                                             {tx.method === 'stripe' ? 'Website' : tx.method}
                                                         </span>
                                                         <span className="text-[9px] text-slate-300">•</span>
-                                                        <span className="text-[9px] text-slate-500 font-medium">{format(parseISO(tx.created_at), 'dd MMM yyyy')}</span>
+                                                        <span className="text-[9px] text-slate-500 font-medium">{tx.created_at ? format(parseISO(tx.created_at), 'dd MMM yyyy') : 'N/A'}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -962,10 +1281,10 @@ export default function BookingSidebar({
                 </div >
             </Tabs >
 
-            <div className="p-6 border-t bg-slate-50/50">
+            <div className="p-6 border-t border-border bg-card">
                 <div className="flex gap-3">
                     <Button
-                        className="flex-1 h-12 font-bold text-sm tracking-tight rounded-full shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
+                        className="flex-1 h-12 font-semibold text-sm tracking-tight rounded-full shadow-none transition-all"
                         onClick={handleSubmit}
                         disabled={isSubmitting || !formData.houseboatId || !formData.clientName || !formData.checkInDate || !formData.checkOutDate}
                     >
@@ -975,7 +1294,7 @@ export default function BookingSidebar({
                     {booking && onDelete && (
                         <Button
                             variant="outline"
-                            className="h-12 px-6 border-red-100 text-red-500 hover:bg-red-50 hover:text-red-600 font-bold text-xs tracking-tight rounded-full transition-all flex items-center gap-2"
+                            className="h-12 px-6 border-destructive/30 text-destructive hover:bg-destructive/10 font-semibold text-xs tracking-tight rounded-full transition-all flex items-center gap-2"
                             onClick={onDelete}
                         >
                             <Trash2 className="h-4 w-4" /> Delete

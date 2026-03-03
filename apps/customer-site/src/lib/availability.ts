@@ -1,42 +1,99 @@
 import { createAdminClient } from './supabase/admin';
 
-export async function checkHouseboatAvailability(
-    modelId: string,
-    from: string,
-    to: string
-): Promise<{ available: boolean; boatId?: string }> {
+/**
+ * Unified availability check for all boat types (Houseboats, Daily Boats, etc.)
+ * Handles:
+ * 1. Capacity filtering (Min/Max people)
+ * 2. Mandatory Boat/Model assignments
+ * 3. Temporal overlap with preparation buffers
+ */
+export async function checkUnifiedAvailability(params: {
+    from: string;
+    to: string;
+    numberOfGuests: number;
+    bookingType: 'overnight' | 'daily';
+    bufferMinutes?: number;
+    allowedBoatIds?: string[];
+    allowedModelIds?: string[];
+}): Promise<{ available: boolean; boat?: any }> {
     const supabase = createAdminClient();
-    const startDate = new Date(from);
-    const endDate = new Date(to);
+    const { from, to, numberOfGuests, bufferMinutes = 0, allowedBoatIds, allowedModelIds } = params;
 
-    // 1. Get all boats for this model
-    const { data: boats } = await supabase
-        .from('boats')
-        .select('id')
-        .eq('model_id', modelId);
+    // Preparation Buffer: Expand the requested window if it's a daily booking
+    const requestStart = new Date(from);
+    const requestEnd = new Date(to);
 
-    if (!boats || boats.length === 0) return { available: false };
+    const checkStart = new Date(requestStart.getTime() - (bufferMinutes * 60000));
+    const checkEnd = new Date(requestEnd.getTime() + (bufferMinutes * 60000));
 
-    // 2. Get all non-cancelled bookings for these boats that overlap
+    // 1. Fetch ALL potential boats from both tables
+    const [houseboatsRes, dailyBoatsRes] = await Promise.all([
+        supabase.from('boats').select('*, model:houseboat_models(*)'),
+        supabase.from('daily_boats').select('*')
+    ]);
+
+    const allBoats = [
+        ...(houseboatsRes.data || []).map(b => ({
+            id: b.id,
+            name: b.name,
+            min_capacity: b.model?.min_capacity || b.model?.optimalCapacity || 1,
+            max_capacity: b.model?.max_capacity || b.model?.maximumCapacity || 12,
+            type: 'houseboat',
+            model_id: b.model_id
+        })),
+        ...(dailyBoatsRes.data || []).map(b => ({
+            ...b,
+            type: 'daily'
+        }))
+    ];
+
+    // 2. Filter boats by capacity & assignments
+    const suitableBoats = allBoats.filter(boat => {
+        // Capacity check
+        if (numberOfGuests < (boat.min_capacity || 0) || numberOfGuests > (boat.max_capacity || 999)) return false;
+
+        // Assignment check (Boat ID OR Model ID)
+        if (allowedBoatIds && allowedBoatIds.length > 0) {
+            const isBoatIdMatch = allowedBoatIds.includes(boat.id);
+            const isModelIdMatch = boat.model_id && allowedBoatIds.includes(boat.model_id);
+            if (!isBoatIdMatch && !isModelIdMatch) return false;
+        }
+
+        // Specific Model assignment check (Original allowedModelIds param)
+        if (boat.type === 'houseboat' && allowedModelIds && allowedModelIds.length > 0 && !allowedModelIds.includes(boat.model_id)) return false;
+
+        return true;
+    });
+
+    if (suitableBoats.length === 0) return { available: false };
+
+    // 3. Get all non-cancelled bookings for these specific boat IDs
+    // We check all booking types (overnight & daily) to ensure no cross-conflicts
+    const boatIds = suitableBoats.map(b => b.id);
     const { data: bookings } = await supabase
         .from('bookings')
-        .select('houseboat_id, start_time, end_time')
-        .in('houseboat_id', boats.map(b => b.id))
+        .select('houseboat_id, daily_boat_id, start_time, end_time')
+        .or(`houseboat_id.in.(${boatIds.join(',')}),daily_boat_id.in.(${boatIds.join(',')})`)
         .neq('status', 'Cancelled');
 
-    if (!bookings) return { available: true, boatId: boats[0].id };
+    if (!bookings) return { available: true, boat: suitableBoats[0] };
 
-    // 3. Find a boat that has no overlapping bookings
-    for (const boat of boats) {
+    // 4. Find the first boat that has no overlapping bookings within the buffered window
+    for (const boat of suitableBoats) {
         const hasOverlap = bookings.some(b => {
-            if (b.houseboat_id !== boat.id) return false;
+            // Check if this booking is for THIS boat
+            const bBoatId = b.houseboat_id || b.daily_boat_id;
+            if (bBoatId !== boat.id) return false;
+
             const bStart = new Date(b.start_time);
             const bEnd = new Date(b.end_time);
-            return startDate < bEnd && endDate > bStart;
+
+            // Standard overlap check: (StartA < EndB) && (EndA > StartB)
+            return checkStart < bEnd && checkEnd > bStart;
         });
 
         if (!hasOverlap) {
-            return { available: true, boatId: boat.id };
+            return { available: true, boat };
         }
     }
 
@@ -44,15 +101,17 @@ export async function checkHouseboatAvailability(
 }
 
 export async function shouldAutoConfirm(type: 'houseboat' | 'restaurant' | 'travel', details: any): Promise<boolean> {
-    // Logic for auto-confirmation:
-    // For houseboats, if a boat is available and it's a standard booking, we can auto-confirm.
-    // In the future, this can include more complex rules (e.g. client history, payment status).
-
-    if (type === 'houseboat') {
-        const { available } = await checkHouseboatAvailability(details.modelId, details.from, details.to);
+    if (type === 'houseboat' || type === 'travel') {
+        const { available } = await checkUnifiedAvailability({
+            from: details.from,
+            to: details.to,
+            numberOfGuests: details.numberOfGuests || 2,
+            bookingType: type === 'houseboat' ? 'overnight' : 'daily',
+            bufferMinutes: details.bufferMinutes || 0,
+            allowedBoatIds: details.allowedBoatIds,
+            allowedModelIds: details.allowedModelIds
+        });
         return available;
     }
-
-    // Default to false for other types for now
     return false;
 }

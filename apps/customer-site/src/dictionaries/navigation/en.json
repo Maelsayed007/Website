@@ -1,12 +1,17 @@
-
 {
   "links": {
     "home": "Home",
     "houseboats": "Houseboats",
-    "dailyTravel": "Daily Travel",
     "restaurant": "Restaurant",
-    "gallery": "Gallery",
-    "contact": "Contact"
+    "riverCruise": "River Cruise",
+    "contact": "Contact",
+    "services": "Services"
   },
-  "requestBooking": "Request Booking"
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "dashboard": "Dashboard",
+    "myBookings": "My Bookings"
+  }
 }

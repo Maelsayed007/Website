@@ -62,11 +62,13 @@ export async function POST(request: Request) {
         }
 
         // 4. Record Transaction
-        await supabase.from('restaurant_payments').insert({ // Using restaurant_payments for now, or generalize to 'payments'
+        await supabase.from('payment_transactions').insert({
             booking_id: booking.id,
             amount: amountToPay,
-            method: paymentMethod || 'online',
-            notes: `Online payment via Link. NIF: ${billingInfo?.nif || 'N/A'}`
+            method: paymentMethod || 'Digital Link',
+            status: 'completed',
+            reference: `Link: ${token.slice(0, 8)}`,
+            type: 'payment'
         });
 
         // 5. Mark Token Used

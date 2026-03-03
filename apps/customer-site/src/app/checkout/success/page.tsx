@@ -1,18 +1,16 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { CheckCircle2, Home, Receipt, Loader2 } from 'lucide-react';
+import { CheckCircle2, Home } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { CheckoutStatusLoadingSkeleton } from '@/components/loading/public-page-skeletons';
 
 function CheckoutSuccessContent() {
     const searchParams = useSearchParams();
     const sessionId = searchParams.get('session_id');
-    const [isValid, setIsValid] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
     const router = useRouter();
 
     useEffect(() => {
@@ -22,7 +20,6 @@ function CheckoutSuccessContent() {
                 return () => clearTimeout(timer);
             }
 
-            setIsLoading(true);
             try {
                 // Call backend to verify payment and ensure booking was created
                 const res = await fetch('/api/payments/verify-session', {
@@ -31,20 +28,14 @@ function CheckoutSuccessContent() {
                     body: JSON.stringify({ sessionId })
                 });
 
-                if (res.ok) {
-                    setIsValid(true);
-                } else {
+                if (!res.ok) {
                     const data = await res.json();
                     console.error('Verification failed:', data.error);
                     // Still show success since payment went through Stripe
                     // Webhook should have handled it, or will retry
-                    setIsValid(true);
                 }
             } catch (err) {
                 console.error('Verification error:', err);
-                setIsValid(true); // Payment went through, trust Stripe
-            } finally {
-                setIsLoading(false);
             }
         };
 
@@ -52,12 +43,7 @@ function CheckoutSuccessContent() {
     }, [sessionId, router]);
 
     if (!sessionId) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
-                <Loader2 className="w-10 h-10 text-muted-foreground animate-spin mb-4" />
-                <h2 className="text-xl font-semibold">Redirecting...</h2>
-            </div>
-        );
+        return <CheckoutStatusLoadingSkeleton />;
     }
 
     return (
@@ -92,7 +78,7 @@ function CheckoutSuccessContent() {
                 </CardContent>
 
                 <CardFooter className="flex flex-col gap-3 pt-2">
-                    <Button className="w-full bg-[#18230F] hover:bg-[#18230F]/90 text-white font-bold h-12" asChild>
+                    <Button className="cta-shimmer w-full text-white font-bold h-12" asChild>
                         <Link href="/">
                             <Home className="w-4 h-4 mr-2" />
                             Return to Home
@@ -107,7 +93,7 @@ function CheckoutSuccessContent() {
 
 export default function CheckoutSuccessPage() {
     return (
-        <Suspense fallback={<div className="min-h-screen bg-white" />}>
+        <Suspense fallback={<CheckoutStatusLoadingSkeleton />}>
             <CheckoutSuccessContent />
         </Suspense>
     );

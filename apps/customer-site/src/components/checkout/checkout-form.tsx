@@ -10,10 +10,11 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, ArrowRight, ShieldCheck, CreditCard, Clock, User, Plus, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface CheckoutFormProps {
-    clientDetails: { name: string; email: string; phone: string };
-    setClientDetails: (details: { name: string; email: string; phone: string }) => void;
+    clientDetails: { name: string; email: string; phone: string; nif?: string; address?: string };
+    setClientDetails: (details: { name: string; email: string; phone: string; nif?: string; address?: string }) => void;
     checkInTime: string;
     setCheckInTime: (time: string) => void;
     extras: any[];
@@ -21,6 +22,11 @@ interface CheckoutFormProps {
     onToggleExtra: (id: string) => void;
     onSubmit: () => void;
     isSubmitting: boolean;
+    bookingType: 'overnight' | 'day_charter';
+    mode?: 'houseboat' | 'combo' | 'river-cruise';
+    needsInvoice: boolean;
+    setNeedsInvoice: (val: boolean) => void;
+    locale: string;
 }
 
 export function CheckoutForm({
@@ -32,8 +38,18 @@ export function CheckoutForm({
     selectedExtras,
     onToggleExtra,
     onSubmit,
-    isSubmitting
+    isSubmitting,
+    bookingType,
+    mode = 'houseboat',
+    needsInvoice,
+    setNeedsInvoice,
+    locale
 }: CheckoutFormProps) {
+    // Helper to get localized value
+    const getTranslated = (obj: any, field: string, fallback: string) => {
+        if (!obj?.translations?.[locale]?.[field]) return fallback;
+        return obj.translations[locale][field];
+    };
     const { toast } = useToast();
     const [touched, setTouched] = useState<Record<string, boolean>>({});
 
@@ -47,11 +63,14 @@ export function CheckoutForm({
     };
 
     // Generate time slots: 09:30 to 16:00, 30 min intervals
+    // For Day Charter: 09:00 to 16:00
     const timeSlots = [];
-    let startHour = 9;
-    let startMinute = 30;
+    let startHour = bookingType === 'day_charter' ? 9 : 9;
+    let startMinute = bookingType === 'day_charter' ? 0 : 30;
     const endHour = 16;
     const endMinute = 0;
+
+    const showExtras = mode !== 'combo' && mode !== 'river-cruise' && extras.length > 0;
 
     while (startHour < endHour || (startHour === endHour && startMinute <= endMinute)) {
         const h = startHour.toString().padStart(2, '0');
@@ -108,6 +127,62 @@ export function CheckoutForm({
                         />
                     </div>
                 </div>
+
+                {/* Fatura Toggle */}
+                <div className="mt-8 pt-6 border-t border-gray-50">
+                    <div
+                        onClick={() => setNeedsInvoice(!needsInvoice)}
+                        className={cn(
+                            "p-4 rounded-xl border transition-all cursor-pointer flex items-center gap-4",
+                            needsInvoice
+                                ? "border-emerald-200 bg-emerald-50/30"
+                                : "border-gray-100 bg-gray-50/50 hover:border-emerald-100"
+                        )}
+                    >
+                        <Checkbox
+                            checked={needsInvoice}
+                            onCheckedChange={(checked) => setNeedsInvoice(!!checked)}
+                            className="w-5 h-5 border-gray-300 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                        />
+                        <div className="flex-1">
+                            <Label className="text-sm font-bold text-[#18230F] cursor-pointer">I need an invoice (Fatura)</Label>
+                            <p className="text-xs text-gray-500 font-medium">Add NIF and billing address to your receipt</p>
+                        </div>
+                    </div>
+
+                    <AnimatePresence>
+                        {needsInvoice && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="overflow-hidden"
+                            >
+                                <div className="grid md:grid-cols-2 gap-6 mt-6 pt-6 border-t border-dashed border-gray-100">
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">NIF / Tax ID</Label>
+                                        <Input
+                                            value={clientDetails.nif || ''}
+                                            onChange={(e) => setClientDetails({ ...clientDetails, nif: e.target.value })}
+                                            className="h-11 bg-white border-gray-200 focus:bg-white transition-all text-base"
+                                            placeholder="Tax Identification Number"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">Billing Address</Label>
+                                        <Input
+                                            value={clientDetails.address || ''}
+                                            onChange={(e) => setClientDetails({ ...clientDetails, address: e.target.value })}
+                                            className="h-11 bg-white border-gray-200 focus:bg-white transition-all text-base"
+                                            placeholder="Full billing address"
+                                        />
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
             </div>
 
             {/* 2. Check-in / Checkout Time */}
@@ -120,30 +195,56 @@ export function CheckoutForm({
                 <div className="grid md:grid-cols-2 gap-6 relative z-10">
                     <div className="space-y-2">
                         <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">Arrival Time</Label>
-                        <Select value={checkInTime} onValueChange={setCheckInTime}>
-                            <SelectTrigger className="h-11 bg-gray-50 border-gray-100 text-base">
-                                <SelectValue placeholder="Select arrival time" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {timeSlots.map(time => (
-                                    <SelectItem key={time} value={time}>
-                                        {time}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        {mode === 'combo' ? (
+                            <div className="h-11 px-3 flex items-center bg-gray-50 border border-gray-100 rounded-md text-gray-500 text-base font-bold">
+                                {checkInTime || "--:--"}
+                            </div>
+                        ) : (
+                            <Select value={checkInTime} onValueChange={setCheckInTime}>
+                                <SelectTrigger className="h-11 bg-gray-50 border-gray-100 text-base">
+                                    <SelectValue placeholder="Select arrival time" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {timeSlots.map(time => (
+                                        <SelectItem key={time} value={time}>
+                                            {time}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
                     </div>
-                    <div className="space-y-2">
-                        <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">Checkout Time</Label>
-                        <div className="h-11 px-3 flex items-center bg-gray-50 border border-gray-100 rounded-md text-gray-500 text-base">
-                            {checkInTime || "--:--"}
+                    {mode !== 'combo' && (
+                        <div className="space-y-2">
+                            <Label className="text-xs font-bold uppercase tracking-wider text-gray-500">Checkout Time</Label>
+                            <div className="h-11 px-3 flex items-center bg-gray-50 border border-gray-100 rounded-md text-gray-500 text-base font-bold">
+                                {bookingType === 'day_charter' ? '17:00' : (checkInTime || "--:--")}
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
+
+                {bookingType === 'day_charter' && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-6 p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-4"
+                    >
+                        <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                            <Clock className="w-4 h-4 text-amber-700" />
+                        </div>
+                        <div>
+                            <p className="text-sm text-amber-900 font-bold mb-1">Important: Day Charter Return Time</p>
+                            <p className="text-xs text-amber-800 leading-relaxed">
+                                For Day Charters, the boat must be returned to the marina by **17:00 (5:00 PM)** to ensure safe docking and preparation. This schedule is non-negotiable for day trips.
+                            </p>
+                        </div>
+                    </motion.div>
+                )}
             </div>
 
             {/* 3. Extras */}
-            {extras.length > 0 && (
+            {showExtras && (
                 <div className="bg-white rounded-2xl p-6 border border-gray-100">
                     <h3 className="font-display text-3xl text-[#18230F] mb-8 flex items-center gap-4">
                         <span className="w-10 h-10 rounded-full bg-[#18230F] text-white flex items-center justify-center text-lg font-bold shrink-0">3</span>
@@ -170,7 +271,9 @@ export function CheckoutForm({
                                     </div>
                                     <div>
                                         <div className="flex justify-between items-start">
-                                            <h4 className="font-bold text-[#18230F] text-sm leading-tight">{extra.name}</h4>
+                                            <h4 className="font-bold text-[#18230F] text-sm leading-tight">
+                                                {getTranslated(extra, 'name', extra.name)}
+                                            </h4>
                                         </div>
                                         <p className="font-bold text-emerald-700 text-sm mt-1">
                                             €{extra.price} <span className="text-emerald-700/60 text-xs font-normal">/ {extra.price_type === 'per_day' ? 'day' : 'stay'}</span>
@@ -186,7 +289,7 @@ export function CheckoutForm({
             {/* 4. Payment Method */}
             <div className="bg-white rounded-2xl p-6 border border-gray-100">
                 <div className="flex items-center gap-4 mb-8">
-                    <div className="w-10 h-10 rounded-full bg-[#18230F] text-white flex items-center justify-center font-bold text-lg shrink-0">4</div>
+                    <div className="w-10 h-10 rounded-full bg-[#18230F] text-white flex items-center justify-center font-bold text-lg shrink-0">{showExtras ? 4 : 3}</div>
                     <h2 className="text-3xl font-display text-[#18230F]">Payment Method</h2>
                 </div>
 

@@ -3,9 +3,8 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // --- Helper Functions ---
     function isAdmin() {
-      // This is a simple check based on email.
-      // For production, it's safer to use custom claims.
-      return request.auth != null && request.auth.token.email == 'user@example.com';
+      // Requires Firebase Auth custom claims: { admin: true }.
+      return request.auth != null && request.auth.token.admin == true;
     }
 
     function isAuthenticated() {
@@ -72,7 +71,7 @@ service cloud.firestore {
         }
     }
 
-    // Daily travel packages should be readable by anyone, writable by admins.
+    // River cruise packages should be readable by anyone, writable by admins.
     match /daily_travel_packages/{packageId} {
         allow get, list: if true;
         allow write: if isAdmin();

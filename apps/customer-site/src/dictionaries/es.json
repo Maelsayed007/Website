@@ -1,10 +1,26 @@
-
 {
+  "navigation": {
+    "links": {
+      "home": "Inicio",
+      "houseboats": "Casas Flotantes",
+      "restaurant": "Restaurante",
+      "riverCruise": "Cruceros",
+      "contact": "Contacto",
+      "services": "Servicios"
+    },
+    "auth": {
+      "login": "Entrar",
+      "register": "Registrarse",
+      "logout": "Cerrar sesión",
+      "dashboard": "Panel",
+      "myBookings": "Mis Reservas"
+    }
+  },
   "homepage": {
     "hero": {
-      "title": "Su Aventura en Casa Flotante",
-      "subtitle": "Simplemente elija sus fechas y su tripulación para zarpar.",
-      "licenseFree": "No se Requiere Licencia para Operar",
+      "title": "Descubre la magia del Lago Alqueva con Amieira Marina",
+      "subtitle": "Descubre la Serenidad del Lago Alqueva",
+      "licenseFree": "Sin Necesidad de Licencia",
       "form": {
         "checkIn": "Check-in",
         "checkOut": "Check-out",
@@ -20,12 +36,12 @@
       "viewAll": "Ver Todas las Casas Flotantes"
     },
     "featured": {
-      "title": "Nuestra Flota Destacada",
-      "subtitle": "Una selección de nuestras opciones más populares para una aventura inolvidable."
+      "title": "Tu Puerto Base en Amieira Marina",
+      "subtitle": "Ofrecemos todo lo necesario para un viaje seguro y cómodo, desde provisiones hasta asistencia técnica."
     },
     "dining": {
-      "title": "Cena Exquisita junto al Lago",
-      "description": "Nuestro restaurante ofrece un menú inspirado en los ricos sabores de Portugal, preparado con los ingredientes locales más frescos. Disfrute de su comida en nuestra terraza con vistas al magnífico lago de Alqueva.",
+      "title": "Un Legado de Calidad en el Alentejo",
+      "description": "Fundada con la visión de llevar el turismo náutico de alta gama a la región del Alentejo, Amieira Marina se ha convertido en un referente de sostenibilidad y calidad de servicio en Portugal. Estamos orgullosos de contar con la certificación Bandera Azul.",
       "button": "Ver el Menú"
     },
     "testimonials": {
@@ -142,7 +158,7 @@
       "scenery": "Paisaje"
     }
   },
-  "dailyTravel": {
+  "riverCruise": {
     "title": "Excursiones Diarias",
     "subtitle": "Descubra la belleza de Alqueva con nuestros paseos en barco guiados. Perfecto para un día de aventura y relajación.",
     "duration": "Duración",
@@ -176,6 +192,19 @@
         "submitting": "Enviando..."
       }
     }
+  },
+  "offers": {
+    "title": "Paquetes y Ofertas Especiales",
+    "subtitle": "Experiencias inolvidables a un valor excepcional. Descubre nuestros paquetes estacionales y descuentos exclusivos.",
+    "viewOffer": "Ver Detalles",
+    "claim": "Ver Disponibilidad",
+    "backToList": "Volver a Ofertas",
+    "noOffers": {
+      "title": "No hay ofertas disponibles actualmente",
+      "description": "Por favor, vuelva más tarde para ver nuestros nuevos paquetes estacionales."
+    },
+    "conditions": "Condiciones de la Promoción",
+    "policyInfo": "Esta oferta tiene un descuento máximo del 25% sobre el precio de reserva base. Se aplican términos y condiciones."
   },
   "payment": {
     "title": "¡Solicitud de Reserva Enviada!",
@@ -257,5 +286,25 @@
         "submitting": "Enviando..."
       }
     }
+  },
+  "footer": {
+    "tagline": "Su inolvidable aventura junto al lago.",
+    "explore": {
+      "title": "Explorar",
+      "home": "Inicio",
+      "houseboats": "Casas Flotantes",
+      "restaurant": "Restaurante",
+      "gallery": "Galería",
+      "contact": "Contacto"
+    },
+    "legal": {
+      "title": "Legal",
+      "privacy": "Política de Privacidad",
+      "terms": "Términos de Servicio"
+    },
+    "connect": {
+      "title": "Conectar"
+    },
+    "rightsReserved": "Todos los derechos reservados."
   }
 }

@@ -1,0 +1,387 @@
+⨯ ./src/components/header.tsx
+Error: 
+
+Caused by:
+    0: Failed to read source code from C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\components\header.tsx
+    1: The system cannot find the file specified. (os error 2)
+
+Import trace for requested module:
+./src/components/header.tsx
+./src/components/app-layout.tsx
+⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+⨯ ./src/components/footer.tsx
+Error: 
+
+Caused by:
+    0: Failed to read source code from C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\components\footer.tsx
+    1: The system cannot find the file specified. (os error 2)
+
+Import trace for requested module:
+./src/components/footer.tsx
+./src/components/app-layout.tsx
+⨯ ./src/components/footer.tsx
+Error: 
+
+Caused by:
+    0: Failed to read source code from C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\components\footer.tsx
+    1: The system cannot find the file specified. (os error 2)
+
+Import trace for requested module:
+./src/components/footer.tsx
+./src/components/app-layout.tsx
+⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+⨯ ./src/components/app-layout.tsx
+Error: 
+
+Caused by:
+    0: Failed to read source code from C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\components\app-layout.tsx
+    1: The system cannot find the file specified. (os error 2)
+
+Import trace for requested module:
+./src/components/app-layout.tsx
+./src/components/landing-page-content.tsx
+⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+⨯ ./src/app/globals.css
+Module not found: Can't resolve 'C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\app\globals.css'
+
+https://nextjs.org/docs/messages/module-not-found
+⨯ ./src/styles/theme.css:1:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css `@layer base` is used but no matching `@tailwind base` directive is present.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@layer[39m base [33m{[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m  * [33m{[39m
+ [90m 3 | [39m    [36m@apply[39m border-border[33m;[39m
+⨯ ./src/styles/theme.css:1:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css `@layer base` is used but no matching `@tailwind base` directive is present.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@layer[39m base [33m{[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m  * [33m{[39m
+ [90m 3 | [39m    [36m@apply[39m border-border[33m;[39m
+⨯ ./src/styles/theme.css:1:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css `@layer base` is used but no matching `@tailwind base` directive is present.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@layer[39m base [33m{[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m  * [33m{[39m
+ [90m 3 | [39m    [36m@apply[39m border-border[33m;[39m
+⨯ ./src/styles/theme.css:1:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css `@layer base` is used but no matching `@tailwind base` directive is present.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@layer[39m base [33m{[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m  * [33m{[39m
+ [90m 3 | [39m    [36m@apply[39m border-border[33m;[39m
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\tokens.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\utilities.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (245kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (245kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (248kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+⨯ ./src/styles/theme.css:1:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css `@layer base` is used but no matching `@tailwind base` directive is present.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@layer[39m base [33m{[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m  * [33m{[39m
+ [90m 3 | [39m    [36m@apply[39m border-border[33m;[39m
+⨯ ./src/styles/theme.css:1:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css `@layer base` is used but no matching `@tailwind base` directive is present.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@layer[39m base [33m{[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m  * [33m{[39m
+ [90m 3 | [39m    [36m@apply[39m border-border[33m;[39m
+⨯ ./src/styles/theme.css:1:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css `@layer base` is used but no matching `@tailwind base` directive is present.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@layer[39m base [33m{[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m  * [33m{[39m
+ [90m 3 | [39m    [36m@apply[39m border-border[33m;[39m
+⨯ ./src/styles/theme.css:1:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css `@layer base` is used but no matching `@tailwind base` directive is present.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@layer[39m base [33m{[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m  * [33m{[39m
+ [90m 3 | [39m    [36m@apply[39m border-border[33m;[39m
+⨯ ./src/styles/theme.css:1:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css `@layer base` is used but no matching `@tailwind base` directive is present.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@layer[39m base [33m{[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m  * [33m{[39m
+ [90m 3 | [39m    [36m@apply[39m border-border[33m;[39m
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\tokens.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\utilities.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (247kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (247kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (250kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+⨯ ./src/styles/theme.css:1:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css `@layer base` is used but no matching `@tailwind base` directive is present.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@layer[39m base [33m{[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m  * [33m{[39m
+ [90m 3 | [39m    [36m@apply[39m border-border[33m;[39m
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\tokens.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\utilities.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (247kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (248kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (251kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+⨯ ./src/styles/theme.css:1:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css `@layer base` is used but no matching `@tailwind base` directive is present.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@layer[39m base [33m{[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m  * [33m{[39m
+ [90m 3 | [39m    [36m@apply[39m border-border[33m;[39m
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\tokens.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\utilities.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (247kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (247kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (250kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+⨯ ./src/styles/theme.css:1:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css `@layer base` is used but no matching `@tailwind base` directive is present.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@layer[39m base [33m{[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m  * [33m{[39m
+ [90m 3 | [39m    [36m@apply[39m border-border[33m;[39m
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\tokens.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\utilities.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (248kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (248kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (251kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+⨯ ./src/styles/theme.css:1:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css `@layer base` is used but no matching `@tailwind base` directive is present.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@layer[39m base [33m{[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m  * [33m{[39m
+ [90m 3 | [39m    [36m@apply[39m border-border[33m;[39m
+⨯ ./src/styles/theme.css:1:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css `@layer base` is used but no matching `@tailwind base` directive is present.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@layer[39m base [33m{[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m  * [33m{[39m
+ [90m 3 | [39m    [36m@apply[39m border-border[33m;[39m
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\tokens.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\utilities.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (248kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (248kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (251kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+⨯ ./src/styles/theme.css:1:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css `@layer base` is used but no matching `@tailwind base` directive is present.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@layer[39m base [33m{[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m  * [33m{[39m
+ [90m 3 | [39m    [36m@apply[39m border-border[33m;[39m
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\tokens.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\utilities.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (248kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (248kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (251kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+⨯ ./src/styles/theme.css:1:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css `@layer base` is used but no matching `@tailwind base` directive is present.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@layer[39m base [33m{[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m  * [33m{[39m
+ [90m 3 | [39m    [36m@apply[39m border-border[33m;[39m
+⨯ ./src/styles/theme.css:1:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css `@layer base` is used but no matching `@tailwind base` directive is present.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@layer[39m base [33m{[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m  * [33m{[39m
+ [90m 3 | [39m    [36m@apply[39m border-border[33m;[39m
+⨯ ./src/styles/theme.css:1:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css `@layer base` is used but no matching `@tailwind base` directive is present.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@layer[39m base [33m{[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m  * [33m{[39m
+ [90m 3 | [39m    [36m@apply[39m border-border[33m;[39m
+⨯ ./src/styles/theme.css:1:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css `@layer base` is used but no matching `@tailwind base` directive is present.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@layer[39m base [33m{[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m  * [33m{[39m
+ [90m 3 | [39m    [36m@apply[39m border-border[33m;[39m
+⨯ ./src/styles/theme.css:1:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css `@layer base` is used but no matching `@tailwind base` directive is present.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@layer[39m base [33m{[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m  * [33m{[39m
+ [90m 3 | [39m    [36m@apply[39m border-border[33m;[39m
+⨯ ./src/styles/theme.css:1:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css `@layer base` is used but no matching `@tailwind base` directive is present.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@layer[39m base [33m{[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m  * [33m{[39m
+ [90m 3 | [39m    [36m@apply[39m border-border[33m;[39m
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\tokens.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\css-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[2]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\node_modules\next\dist\build\webpack\loaders\postcss-loader\src\index.js??ruleSet[1].rules[15].oneOf[10].use[3]!C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\utilities.css': No serializer registered for PostCSSSyntaxError
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> webpack/lib/ModuleBuildError -> PostCSSSyntaxError
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (248kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (248kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (251kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+⨯ ./src/styles/theme.css:1:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\theme.css `@layer base` is used but no matching `@tailwind base` directive is present.
+
+[1m[31m>[39m[22m[90m 1 | [39m[36m@layer[39m base [33m{[39m
+ [90m   | [39m[1m[31m^[39m[22m
+ [90m 2 | [39m  * [33m{[39m
+ [90m 3 | [39m    [36m@apply[39m border-border[33m;[39m
+⨯ ./src/app/globals.css
+Module not found: Can't resolve '../styles/theme.css'
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./src/app/globals.css
+⨯ ./src/styles/utilities.css:105:1
+Syntax error: C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\styles\utilities.css `@layer utilities` is used but no matching `@tailwind utilities` directive is present.
+
+ [90m 103 | [39m[33m}[39m
+ [90m 104 | [39m
+[1m[31m>[39m[22m[90m 105 | [39m[36m@layer[39m utilities [33m{[39m
+ [90m     | [39m[1m[31m^[39m[22m
+ [90m 106 | [39m  [33m.shadow-elevation[39m [33m{[39m
+ [90m 107 | [39m    box-shadow[33m:[39m none[33m;[39m
+⨯ ./src/app/globals.css
+Module not found: Can't resolve '../styles/utilities.css'
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./src/app/globals.css
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⨯ ./src/features/houseboats/hooks/use-houseboat-search-state.ts
+Error:   x You're importing a component that needs `useState`. This React Hook only works in a Client Component. To fix, mark the file (or its parent) with the `"use client"` directive.
+  |
+  |  Learn more: https://nextjs.org/docs/app/api-reference/directives/use-client
+  |
+
+   ,-[C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\features\houseboats\hooks\use-houseboat-search-state.ts:1:1]
+ 1 | import { useState } from 'react';
+   :          ^^^^^^^^
+ 2 | import { parseISO } from 'date-fns';
+ 3 | import type { DateRange } from 'react-day-picker';
+   `----
+
+Import trace for requested module:
+./src/features/houseboats/hooks/use-houseboat-search-state.ts
+./src/features/houseboats/index.ts
+./src/app/houseboats/page.tsx
+⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⨯ ./src/features/houseboats/hooks/use-houseboat-search-state.ts
+Error:   x You're importing a component that needs `useState`. This React Hook only works in a Client Component. To fix, mark the file (or its parent) with the `"use client"` directive.
+  |
+  |  Learn more: https://nextjs.org/docs/app/api-reference/directives/use-client
+  |
+
+   ,-[C:\Users\amend\Desktop\Amieira Marina\apps\customer-site\src\features\houseboats\hooks\use-houseboat-search-state.ts:1:1]
+ 1 | import { useState } from 'react';
+   :          ^^^^^^^^
+ 2 | import { parseISO } from 'date-fns';
+ 3 | import type { DateRange } from 'react-day-picker';
+   `----
+
+Import trace for requested module:
+./src/features/houseboats/hooks/use-houseboat-search-state.ts
+./src/features/houseboats/index.ts
+./src/app/houseboats/page.tsx
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ ./src/components/houseboats-content.tsx
+Attempted import error: 'useHouseboatSearchState' is not exported from '@/features/houseboats' (imported as 'useHouseboatSearchState').
+
+Import trace for requested module:
+./src/components/houseboats-content.tsx
+
+./src/components/houseboats-content.tsx
+Attempted import error: 'useHouseboatSearchState' is not exported from '@/features/houseboats' (imported as 'useHouseboatSearchState').
+
+Import trace for requested module:
+./src/components/houseboats-content.tsx
+
+./src/components/houseboats-content.tsx
+Attempted import error: 'useHouseboatSearchState' is not exported from '@/features/houseboats' (imported as 'useHouseboatSearchState').
+
+Import trace for requested module:
+./src/components/houseboats-content.tsx
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⨯ ReferenceError: useMemo is not defined
+    at HouseboatsContent (src\components\houseboats-content.tsx:168:33)
+  166 |
+  167 |     // Process & Sort Boats
+> 168 |     const processedHouseboats = useMemo(() => {
+      |                                 ^
+  169 |         if (!houseboats.length) return [];
+  170 |
+  171 |         const guestCount = parseInt(guests) || 2; {
+  digest: '491886572'
+}
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⨯ Error: useSupabase must be used within a SupabaseProvider
+    at useSupabase (src\components\providers\supabase-provider.tsx:86:15)
+    at HouseboatsContent (src\components\houseboats-content.tsx:36:37)
+  84 |     const context = useContext(SupabaseContext);
+  85 |     if (context === undefined) {
+> 86 |         throw new Error('useSupabase must be used within a SupabaseProvider');
+     |               ^
+  87 |     }
+  88 |     return context;
+  89 | }; {
+  digest: '3890402386'
+}
+npm error Lifecycle script `dev` failed with error:
+npm error code 4294967295
+npm error path C:\Users\amend\Desktop\Amieira Marina\apps\customer-site
+npm error workspace @amieira/customer-site@0.1.0
+npm error location C:\Users\amend\Desktop\Amieira Marina\apps\customer-site
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c next dev --webpack -p 9002

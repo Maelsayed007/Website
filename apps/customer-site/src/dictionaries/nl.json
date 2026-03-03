@@ -1,8 +1,25 @@
 {
+  "navigation": {
+    "links": {
+      "home": "Home",
+      "houseboats": "Woonboten",
+      "restaurant": "Restaurant",
+      "riverCruise": "Riviercruise",
+      "contact": "Contact",
+      "services": "Diensten"
+    },
+    "auth": {
+      "login": "Inloggen",
+      "register": "Registreren",
+      "logout": "Uitloggen",
+      "dashboard": "Dashboard",
+      "myBookings": "Mijn Boekingen"
+    }
+  },
   "homepage": {
     "hero": {
-      "title": "Uw Woonboot Avontuur",
-      "subtitle": "Kies gewoon uw data en crew om uit te varen.",
+      "title": "Ontdek de magie van het Alqueva-meer met Amieira Marina",
+      "subtitle": "Ontdek de rust van het Alqueva-meer",
       "licenseFree": "Geen Vaarbewijs Nodig",
       "form": {
         "checkIn": "Inchecken",
@@ -19,12 +36,12 @@
       "viewAll": "Bekijk alle woonboten"
     },
     "featured": {
-      "title": "Onze Uitgelichte Vloot",
-      "subtitle": "Een selectie van onze meest populaire boten voor een onvergetelijk avontuur."
+      "title": "Uw Thuishaven bij Amieira Marina",
+      "subtitle": "Wij bieden alles wat u nodig heeft voor een veilige en comfortabele reis, van proviand tot technische expertise."
     },
     "dining": {
-      "title": "Exquise Dineren aan het Meer",
-      "description": "Ons restaurant biedt een menu geïnspireerd op de rijke smaken van Portugal, bereid met de verste lokale ingrediënten. Geniet van uw maaltijd op ons terras met uitzicht op het prachtige Alqueva-meer.",
+      "title": "Een Belofte van Kwaliteit in de Alentejo",
+      "description": "Amieira Marina is opgericht met de visie om hoogwaardig nautisch toerisme naar de Alentejo-regio te brengen en is uitgegroeid tot een referentiepunt voor duurzaamheid en servicekwaliteit in Portugal. We zijn er trots op het Blauwe Vlag-certificaat te dragen.",
       "button": "Bekijk het Menu"
     },
     "testimonials": {
@@ -141,7 +158,7 @@
       "scenery": "Landschap"
     }
   },
-  "dailyTravel": {
+  "riverCruise": {
     "title": "Dagtochten",
     "subtitle": "Ontdek de schoonheid van Alqueva met onze begeleide boottochten. Perfect voor een dag vol avontuur en ontspanning.",
     "duration": "Duur",
@@ -175,6 +192,19 @@
         "submitting": "Verzenden..."
       }
     }
+  },
+  "offers": {
+    "title": "Speciale Aanbiedingen & Pakketten",
+    "subtitle": "Onvergetelijke ervaringen tegen een uitzonderlijke prijs. Ontdek onze seizoensgebonden arrangementen en exclusieve kortingen.",
+    "viewOffer": "Bekijk details",
+    "claim": "Controleer beschikbaarheid",
+    "backToList": "Terug naar aanbiedingen",
+    "noOffers": {
+      "title": "Momenteel geen aanbiedingen beschikbaar",
+      "description": "Kom snel terug om onze nieuwe seizoenspakketten te zien."
+    },
+    "conditions": "Promotievoorwaarden",
+    "policyInfo": "Dit aanbod kent een maximale korting van 25% op de basisprijs van de reservering. Algemene voorwaarden zijn van toepassing."
   },
   "payment": {
     "title": "Reserveringsaanvraag Verzonden!",
@@ -256,5 +286,25 @@
         "submitting": "Verzenden..."
       }
     }
+  },
+  "footer": {
+    "tagline": "Uw onvergetelijke avontuur aan het meer.",
+    "explore": {
+      "title": "Ontdekken",
+      "home": "Home",
+      "houseboats": "Woonboten",
+      "restaurant": "Restaurant",
+      "gallery": "Galerij",
+      "contact": "Contact"
+    },
+    "legal": {
+      "title": "Juridisch",
+      "privacy": "Privacybeleid",
+      "terms": "Gebruiksvoorwaarden"
+    },
+    "connect": {
+      "title": "Verbinden"
+    },
+    "rightsReserved": "Alle rechten voorbehouden."
   }
 }

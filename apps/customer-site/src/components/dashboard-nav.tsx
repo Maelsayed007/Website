@@ -17,10 +17,8 @@ import {
   LayoutDashboard,
   Trash2,
   X,
-  UserCog,
   History,
   PlusCircle,
-  Clock,
   Printer,
   Search,
 } from 'lucide-react';
@@ -41,6 +39,7 @@ import {
 import {
   Sheet,
   SheetContent,
+  SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { useState, useMemo, useEffect } from 'react';
@@ -55,20 +54,25 @@ import {
   CommandList,
   CommandSeparator,
 } from '@/components/ui/command';
+import {
+  canAccessSettings as canAccessSettingsFromPermissions,
+  getRoleLabel,
+  isSuperAdmin as isSuperAdminFromPermissions,
+} from '@/lib/auth/permissions';
 
 type Permissions = {
   isSuperAdmin?: boolean;
   canViewDashboard?: boolean;
   canViewHouseboatReservations?: boolean;
   canViewRestaurantReservations?: boolean;
-  canViewDailyTravelReservations?: boolean;
+  canViewRiverCruiseReservations?: boolean;
   canViewClients?: boolean;
   canViewMessages?: boolean;
   canAccessSettings?: boolean;
   canManageStaff?: boolean;
   canEditHouseboatReservations?: boolean;
   canEditRestaurantReservations?: boolean;
-  canEditDailyTravelReservations?: boolean;
+  canEditRiverCruiseReservations?: boolean;
   canEditClients?: boolean;
 }
 
@@ -83,7 +87,7 @@ const navLinks = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid, exact: true, permission: 'canViewDashboard' as keyof Permissions },
   { href: '/dashboard/houseboat-reservations', label: 'Houseboats', icon: Ship, permission: 'canViewHouseboatReservations' as keyof Permissions },
   { href: '/dashboard/restaurant-reservations', label: 'Restaurant', icon: Utensils, permission: 'canViewRestaurantReservations' as keyof Permissions },
-  { href: '/dashboard/daily-travel-reservations', label: 'Daily Travel', icon: Calendar, permission: 'canViewDailyTravelReservations' as keyof Permissions },
+  { href: '/dashboard/river-cruise-reservations', label: 'River Cruise', icon: Calendar, permission: 'canViewRiverCruiseReservations' as keyof Permissions },
   { href: '/dashboard/clients', label: 'Clients', icon: Users, permission: 'canViewClients' as keyof Permissions },
   { href: '/dashboard/messages', label: 'Messages', icon: MessageSquare, permission: 'canViewMessages' as keyof Permissions },
   { href: '/dashboard/activity-log', label: 'Activity Log', icon: History, permission: 'canManageStaff' as keyof Permissions },
@@ -104,7 +108,7 @@ type Booking = {
 const getBookingType = (booking: Booking) => {
   if (booking.houseboat_id) return { icon: Ship, path: `/dashboard/houseboat-reservations?highlight=${booking.id}` };
   if (booking.restaurant_table_id) return { icon: Utensils, path: '/dashboard/restaurant-reservations' };
-  if (booking.daily_travel_package_id) return { icon: Calendar, path: '/dashboard/daily-travel-reservations' };
+  if (booking.daily_travel_package_id) return { icon: Calendar, path: '/dashboard/river-cruise-reservations' };
   return { icon: MessageSquare, path: '/dashboard/messages' };
 }
 
@@ -117,7 +121,6 @@ export default function DashboardNav() {
   const [openCommand, setOpenCommand] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -148,23 +151,20 @@ export default function DashboardNav() {
     if (!supabase || !user) return;
 
     const fetchProfile = async () => {
-      setIsLoadingProfile(true);
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single();
 
       if (data) setUserProfile(data as UserProfile);
-      setIsLoadingProfile(false);
     };
 
     fetchProfile();
   }, [supabase, user]);
 
-  const isHardcodedAdmin = user?.email === 'myasserofficial@gmail.com';
-  const isSuperAdmin = isHardcodedAdmin || userProfile?.permissions?.isSuperAdmin;
-  const canAccessSettings = isSuperAdmin || userProfile?.permissions?.canAccessSettings;
+  const isSuperAdmin = isSuperAdminFromPermissions(userProfile);
+  const canAccessSettings = canAccessSettingsFromPermissions(userProfile);
 
   const unreadCount = notifications?.filter(n => !n.read && n.status === 'Pending').length || 0;
 
@@ -174,7 +174,7 @@ export default function DashboardNav() {
 
     // Initial fetch
     const fetchNotifications = async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('bookings')
         .select('*')
         .eq('status', 'Pending')
@@ -196,7 +196,7 @@ export default function DashboardNav() {
           schema: 'public',
           table: 'bookings'
         },
-        (payload) => {
+        () => {
           fetchNotifications(); // Refresh on any change for simplicity
         }
       )
@@ -212,7 +212,7 @@ export default function DashboardNav() {
     if (!supabase) return;
     try {
       await supabase.auth.signOut();
-      router.push('/login');
+      router.push('/staff-login');
     } catch (error) {
       console.error("Logout failed", error);
     }
@@ -276,6 +276,7 @@ export default function DashboardNav() {
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="flex flex-col">
+                <SheetTitle className="sr-only">Dashboard navigation</SheetTitle>
                 <nav className="grid gap-2 text-lg font-medium">
                   <Link
                     href="/dashboard"
@@ -413,7 +414,7 @@ export default function DashboardNav() {
               <DropdownMenuContent className="w-56" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{isHardcodedAdmin ? 'Site Administrator' : userProfile?.username}</p>
+                    <p className="text-sm font-medium leading-none">{isSuperAdmin ? getRoleLabel(userProfile) : userProfile?.username}</p>
                     <p className="text-xs leading-none text-muted-foreground">
                       {user?.email}
                     </p>
@@ -465,17 +466,10 @@ export default function DashboardNav() {
               <PlusCircle className="mr-2 h-4 w-4" />
               <span>New Client</span>
             </CommandItem>
-            <CommandItem onSelect={() => runCommand(() => router.push('/dashboard/houseboat-reservations?action=new'))}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              <span>New Houseboat Booking</span>
-            </CommandItem>
-            <CommandItem onSelect={() => runCommand(() => router.push('/dashboard/restaurant-reservations?action=new'))}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              <span>New Restaurant Reservation</span>
-            </CommandItem>
           </CommandGroup>
         </CommandList>
       </CommandDialog>
     </>
   );
 }
+

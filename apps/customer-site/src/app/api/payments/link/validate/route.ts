@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request, props: { params: Promise<{ token: string }> }) {
+export async function GET(request: Request) {
     const supabase = createAdminClient();
     const url = new URL(request.url);
     const token = url.searchParams.get('token');
@@ -57,6 +57,7 @@ export async function GET(request: Request, props: { params: Promise<{ token: st
             booking: {
                 id: booking.id,
                 clientName: booking.client_name,
+                clientEmail: booking.client_email,
                 serviceType: booking.houseboat_id ? 'Houseboat Stay' : 'Reservation',
                 startDate: booking.start_time,
                 endDate: booking.end_time,
@@ -65,7 +66,7 @@ export async function GET(request: Request, props: { params: Promise<{ token: st
             }
         });
 
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

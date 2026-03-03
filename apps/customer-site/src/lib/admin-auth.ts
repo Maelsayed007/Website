@@ -2,28 +2,40 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { cookies } from 'next/headers';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
+import {
+    normalizePermissions,
+    type PermissionMap,
+    type StaffRole,
+} from '@/lib/auth/permissions';
 
 export interface AdminUser {
     id: string;
     username: string;
     displayName: string | null;
-    role: 'super_admin' | 'manager' | 'staff';
-    permissions: {
-        canViewDashboard: boolean;
-        canViewBookings: boolean;
-        canEditBookings: boolean;
-        canDeleteBookings: boolean;
-        canManagePayments: boolean;
-        canViewSettings: boolean;
-        canEditSettings: boolean;
-        canManageUsers: boolean;
-    };
+    role: StaffRole;
+    permissions: PermissionMap;
     isActive: boolean;
     lastLogin: string | null;
 }
 
-const SESSION_DURATION_HOURS = 8;
+const SESSION_DURATION_HOURS = 4;
 const SESSION_COOKIE_NAME = 'admin_session';
+const PERMISSION_ALIASES: Partial<Record<keyof PermissionMap, Array<keyof PermissionMap>>> = {
+    canViewBookings: [
+        'canViewHouseboatReservations',
+        'canViewRestaurantReservations',
+        'canViewRiverCruiseReservations',
+    ],
+    canEditBookings: [
+        'canEditHouseboatReservations',
+        'canEditRestaurantReservations',
+        'canEditRiverCruiseReservations',
+    ],
+    canManageUsers: ['canManageStaff'],
+    canManageStaff: ['canManageUsers'],
+    canViewSettings: ['canAccessSettings'],
+    canAccessSettings: ['canViewSettings', 'canEditSettings'],
+};
 
 /**
  * Hash a password using bcrypt
@@ -92,12 +104,17 @@ export async function validateSession(): Promise<AdminUser | null> {
     const user = session.admin_users;
     if (!user.is_active) return null;
 
+    const permissions = normalizePermissions({
+        role: user.role,
+        permissions: user.permissions,
+    });
+
     return {
         id: user.id,
         username: user.username,
         displayName: user.display_name,
-        role: user.role,
-        permissions: user.permissions,
+        role: user.role as StaffRole,
+        permissions,
         isActive: user.is_active,
         lastLogin: user.last_login
     };
@@ -118,8 +135,8 @@ export async function setSessionCookie(token: string): Promise<void> {
     const cookieStore = await cookies();
     cookieStore.set(SESSION_COOKIE_NAME, token, {
         httpOnly: true,
-        secure: false, // Forcing false to debug local login issue
-        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
         maxAge: SESSION_DURATION_HOURS * 60 * 60,
         path: '/'
     });
@@ -137,9 +154,10 @@ export async function clearSessionCookie(): Promise<void> {
  * Check if user has a specific permission
  */
 export function hasPermission(user: AdminUser, permission: keyof AdminUser['permissions']): boolean {
-    // SuperAdmin always has all permissions
-    if (user.role === 'super_admin') return true;
-    return user.permissions[permission] === true;
+    if (user.role === 'super_admin' || user.permissions.isSuperAdmin) return true;
+    if (user.permissions[permission] === true) return true;
+    const aliases = PERMISSION_ALIASES[permission] || [];
+    return aliases.some((alias) => user.permissions[alias] === true);
 }
 
 /**

@@ -1,0 +1,14 @@
+
+> @amieira/customer-site@0.1.0 dev
+> next dev --turbopack -p 9002
+
+▲ Next.js 16.1.1 (Turbopack)
+- Local:         http://localhost:9002
+- Network:       http://192.168.1.21:9002
+- Environments: .env
+
+✓ Starting...
+✓ Ready in 3.1s
+ GET / 500 in 879ms (compile: 423ms, proxy.ts: 154ms, render: 302ms)
+ GET /offers 500 in 1175ms (compile: 1157ms, proxy.ts: 7ms, render: 12ms)
+[?25h

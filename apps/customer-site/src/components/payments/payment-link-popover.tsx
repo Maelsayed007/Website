@@ -24,6 +24,8 @@ export function PaymentLinkPopover({ booking, trigger, onLinkGenerated, compact 
     const [linkEmail, setLinkEmail] = useState('');
     const [isLinkPopoverOpen, setIsLinkPopoverOpen] = useState(false);
     const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+    const [linkDueDate, setLinkDueDate] = useState('');
+    const [paymentType, setPaymentType] = useState('Custom');
 
     useEffect(() => {
         if (isLinkPopoverOpen) {
@@ -35,25 +37,16 @@ export function PaymentLinkPopover({ booking, trigger, onLinkGenerated, compact 
             // Default logic: If nothing paid yet, default to 30% deposit. Else remaining balance.
             if (paid === 0 && total > 0) {
                 setLinkAmount(Math.floor(total * 0.30));
+                setPaymentType('Deposit');
             } else {
                 setLinkAmount(remaining);
+                setPaymentType('Balance');
             }
 
             setLinkEmail(booking.client_email || '');
+            setLinkDueDate('');
         }
     }, [booking, isLinkPopoverOpen]);
-
-    const handleQuickAmount = (percentage: number) => {
-        const total = booking.total_price || booking.price || 0;
-        const paid = booking.amount_paid || 0;
-        const remaining = Math.max(0, total - paid);
-
-        if (percentage === 1) {
-            setLinkAmount(remaining);
-        } else {
-            setLinkAmount(Math.floor(total * percentage));
-        }
-    };
 
     const handleGenerateLink = async (mode: 'email' | 'copy') => {
         setLoadingLink(true);
@@ -65,7 +58,9 @@ export function PaymentLinkPopover({ booking, trigger, onLinkGenerated, compact 
                     bookingId: booking.id,
                     email: linkEmail,
                     amount: linkAmount,
-                    skipEmail: mode === 'copy'
+                    skipEmail: mode === 'copy',
+                    description: paymentType === 'Custom' ? undefined : `${paymentType} until ${linkDueDate || '48h'}`,
+                    dueDate: linkDueDate || undefined
                 })
             });
             const data = await res.json();
@@ -138,7 +133,33 @@ export function PaymentLinkPopover({ booking, trigger, onLinkGenerated, compact 
                         </Button>
                     </div>
                 ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-[#18230F]/40">Payment Type</Label>
+                            <select
+                                className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-xs shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                onChange={(e) => {
+                                    const type = e.target.value;
+                                    setPaymentType(type);
+                                    const total = booking.total_price || booking.price || 0;
+                                    const paid = booking.amount_paid || 0;
+                                    const remaining = Math.max(0, total - paid);
+
+                                    if (type === 'Deposit') setLinkAmount(Math.floor(total * 0.3));
+                                    if (type === 'Balance') setLinkAmount(remaining);
+                                    if (type === 'Full Payment') setLinkAmount(remaining);
+                                    if (type === 'Extra') setLinkAmount(0);
+                                }}
+                                defaultValue="Custom"
+                            >
+                                <option value="Custom">Select Type...</option>
+                                <option value="Deposit">Deposit (30%)</option>
+                                <option value="Balance">Remaining Balance</option>
+                                <option value="Full Payment">Full Payment</option>
+                                <option value="Extra">Extra Service</option>
+                            </select>
+                        </div>
+
                         <div className="space-y-2">
                             <Label className="text-[10px] font-black uppercase tracking-widest text-[#18230F]/40">Amount (€)</Label>
                             <div className="flex gap-2">
@@ -148,12 +169,17 @@ export function PaymentLinkPopover({ booking, trigger, onLinkGenerated, compact 
                                     onChange={(e) => setLinkAmount(parseFloat(e.target.value))}
                                     className="h-9 font-black flex-1"
                                 />
-                                <div className="flex gap-1">
-                                    <Button variant="outline" size="sm" onClick={() => handleQuickAmount(0.3)} className="h-9 px-2 text-[10px] font-bold">30%</Button>
-                                    <Button variant="outline" size="sm" onClick={() => handleQuickAmount(0.5)} className="h-9 px-2 text-[10px] font-bold">50%</Button>
-                                    <Button variant="outline" size="sm" onClick={() => handleQuickAmount(1)} className="h-9 px-2 text-[10px] font-bold">100%</Button>
-                                </div>
                             </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-[#18230F]/40">Due Date (Optional)</Label>
+                            <Input
+                                type="date"
+                                value={linkDueDate}
+                                onChange={(e) => setLinkDueDate(e.target.value)}
+                                className="h-9 text-xs"
+                            />
                         </div>
 
                         <div className="space-y-1">

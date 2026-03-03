@@ -1,13 +1,30 @@
 {
+  "navigation": {
+    "links": {
+      "home": "Accueil",
+      "houseboats": "Houseboats",
+      "restaurant": "Restaurant",
+      "riverCruise": "Croisière",
+      "contact": "Contact",
+      "services": "Services"
+    },
+    "auth": {
+      "login": "Connexion",
+      "register": "S'inscrire",
+      "logout": "Déconnexion",
+      "dashboard": "Tableau de bord",
+      "myBookings": "Mes Réservations"
+    }
+  },
   "homepage": {
     "hero": {
-      "title": "Votre Aventure en Houseboat",
-      "subtitle": "Choisissez simplement vos dates et votre équipage pour appareiller.",
-      "licenseFree": "Aucun permis requis pour naviguer",
+      "title": "Découvrez la magie du lac d'Alqueva avec Amieira Marina",
+      "subtitle": "Découvrez la sérénité du lac d'Alqueva",
+      "licenseFree": "Sans Permis",
       "form": {
         "checkIn": "Arrivée",
         "checkOut": "Départ",
-        "guests": "Hébergé",
+        "guests": "Passagers",
         "addDate": "Ajouter une date",
         "addGuests": "Ajouter des voyageurs"
       }
@@ -19,12 +36,12 @@
       "viewAll": "Voir tous les houseboats"
     },
     "featured": {
-      "title": "Notre Flotte en Vedette",
-      "subtitle": "Une sélection de nos bateaux les plus populaires pour une aventure inoubliable."
+      "title": "Votre Port d'Attache à Amieira Marina",
+      "subtitle": "Nous fournissons tout ce dont vous avez besoin pour un voyage sûr et confortable, de l'avitaillement à l'expertise technique."
     },
     "dining": {
-      "title": "Dîner Exquis au Bord du Lac",
-      "description": "Notre restaurant propose un menu inspiré des riches saveurs du Portugal, préparé avec les ingrédients locaux les plus frais. Savourez votre repas sur notre terrasse surplombant le magnifique lac d'Alqueva.",
+      "title": "Un Héritage de Qualité en Alentejo",
+      "description": "Fondée avec la vision d'apporter un tourisme nautique haut de gamme dans la région de l'Alentejo, Amieira Marina est devenue une référence en matière de durabilité et de qualité de service au Portugal. Nous sommes fiers de détenir la certification Pavillon Bleu.",
       "button": "Voir le Menu"
     },
     "testimonials": {
@@ -72,8 +89,8 @@
     "licenseFree": "Sans Permis",
     "filters": {
       "guestsPlaceholder": "Filtrer par voyageurs...",
-      "allCapacities": "Toutes les Capacités",
-      "guests": "Hébergé",
+      "allCapacities": "Toutes les Capacities",
+      "guests": "Passagers",
       "sortPlaceholder": "Trier par...",
       "priceAsc": "Prix : Croissant",
       "priceDesc": "Prix : Décroissant",
@@ -110,7 +127,7 @@
       "datePlaceholder": "Choisir une date",
       "time": "Heure",
       "timePlaceholder": "Choisir une heure",
-      "guests": "Voyageurs",
+      "guests": "Passagers",
       "guestsPlaceholder": "Choisir le nombre de voyageurs",
       "guestLabel": "voyageur",
       "guestsLabel": "voyageurs",
@@ -141,7 +158,7 @@
       "scenery": "Paysage"
     }
   },
-  "dailyTravel": {
+  "riverCruise": {
     "title": "Excursions Quotidiennes",
     "subtitle": "Découvrez la beauté d'Alqueva grâce à nos excursions guidées en bateau. Parfait pour une journée d'aventure et de détente.",
     "duration": "Durée",
@@ -176,6 +193,19 @@
       }
     }
   },
+  "offers": {
+    "title": "Offres Spéciales & Forfaits",
+    "subtitle": "Des expériences inoubliables à un prix exceptionnel. Découvrez nos forfaits saisonniers et nos remises exclusives.",
+    "viewOffer": "Voir détails",
+    "claim": "Vérifier la disponibilité",
+    "backToList": "Retour aux offres",
+    "noOffers": {
+      "title": "Aucune offre disponible actuellement",
+      "description": "Veuillez revenir plus tard pour voir nos nouveaux forfaits saisonniers."
+    },
+    "conditions": "Conditions de la Promotion",
+    "policyInfo": "Cette offre bénéficie d'une remise maximale de 25% sur le prix de base de la réservation. Les conditions générales s'appliquent."
+  },
   "payment": {
     "title": "Demande de Réservation Envoyée !",
     "subtitle": "Merci pour votre demande de réservation. Votre réservation est en attente. Veuillez suivre les instructions ci-dessous pour confirmer votre réservation.",
@@ -195,15 +225,15 @@
     "features": {
       "bedrooms": "Chambres",
       "bathrooms": "Salles de bain",
-      "guests": "Hébergé"
+      "guests": "Passagers"
     },
     "booking": {
       "perNight": "nuit",
       "checkIn": "Arrivée",
       "checkOut": "Départ",
       "addDate": "Ajouter une date",
-      "guests": "Voyageurs",
-      "guest": "Voyageur",
+      "guests": "Passagers",
+      "guest": "Passager",
       "selectGuests": "Choisir le nombre de voyageurs",
       "requestButton": "Demander une Réservation",
       "error": {
@@ -256,5 +286,25 @@
         "submitting": "Envoi en cours..."
       }
     }
+  },
+  "footer": {
+    "tagline": "Votre aventure inoubliable au bord du lac.",
+    "explore": {
+      "title": "Explorer",
+      "home": "Home",
+      "houseboats": "Houseboats",
+      "restaurant": "Restaurant",
+      "gallery": "Galerie",
+      "contact": "Contact"
+    },
+    "legal": {
+      "title": "Légal",
+      "privacy": "Politique de Confidentialité",
+      "terms": "Conditions d'Utilisation"
+    },
+    "connect": {
+      "title": "Connecter"
+    },
+    "rightsReserved": "Tous droits réservés."
   }
 }

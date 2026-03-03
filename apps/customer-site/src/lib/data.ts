@@ -1,12 +1,12 @@
 
 import placeholderData from './placeholder-images.json';
-import type { DateRange } from 'react-day-picker';
 import { Wifi, Tv, CookingPot, AirVent, Thermometer, Flame, Sun, LucideProps } from 'lucide-react';
 import { ForwardRefExoticComponent, RefAttributes } from 'react';
 
 const PlaceHolderImages = placeholderData.placeholderImages;
 
-import { Amenity, HouseboatModel, Houseboat, Tariff, TariffPeriod, HouseboatModelPrice, Booking } from './types';
+import { Amenity, HouseboatModel } from './types';
+export type { Amenity } from './types';
 
 export const amenityDetails: Record<Amenity, { name: string; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>> }> = {
   wifi: { name: 'Wi-Fi', icon: Wifi },
@@ -43,6 +43,9 @@ export const houseboats: (HouseboatModel & { slug: string, capacity: number, ima
     ].filter(Boolean),
     images: [], // for compatibility
     amenities: ['wifi', 'tv', 'kitchen', 'ac', 'sun-deck'],
+    diaria_enabled: true,
+    diaria_price: 350,
+    diaria_description: 'Luxurious day voyage on the Alqueva.',
   },
   {
     id: 'aqua-haven',
@@ -65,6 +68,9 @@ export const houseboats: (HouseboatModel & { slug: string, capacity: number, ima
     ].filter(Boolean),
     images: [],
     amenities: ['wifi', 'tv', 'kitchen', 'ac', 'heating', 'grill', 'sun-deck'],
+    diaria_enabled: true,
+    diaria_price: 450,
+    diaria_description: 'The ultimate group day trip.',
   },
   {
     id: 'cozy-cruiser',
@@ -87,6 +93,9 @@ export const houseboats: (HouseboatModel & { slug: string, capacity: number, ima
     ].filter(Boolean),
     images: [],
     amenities: ['wifi', 'kitchen', 'heating', 'sun-deck'],
+    diaria_enabled: false,
+    diaria_price: 0,
+    diaria_description: '',
   },
   {
     id: 'the-voyager',
@@ -109,6 +118,9 @@ export const houseboats: (HouseboatModel & { slug: string, capacity: number, ima
     ],
     images: [],
     amenities: ['wifi', 'tv', 'kitchen', 'ac', 'heating', 'grill'],
+    diaria_enabled: true,
+    diaria_price: 380,
+    diaria_description: 'Explore the lake in a single day.',
   },
 ];
 

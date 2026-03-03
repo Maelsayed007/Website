@@ -1,14 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, Mail, Phone } from 'lucide-react';
+import { CheckCircle2, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 
 export default function PaymentInstructionsPage() {
   return (
-    <div className="min-h-screen bg-stone-50 flex items-start justify-center pt-44 pb-12 px-4 font-sans">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl shadow-stone-200/50 overflow-hidden relative border border-stone-100">
+    <div className="min-h-screen bg-[#f6f8fc] flex items-start justify-center pt-44 pb-12 px-4 font-sans">
+      <div className="max-w-md w-full bg-white rounded-3xl overflow-hidden relative border border-slate-200">
 
         <div className="p-6 text-center">
           {/* Success Icon */}
@@ -64,7 +64,7 @@ export default function PaymentInstructionsPage() {
 
           {/* Action */}
           <Link href="/">
-            <Button className="w-full h-12 rounded-xl bg-gray-900 hover:bg-gray-800 text-white font-bold text-base shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]">
+            <Button className="cta-shimmer w-full h-12 rounded-xl text-white font-bold text-base">
               Return to Home
             </Button>
           </Link>

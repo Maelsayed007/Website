@@ -1,10 +1,26 @@
-
 {
+  "navigation": {
+    "links": {
+      "home": "Home",
+      "houseboats": "Houseboat",
+      "restaurant": "Ristorante",
+      "riverCruise": "Crociera",
+      "contact": "Contatti",
+      "services": "Servizi"
+    },
+    "auth": {
+      "login": "Accedi",
+      "register": "Registrati",
+      "logout": "Esci",
+      "dashboard": "Dashboard",
+      "myBookings": "Le Mie Prenotazioni"
+    }
+  },
   "homepage": {
     "hero": {
-      "title": "La Tua Avventura in Houseboat",
-      "subtitle": "Scegli le date e l'equipaggio per salpare.",
-      "licenseFree": "Nessuna Patente Nautica Richiesta",
+      "title": "Scopri la magia del Lago Alqueva con Amieira Marina",
+      "subtitle": "Scopri la serenità del Lago Alqueva",
+      "licenseFree": "Senza Patente",
       "form": {
         "checkIn": "Check-in",
         "checkOut": "Check-out",
@@ -20,12 +36,12 @@
       "viewAll": "Vedi Tutte le Houseboat"
     },
     "featured": {
-      "title": "La Nostra Flotta in Evidenza",
-      "subtitle": "Una selezione delle nostre scelte più popolari per un'avventura indimenticabile."
+      "title": "Il Tuo Porto Base ad Amieira Marina",
+      "subtitle": "Forniamo tutto il necessario per un viaggio sicuro e confortevole, dalla cambusa all'assistenza tecnica."
     },
     "dining": {
-      "title": "Cena Squisita in Riva al Lago",
-      "description": "Il nostro ristorante offre un menu ispirato ai ricchi sapori del Portogallo, preparato con i più freschi ingredienti locali. Goditi il tuo pasto sulla nostra terrazza con vista sul magnifico lago Alqueva.",
+      "title": "Un'Eredità di Qualità nell'Alentejo",
+      "description": "Fondata con la visione di portare il turismo nautico di fascia alta nella regione dell'Alentejo, Amieira Marina è diventata un punto di riferimento per la sostenibilità e la qualità del servizio in Portogallo. Siamo orgogliosi di detenere la certificazione Bandera Blu.",
       "button": "Vedi il Menu"
     },
     "testimonials": {
@@ -142,7 +158,7 @@
       "scenery": "Paesaggio"
     }
   },
-  "dailyTravel": {
+  "riverCruise": {
     "title": "Escursioni Giornaliere",
     "subtitle": "Scopri la bellezza dell'Alqueva con i nostri tour in barca guidati. Perfetto per una giornata di avventura e relax.",
     "duration": "Durata",
@@ -163,7 +179,7 @@
     },
     "dialog": {
       "title": "Richiedi Prenotazione",
-      "description": "Per favore, fornisci i tuoi dati. Ti contatteremo per confermare la data e il pagamento.",
+      "description": "Per favorire, fornisci i tuoi dati. Ti contatteremo per confermare la data e il pagamento.",
       "form": {
         "name": "Nome Completo",
         "namePlaceholder": "Il Tuo Nome",
@@ -176,6 +192,19 @@
         "submitting": "Invio in corso..."
       }
     }
+  },
+  "offers": {
+    "title": "Pacchetti e Offerte Speciali",
+    "subtitle": "Esperienze indimenticabili a un valore eccezionale. Scopri i nostri pacchetti stagionali e gli sconti esclusivi.",
+    "viewOffer": "Vedi dettagli",
+    "claim": "Verifica disponibilità",
+    "backToList": "Torna alle offerte",
+    "noOffers": {
+      "title": "Nessuna offerta disponibile al momento",
+      "description": "Torna a trovarci presto per scoprire i nuovi pacchetti stagionali."
+    },
+    "conditions": "Condizioni della Promozione",
+    "policyInfo": "Questa offerta prevede uno sconto massimo del 25% sul prezzo base della prenotazione. Si applicano termini e condizioni."
   },
   "payment": {
     "title": "Richiesta di Prenotazione Inviata!",
@@ -257,5 +286,25 @@
         "submitting": "Invio in corso..."
       }
     }
+  },
+  "footer": {
+    "tagline": "La tua avventura indimenticabile al lago.",
+    "explore": {
+      "title": "Esplora",
+      "home": "Home",
+      "houseboats": "Houseboat",
+      "restaurant": "Ristorante",
+      "gallery": "Galleria",
+      "contact": "Contatti"
+    },
+    "legal": {
+      "title": "Legale",
+      "privacy": "Privacy Policy",
+      "terms": "Termini di Servizio"
+    },
+    "connect": {
+      "title": "Connetti"
+    },
+    "rightsReserved": "Tutti i diritti riservati."
   }
 }

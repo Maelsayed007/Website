@@ -3,7 +3,7 @@
 import { format, isSameDay, addDays } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { User, Ship, Calendar } from 'lucide-react';
+import { User, Calendar } from 'lucide-react';
 
 type ScheduleItem = {
     id: string;

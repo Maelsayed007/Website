@@ -1,0 +1,127 @@
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  background-image: none;
+  transition: background-color 300ms ease, color 300ms ease;
+  font-family: var(--font-body), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading), "Avenir Next", "Trebuchet MS", sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+.site-shell {
+  position: relative;
+  isolation: isolate;
+}
+
+.site-shell::before {
+  content: none;
+}
+
+.site-shell::after {
+  content: none;
+}
+
+.glass-elevated {
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 26px 54px -32px rgba(7, 23, 58, 0.55);
+}
+
+button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--ring));
+}
+
+a,
+button,
+input,
+textarea,
+select {
+  transition:
+    color var(--motion-fast) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.rdp {
+  --rdp-cell-size: 40px;
+  --rdp-accent-color: hsl(var(--primary));
+  --rdp-background-color: hsl(var(--primary) / 0.1);
+}
+
+.rdp-months {
+  background-color: hsl(var(--card));
+  padding: 1rem;
+  border-radius: 1rem;
+}
+
+.rdp-day_selected {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-weight: 600;
+}
+
+.rdp-day_selected:hover {
+  background-color: hsl(var(--primary) / 0.9);
+}
+
+.rdp-day_today {
+  font-weight: 700;
+  color: hsl(var(--primary));
+}
+
+.rdp-day:hover:not(.rdp-day_selected) {
+  background-color: hsl(var(--accent) / 0.1);
+}
+
+.rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
+  background-color: hsl(var(--accent) / 0.1);
+  border-radius: 9999px;
+  padding: 0.5rem;
+  transition: background-color var(--motion-fast) var(--ease-standard);
+}
+
+.rdp-day_range_middle {
+  background-color: hsl(var(--accent) / 0.1);
+}
+
+.rdp-head_cell {
+  color: hsl(var(--muted-foreground));
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.rdp-caption {
+  margin-bottom: 1rem;
+}
+
+.rdp-nav button {
+  border-radius: 9999px;
+  padding: 0.5rem;
+  transition: background-color var(--motion-fast) var(--ease-standard);
+}
+
+.rdp-nav button:hover {
+  background-color: hsl(var(--accent) / 0.1);
+}

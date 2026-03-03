@@ -1,21 +1,19 @@
-
 {
-    "tagline": "Votre évasion vers la sérénité.",
-    "explore": {
-        "title": "Explorer",
-        "home": "Accueil",
-        "houseboats": "Péniches",
-        "restaurant": "Restaurant",
-        "gallery": "Galerie",
-        "contact": "Contact"
-    },
-    "legal": {
-        "title": "Légal",
-        "privacy": "Politique de Confidentialité",
-        "terms": "Conditions d'Utilisation"
-    },
-    "connect": {
-        "title": "Connecter"
-    },
-    "rightsReserved": "Tous droits réservés."
+  "tagline": "Votre aventure inoubliable au bord du lac.",
+  "explore": {
+    "title": "Explorer",
+    "home": "Accueil",
+    "houseboats": "Houseboats",
+    "restaurant": "Restaurant",
+    "contact": "Contact"
+  },
+  "legal": {
+    "title": "L\u00e9gal",
+    "privacy": "Politique de Confidentialit\u00e9",
+    "terms": "Conditions d'Utilisation"
+  },
+  "connect": {
+    "title": "Connecter"
+  },
+  "rightsReserved": "Tous droits r\u00e9serv\u00e9s."
 }

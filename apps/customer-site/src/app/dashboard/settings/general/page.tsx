@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useSupabase } from '@/components/providers/supabase-provider';
 import { Button } from '@/components/ui/button';
@@ -15,23 +15,21 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { uploadMediaFile } from '@/lib/media/upload';
 import {
   Globe,
   Camera,
   Building,
   Mail,
   Phone,
-  Clock,
   Instagram,
   Facebook,
   Music,
   MapPin,
-  Link as LinkIcon,
-  Wallet,
   Image as ImageIcon,
+  Utensils,
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Textarea } from '@/components/ui/textarea';
 
 type SocialLinks = {
   tiktok?: string;
@@ -43,6 +41,7 @@ type WebsiteSettings = {
   companyName: string;
   logoUrl: string;
   heroImageUrl?: string;
+  restaurantHeroImageUrl?: string;
   contactEmail: string;
   restaurantEmail: string;
   contactPhone1: string;
@@ -61,10 +60,12 @@ export default function GeneralSettingsPage() {
   const { supabase } = useSupabase();
   const logoInputRef = useRef<HTMLInputElement>(null);
   const heroInputRef = useRef<HTMLInputElement>(null);
+  const restaurantHeroInputRef = useRef<HTMLInputElement>(null);
 
   const [settings, setSettings] = useState<Partial<WebsiteSettings>>({
     socialLinks: {},
   });
+  const [uploadingField, setUploadingField] = useState<'logoUrl' | 'heroImageUrl' | 'restaurantHeroImageUrl' | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -72,7 +73,7 @@ export default function GeneralSettingsPage() {
     if (!supabase) return;
     const fetchSettings = async () => {
       setIsLoading(true);
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('site_settings')
         .select('data')
         .eq('key', SETTINGS_KEY)
@@ -104,32 +105,57 @@ export default function GeneralSettingsPage() {
     }));
   };
 
-  const handleImageUpload = (
+  const handleImageUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
-    field: 'logoUrl' | 'heroImageUrl'
+    field: 'logoUrl' | 'heroImageUrl' | 'restaurantHeroImageUrl'
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = event => {
-      handleInputChange(field, event.target?.result as string);
-    };
-    reader.readAsDataURL(file);
+    setUploadingField(field);
+    try {
+      const url = await uploadMediaFile(file, {
+        folder: `website/settings/${field}`,
+      });
+      handleInputChange(field, url);
+      toast({
+        title: 'Image uploaded',
+        description: 'The image is now stored as a URL.',
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Upload failed',
+        description: error?.message || 'Could not upload image.',
+      });
+    } finally {
+      setUploadingField(null);
+      e.target.value = '';
+    }
   };
 
   const handleSave = async () => {
     if (!supabase) return;
     setIsSaving(true);
     try {
-      const { error } = await supabase
+      const { error, status, statusText } = await supabase
         .from('site_settings')
         .upsert({ key: SETTINGS_KEY, data: settings });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase save error details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          status,
+          statusText,
+        });
+        throw error;
+      }
 
       toast({ title: 'Success', description: 'Website settings updated.' });
-    } catch (error) {
-      console.error('Failed to save settings:', error);
+    } catch (error: any) {
+      console.error('Failed to save settings:', error?.message || error);
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -223,9 +249,10 @@ export default function GeneralSettingsPage() {
                     <Button
                       type="button"
                       variant="outline"
+                      disabled={uploadingField === 'logoUrl'}
                       onClick={() => logoInputRef.current?.click()}
                     >
-                      Upload Logo
+                      {uploadingField === 'logoUrl' ? 'Uploading...' : 'Upload Logo'}
                     </Button>
                   </div>
                 </div>
@@ -324,41 +351,83 @@ export default function GeneralSettingsPage() {
           <div className="space-y-8">
             <div className="space-y-6 p-6 border rounded-lg">
               <h3 className="font-semibold text-lg border-b pb-2">Visuals</h3>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <ImageIcon className="h-4 w-4" />
-                  Homepage Hero Image
-                </Label>
-                <div className="flex flex-col items-start gap-4">
-                  <div className="w-full aspect-video rounded-lg border bg-muted flex items-center justify-center overflow-hidden">
-                    {settings.heroImageUrl ? (
-                      <Image
-                        src={settings.heroImageUrl}
-                        alt="Hero Image Preview"
-                        width={300}
-                        height={169}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-xs text-muted-foreground">
-                        No Hero Image Set
-                      </span>
-                    )}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <ImageIcon className="h-4 w-4" />
+                    Homepage Hero Image
+                  </Label>
+                  <div className="flex flex-col items-start gap-4">
+                    <div className="w-full aspect-video rounded-lg border bg-muted flex items-center justify-center overflow-hidden">
+                      {settings.heroImageUrl ? (
+                        <Image
+                          src={settings.heroImageUrl}
+                          alt="Hero Image Preview"
+                          width={300}
+                          height={169}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          No Hero Image Set
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      ref={heroInputRef}
+                      onChange={(e) => handleImageUpload(e, 'heroImageUrl')}
+                      className="hidden"
+                      accept="image/*"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={uploadingField === 'heroImageUrl'}
+                      onClick={() => heroInputRef.current?.click()}
+                    >
+                      {uploadingField === 'heroImageUrl' ? 'Uploading...' : 'Upload New Hero'}
+                    </Button>
                   </div>
-                  <input
-                    type="file"
-                    ref={heroInputRef}
-                    onChange={(e) => handleImageUpload(e, 'heroImageUrl')}
-                    className="hidden"
-                    accept="image/*"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => heroInputRef.current?.click()}
-                  >
-                    Upload New Hero
-                  </Button>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Utensils className="h-4 w-4" />
+                    Restaurant Hero Image
+                  </Label>
+                  <div className="flex flex-col items-start gap-4">
+                    <div className="w-full aspect-video rounded-lg border bg-muted flex items-center justify-center overflow-hidden">
+                      {settings.restaurantHeroImageUrl ? (
+                        <Image
+                          src={settings.restaurantHeroImageUrl}
+                          alt="Restaurant Hero Preview"
+                          width={300}
+                          height={169}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          No Restaurant Hero Set
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      ref={restaurantHeroInputRef}
+                      onChange={(e) => handleImageUpload(e, 'restaurantHeroImageUrl')}
+                      className="hidden"
+                      accept="image/*"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={uploadingField === 'restaurantHeroImageUrl'}
+                      onClick={() => restaurantHeroInputRef.current?.click()}
+                    >
+                      {uploadingField === 'restaurantHeroImageUrl' ? 'Uploading...' : 'Upload Restaurant Hero'}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>

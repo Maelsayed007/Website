@@ -1,500 +1,278 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect, useCallback, memo } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+  UIEvent as ReactUIEvent,
+} from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  ChevronLeft,
-  ChevronRight,
-  Ship,
-  Search,
-  Pencil,
-  Trash2,
-  Phone,
-  Mail,
-  Clock,
-  Info,
-  CalendarDays,
-  Filter,
-  Download,
-  Plus,
-  History,
-  UserRound,
-  UsersRound
-} from 'lucide-react';
-import { Customer360View } from '@/components/customer-360-view';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import {
-  eachDayOfInterval,
-  format,
   addYears,
-  subYears,
-  startOfYear,
-  endOfYear,
-  startOfMonth,
-  endOfMonth,
   differenceInCalendarDays,
-  isSameDay,
-  isAfter,
-  isBefore,
+  format,
   parseISO,
   startOfDay,
-  endOfDay,
-  getYear,
-  eachMonthOfInterval
+  subYears,
 } from 'date-fns';
-import { cn } from '@/lib/utils';
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  ListFilter,
+  Loader2,
+  Plus,
+  Search,
+  Settings2,
+} from 'lucide-react';
+import { useSupabase } from '@/components/providers/supabase-provider';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useSupabase } from '@/components/providers/supabase-provider';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { HouseboatModel, Boat, Booking } from '@/lib/types';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
-import BookingSidebar from '@/components/booking-sidebar';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ToastAction } from '@/components/ui/toast';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import type { Booking } from '@/lib/types';
+import {
+  BOAT_COL_WIDTH,
+  HORIZONTAL_DAY_WIDTH,
+  SLOT_WIDTH,
+  SOURCE_OPTIONS,
+  bookingOverlapsRange,
+  buildRangeCalendarData,
+  processBookingsForGrid,
+} from '@/features/dashboard/houseboat-reservations/calendar-utils';
+import type { MappedBooking } from '@/features/dashboard/houseboat-reservations/types';
+import { useHouseboatReservationsData } from '@/features/dashboard/houseboat-reservations/use-houseboat-reservations-data';
+import { CalendarGrid } from '@/features/dashboard/houseboat-reservations/calendar-grid';
 
-// Configuration
-const SLOT_WIDTH = 40; // Width for AM/PM slot
-const BOAT_COL_WIDTH = 200;
+const Customer360View = dynamic(
+  () => import('@/components/customer-360-view').then((m) => m.Customer360View),
+  { ssr: false }
+);
 
-const BookingItem = memo(({
-  booking,
-  isHighlighted,
-  onEdit,
-  onDelete,
-  on360,
-  getBoatName,
-  rowHeight
-}: {
-  booking: any;
-  isHighlighted: boolean;
-  onEdit: (b: Booking) => void;
-  onDelete: (b: Booking) => void;
-  on360: (b: Booking) => void;
-  getBoatName: (id: string | undefined) => string;
-  rowHeight: number;
-}) => {
-  const getBookingColor = (b: any) => {
-    if (b.status === 'Cancelled') return 'hidden';
-    if (b.status === 'Maintenance') return 'bg-zinc-800 text-white border-zinc-900';
+const QuickPreviewDrawer = dynamic(
+  () => import('@/features/dashboard/houseboat-reservations/quick-preview-drawer').then((m) => m.QuickPreviewDrawer),
+  { ssr: false }
+);
 
-    // Treat as confirmed if:
-    // 1. Explicitly confirmed
-    // 2. Source is Nicols
-    // 3. Has any payment (even if not fully paid)
-    const isNicols = b.source === 'nicols';
-    const hasPayment = (b.amount_paid || 0) > 0 || b.payment_status === 'deposit_paid' || b.payment_status === 'fully_paid';
-    const isConfirmed = b.status === 'Confirmed' || isNicols || hasPayment;
+const BookingFormSheet = dynamic(
+  () => import('@/features/dashboard/houseboat-reservations/booking-form-sheet').then((m) => m.BookingFormSheet),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        Loading reservation form...
+      </div>
+    ),
+  }
+);
 
-    if (!isConfirmed) return 'bg-red-500 text-white border-red-600';
+const STATUS_OPTIONS = ['Pending', 'Confirmed', 'Maintenance', 'Cancelled'];
 
-    switch (b.source) {
-      case 'website': return 'bg-indigo-500 text-white border-indigo-600';
-      case 'nicols': return 'bg-orange-500 text-white border-orange-600';
-      case 'amieira': return 'bg-emerald-500 text-white border-emerald-600';
-      case 'diaria': return 'bg-pink-500 text-white border-pink-600';
-      case 'ancorado': return 'bg-slate-500 text-white border-slate-600';
-      default: return 'bg-emerald-500 text-white border-emerald-600';
-    }
-  };
+type CalendarScrollState = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
 
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <div
-          className={cn(
-            "absolute pointer-events-auto h-12 mt-1.5 rounded-lg border cursor-pointer transition-all hover:scale-[1.02] flex flex-col justify-center px-2 overflow-hidden shadow-none",
-            getBookingColor(booking),
-            booking.isOverflowLeft && "rounded-l-none border-l-0",
-            booking.isOverflowRight && "rounded-r-none border-r-0",
-            isHighlighted && "animate-shining ring-4 ring-white ring-offset-2 ring-offset-emerald-400/50"
-          )}
-          style={{
-            left: booking.left + 1,
-            width: booking.width - 2,
-            top: booking.top,
-            height: Math.max(rowHeight - 6, 24)
-          }}
-        >
-          <p className={cn(
-            "font-black uppercase truncate leading-none",
-            rowHeight < 40 ? "text-[8px]" : "text-[10px]"
-          )}>
-            {booking.clientName}
-          </p>
-          {rowHeight >= 45 && booking.width > 60 && (
-            <div className="flex items-center gap-1 mt-0.5 opacity-80">
-              <Clock className="w-2.5 h-2.5" />
-              <span className="text-[9px] font-bold">
-                {format(parseISO(booking.startTime), 'MMM dd')} - {format(parseISO(booking.endTime), 'MMM dd')}
-              </span>
-            </div>
-          )}
-        </div>
-      </PopoverTrigger>
-      <PopoverContent className="w-[380px] p-0 overflow-hidden rounded-2xl shadow-2xl border-none">
-        <div className={cn("px-4 py-2 text-white flex justify-between items-center", getBookingColor(booking))}>
-          <div className="flex flex-col">
-            <Badge variant="outline" className="w-fit text-white border-white/30 bg-white/10 text-[9px] px-1.5 h-4 mb-1">
-              {booking.status === 'Maintenance' ? 'Maintenance' : (booking.source === 'nicols' ? 'Confirmed (Nicols)' : booking.status)}
-            </Badge>
-            <h3 className="text-lg font-black truncate max-w-[280px]">
-              {booking.status === 'Maintenance' ? `🛠️ ${booking.clientName}` : booking.clientName}
-            </h3>
-          </div>
-          <div className="text-right">
-            <p className="text-[9px] font-black uppercase tracking-widest opacity-70 mb-0.5">Ref: #{booking.id.slice(0, 8)}</p>
-            <p className="text-xs font-bold opacity-90">{getBoatName(booking.houseboatId)}</p>
-          </div>
-        </div>
+type GridCellPosition = {
+  boatIndex: number;
+  slotIndex: number;
+};
 
-        <div className="p-3 bg-white space-y-3">
-          <div className="grid grid-cols-2 gap-4">
-            {/* Left Column: Client Info */}
-            <div className="space-y-2">
-              <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-wider border-b pb-0.5">Client Details</h4>
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2 text-xs">
-                  <UserRound className="w-3.5 h-3.5 text-slate-400" />
-                  <span className="font-bold text-slate-700 truncate">{booking.clientName || 'Unnamed Client'}</span>
-                </div>
-                {booking.status !== 'Maintenance' && (
-                  <>
-                    <div className="flex items-center gap-2 text-xs">
-                      <Mail className="w-3.5 h-3.5 text-slate-400" />
-                      <span className="font-medium text-slate-600 truncate">{booking.clientEmail || 'No email provided'}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <Phone className="w-3.5 h-3.5 text-slate-400" />
-                      <span className="font-medium text-slate-600 truncate">{booking.clientPhone || 'No phone provided'}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <UsersRound className="w-3.5 h-3.5 text-slate-400" />
-                      <span className="font-medium text-slate-600 truncate">{booking.numberOfGuests || 0} Guests</span>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+function parseYearParam(value: string | null) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  if (parsed < 2000 || parsed > 2100) return null;
+  return parsed;
+}
 
-            {/* Right Column: Stay Info */}
-            <div className="space-y-2">
-              <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-wider border-b pb-0.5">Stay Schedule</h4>
-              <div className="space-y-1.5">
-                <div className="space-y-0.5">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Check-in</p>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                    <CalendarDays className="w-3.5 h-3.5 text-emerald-600" />
-                    {format(parseISO(booking.startTime), 'EEE, MMM dd')}
-                    <Badge variant="secondary" className="text-[9px] h-3.5 px-1 py-0">{format(parseISO(booking.startTime), 'HH:mm')}</Badge>
-                  </div>
-                </div>
-                <div className="space-y-0.5">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Check-out</p>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                    <CalendarDays className="w-3.5 h-3.5 text-red-600" />
-                    {format(parseISO(booking.endTime), 'EEE, MMM dd')}
-                    <Badge variant="secondary" className="text-[9px] h-3.5 px-1 py-0">{format(parseISO(booking.endTime), 'HH:mm')}</Badge>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+function parseCsvParam(value: string | null) {
+  if (!value) return [];
+  return value
+    .split(',')
+    .map((piece) => piece.trim())
+    .filter(Boolean);
+}
 
-          {booking.notes && (
-            <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-[11px] text-slate-600 italic">
-              <div className="flex gap-1.5">
-                <Info className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                <span>{booking.notes}</span>
-              </div>
-            </div>
-          )}
+function preloadBookingForm() {
+  void import('@/features/dashboard/houseboat-reservations/booking-form-sheet');
+}
 
-          {booking.status !== 'Maintenance' && (
-            <div className="pt-2 border-t flex justify-between items-center text-xs">
-              <div className="space-y-1">
-                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Financial Status</p>
-                <div className="flex items-center gap-2">
-                  <div className="flex flex-col">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">Total</span>
-                    <span className="font-black text-slate-900 leading-none">€{(booking.price || booking.total_price || 0).toLocaleString()}</span>
-                  </div>
-                  <div className="w-px h-6 bg-slate-100" />
-                  <div className="flex flex-col">
-                    <span className="text-[9px] font-bold text-emerald-600 uppercase">Paid</span>
-                    <span className="font-black text-emerald-700 leading-none">€{(booking.amount_paid || 0).toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-              <div className={cn(
-                "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm",
-                booking.payment_status === 'fully_paid' || (booking.price || booking.total_price || 0) - (booking.amount_paid || 0) <= 0
-                  ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-                  : booking.payment_status === 'deposit_paid'
-                    ? "bg-blue-100 text-blue-700 border-blue-200"
-                    : "bg-red-100 text-red-700 border-red-200"
-              )}>
-                {booking.payment_status === 'fully_paid' || (booking.price || booking.total_price || 0) - (booking.amount_paid || 0) <= 0
-                  ? 'Fully Paid'
-                  : booking.payment_status === 'deposit_paid'
-                    ? 'Deposit Paid'
-                    : booking.payment_status === 'failed'
-                      ? 'Payment Failed'
-                      : (booking.source === 'nicols' ? 'Confirmed (Nicols)' : 'Pending')}
-              </div>
-            </div>
-          )}
-          <div className="flex gap-2 pt-1.5">
-            <Button
-              size="sm"
-              variant="outline"
-              className="flex-1 h-8 rounded-full gap-2 text-[11px] font-bold"
-              onClick={() => onEdit(booking)}
-            >
-              <Pencil className="w-3 h-3" /> Edit
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="flex-1 h-8 rounded-full gap-2 text-[11px] font-bold text-destructive hover:bg-destructive/10"
-              onClick={() => onDelete(booking)}
-            >
-              <Trash2 className="w-3 h-3" /> Delete
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-8 w-8 rounded-full p-0 flex items-center justify-center bg-slate-100 hover:bg-slate-200"
-              onClick={() => on360(booking)}
-              title="Customer 360"
-            >
-              <History className="h-4 w-4 text-slate-500" />
-            </Button>
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-});
+type FilterRailProps = {
+  collapsed: boolean;
+  modelCount: number;
+  selectedModels: string[];
+  selectedStatuses: string[];
+  selectedSources: string[];
+  onToggleCollapsed?: () => void;
+  onToggleModel: (modelId: string, checked: boolean) => void;
+  onToggleStatus: (status: string, checked: boolean) => void;
+  onToggleSource: (sourceId: string, checked: boolean) => void;
+  onReset: () => void;
+  models: Array<{ id: string; name: string }>;
+};
 
-BookingItem.displayName = 'BookingItem';
+function FilterRail({
+  collapsed,
+  modelCount,
+  selectedModels,
+  selectedStatuses,
+  selectedSources,
+  onToggleCollapsed,
+  onToggleModel,
+  onToggleStatus,
+  onToggleSource,
+  onReset,
+  models,
+}: FilterRailProps) {
+  const activeCount = selectedModels.length + selectedStatuses.length + selectedSources.length;
+  const isInlinePanel = !onToggleCollapsed;
 
-const BoatRow = memo(({
-  boat,
-  modelName,
-  daysInYear,
-  rowHeight,
-  onMouseDown,
-  onMouseEnter,
-  onCellClick,
-  isSameDayNow
-}: {
-  boat: Boat;
-  modelName: string;
-  daysInYear: Date[];
-  rowHeight: number;
-  onMouseDown: (boatId: string, day: Date, slot: 'AM' | 'PM', e: React.MouseEvent) => void;
-  onMouseEnter: (boatId: string, day: Date, slot: 'AM' | 'PM') => void;
-  onCellClick: (boatId: string, day: Date, slot: 'AM' | 'PM') => void;
-  isSameDayNow: (d: Date) => boolean;
-}) => {
   return (
     <div
-      className="flex border-b hover:bg-muted/30 transition-colors group"
-      style={{ height: rowHeight }}
+      className={cn(
+        isInlinePanel
+          ? 'bg-card'
+          : 'border-r border-border bg-card transition-[width] duration-200',
+        isInlinePanel ? 'w-full' : collapsed ? 'w-16' : 'w-72'
+      )}
     >
-      <div
-        className="sticky left-0 z-20 bg-background/95 backdrop-blur-sm border-r px-4 flex items-center transition-all group-hover:bg-background"
-        style={{ width: BOAT_COL_WIDTH }}
-      >
-        <div className="min-w-0 flex items-baseline gap-2">
-          <p className="font-bold text-sm truncate">{boat.name}</p>
-          <span className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter opacity-70 shrink-0">
-            {modelName}
-          </span>
+      <div className="flex h-full flex-col">
+        <div className="flex items-center justify-between border-b border-border px-3 py-3">
+          {!collapsed ? (
+            <div className="flex items-center gap-2">
+              <ListFilter className="h-4 w-4 text-muted-foreground" />
+              <p className="text-sm font-semibold text-foreground">Filters</p>
+              {activeCount > 0 ? (
+                <Badge variant="secondary" className="h-5 rounded-full bg-muted px-2 text-xs text-foreground">
+                  {activeCount}
+                </Badge>
+              ) : null}
+            </div>
+          ) : (
+            <div className="mx-auto rounded-full border border-border bg-muted p-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+            </div>
+          )}
+          {onToggleCollapsed ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full"
+              onClick={onToggleCollapsed}
+              title={collapsed ? 'Expand filter rail' : 'Collapse filter rail'}
+            >
+              {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            </Button>
+          ) : null}
         </div>
-      </div>
 
-      {daysInYear.map(day => {
-        const isToday = isSameDayNow(day);
-        return (
-          <div
-            key={day.toISOString()}
-            className={cn(
-              "flex border-r transition-colors h-full select-none",
-              isToday ? "bg-emerald-50/20" : ""
-            )}
-            style={{ width: SLOT_WIDTH * 2 }}
-          >
-            <div
-              className="w-1/2 h-full border-r border-dashed border-gray-100 hover:bg-muted/50 cursor-crosshair transition-colors"
-              onMouseDown={(e) => onMouseDown(boat.id, day, 'AM', e)}
-              onMouseEnter={() => onMouseEnter(boat.id, day, 'AM')}
-              onClick={() => onCellClick(boat.id, day, 'AM')}
-              title={`Book ${boat.name} - ${format(day, 'MMM dd')} AM`}
-            />
-            <div
-              className="w-1/2 h-full hover:bg-muted/50 cursor-crosshair transition-colors"
-              onMouseDown={(e) => onMouseDown(boat.id, day, 'PM', e)}
-              onMouseEnter={() => onMouseEnter(boat.id, day, 'PM')}
-              onClick={() => onCellClick(boat.id, day, 'PM')}
-              title={`Book ${boat.name} - ${format(day, 'MMM dd')} PM`}
-            />
+        {!collapsed ? (
+          <div className="custom-scrollbar flex-1 space-y-5 overflow-y-auto p-4">
+            <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Model</p>
+              {models.slice(0, 20).map((model) => (
+                <label key={model.id} className="flex items-center gap-2 text-sm text-foreground">
+                  <Checkbox
+                    checked={selectedModels.includes(model.id)}
+                    onCheckedChange={(checked) => onToggleModel(model.id, Boolean(checked))}
+                  />
+                  <span className="truncate">{model.name}</span>
+                </label>
+              ))}
+              {modelCount > 20 ? (
+                <p className="text-xs text-muted-foreground">{modelCount - 20} more models available</p>
+              ) : null}
+            </div>
+
+            <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</p>
+              {STATUS_OPTIONS.map((status) => (
+                <label key={status} className="flex items-center gap-2 text-sm text-foreground">
+                  <Checkbox
+                    checked={selectedStatuses.includes(status)}
+                    onCheckedChange={(checked) => onToggleStatus(status, Boolean(checked))}
+                  />
+                  <span>{status}</span>
+                </label>
+              ))}
+            </div>
+
+            <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Source</p>
+              {SOURCE_OPTIONS.map((source) => (
+                <label key={source.id} className="flex items-center gap-2 text-sm text-foreground">
+                  <Checkbox
+                    checked={selectedSources.includes(source.id)}
+                    onCheckedChange={(checked) => onToggleSource(source.id, Boolean(checked))}
+                  />
+                  <span>{source.name}</span>
+                </label>
+              ))}
+            </div>
+
+            {activeCount > 0 ? (
+              <Button variant="outline" className="h-10 w-full rounded-xl" onClick={onReset}>
+                Clear filters
+              </Button>
+            ) : null}
           </div>
-        );
-      })}
-    </div>
-  );
-});
-
-const GridHeader = memo(({
-  yearMonths,
-  daysInYear,
-  isSameDayNow
-}: {
-  yearMonths: Date[];
-  daysInYear: Date[];
-  isSameDayNow: (d: Date) => boolean;
-}) => {
-  return (
-    <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b">
-      <div className="flex h-7 border-b">
-        <div
-          className="sticky left-0 z-40 bg-background border-r flex items-center px-4 font-bold text-xs uppercase tracking-widest text-muted-foreground"
-          style={{ width: BOAT_COL_WIDTH }}
-        >
-          Fleet Units
-        </div>
-        {yearMonths.map(month => {
-          const daysInMonth = differenceInCalendarDays(endOfMonth(month), startOfMonth(month)) + 1;
-          const width = daysInMonth * 2 * SLOT_WIDTH;
-          return (
-            <div
-              key={month.toString()}
-              className="flex items-center justify-center border-r font-bold text-xs uppercase tracking-wider text-muted-foreground bg-gray-50/50"
-              style={{ width }}
-            >
-              {format(month, 'MMMM')}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="flex">
-        <div
-          className="sticky left-0 z-40 bg-background border-r"
-          style={{ width: BOAT_COL_WIDTH }}
-        />
-        {daysInYear.map(day => {
-          const isToday = isSameDayNow(day);
-          return (
-            <div
-              key={day.toISOString()}
-              className={cn(
-                "flex flex-col border-r transition-colors relative",
-                isToday ? "bg-emerald-50" : ""
-              )}
-              style={{ width: SLOT_WIDTH * 2 }}
-            >
-              <div className="h-6 flex items-center justify-center border-b bg-gray-50/50">
-                <span className={cn(
-                  "text-[10px] font-bold uppercase tracking-wide",
-                  isToday ? "text-emerald-600" : "text-muted-foreground"
-                )}>
-                  {format(day, 'EEE')}
-                </span>
-              </div>
-              <div className="h-7 flex items-center justify-center border-b">
-                <span className={cn(
-                  "text-sm font-bold",
-                  isToday ? "text-emerald-600" : "text-foreground"
-                )}>
-                  {format(day, 'd')}
-                </span>
-              </div>
-              <div className="h-6 flex">
-                <div className="flex-1 flex items-center justify-center border-r">
-                  <span className="text-[9px] font-bold text-muted-foreground">AM</span>
-                </div>
-                <div className="flex-1 flex items-center justify-center">
-                  <span className="text-[9px] font-bold text-muted-foreground">PM</span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+        ) : null}
       </div>
     </div>
   );
-});
-
-GridHeader.displayName = 'GridHeader';
-
-BoatRow.displayName = 'BoatRow';
+}
 
 export default function HouseboatReservationsPage() {
+  const router = useRouter();
+  const pathname = usePathname();
   const { toast } = useToast();
   const { supabase } = useSupabase();
-  const { user } = useAuth();
-
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [houseboatModels, setHouseboatModels] = useState<HouseboatModel[]>([]);
-  const [boats, setBoats] = useState<Boat[]>([]);
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [prices, setPrices] = useState<any[]>([]);
-  const [tariffs, setTariffs] = useState<any[]>([]);
-  const [availableExtras, setAvailableExtras] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Dynamic Row Height Calculation
-  const ROW_HEIGHT = useMemo(() => {
-    if (boats.length === 0) return 56;
-    // We want the calendar to fit in the viewport
-    // Approx height of elements outside the card:
-    // Header (approx 48) + Padding (approx 48) + Card Header (approx 28) + Grid Header (approx 56)
-    // plus the new gap-4 (16px)
-    const chromeHeight = 200;
-    const availableHeight = typeof window !== 'undefined' ? window.innerHeight - chromeHeight : 600;
-    const calculated = Math.floor(availableHeight / boats.length);
-    return Math.max(calculated, 28);
-  }, [boats.length]);
-  const [localSearchTerm, setLocalSearchTerm] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-
-  const todayStart = useMemo(() => startOfDay(new Date()), []);
-  const isSameDayNow = useCallback((d: Date) => isSameDay(d, todayStart), [todayStart]);
-  const getBoatName = useCallback((id: string | undefined) => {
-    if (!id) return 'Unknown';
-    return boats.find(b => b.id === id)?.name || 'Unknown Boat';
-  }, [boats]);
-
-  // Debounce search effect
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearchTerm(localSearchTerm);
-    }, 400); // 400ms delay for performance
-    return () => clearTimeout(timer);
-  }, [localSearchTerm]);
-  const [selectedBookingFor360, setSelectedBookingFor360] = useState<Booking | null>(null);
-  const [is360DialogOpen, setIs360DialogOpen] = useState(false);
-  const [highlightedId, setHighlightedId] = useState<string | null>(null);
-  const [selectedModels, setSelectedModels] = useState<string[]>([]);
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const searchParams = useSearchParams();
+  const initialYear = parseYearParam(searchParams.get('year'));
+  const [currentDate, setCurrentDate] = useState(
+    () => (initialYear ? new Date(initialYear, 0, 1) : new Date())
+  );
+  const [localSearchTerm, setLocalSearchTerm] = useState(() => searchParams.get('q') || '');
+  const [searchTerm, setSearchTerm] = useState(() => searchParams.get('q') || '');
+  const [selectedModels, setSelectedModels] = useState<string[]>(
+    () => parseCsvParam(searchParams.get('models'))
+  );
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(
+    () => parseCsvParam(searchParams.get('statuses'))
+  );
+  const [selectedSources, setSelectedSources] = useState<string[]>(
+    () => parseCsvParam(searchParams.get('sources'))
+  );
 
-  // Booking Sidebar State
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isBookingFormOpen, setIsBookingFormOpen] = useState(false);
+  const [isBookingFormDirty, setIsBookingFormDirty] = useState(false);
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [preselectedBoatId, setPreselectedBoatId] = useState<string | undefined>();
   const [preselectedDate, setPreselectedDate] = useState<Date | undefined>();
@@ -502,338 +280,594 @@ export default function HouseboatReservationsPage() {
   const [preselectedEndDate, setPreselectedEndDate] = useState<Date | undefined>();
   const [preselectedEndSlot, setPreselectedEndSlot] = useState<'AM' | 'PM' | undefined>();
 
-  // Drag-to-Reserve States
+  const [previewBooking, setPreviewBooking] = useState<MappedBooking | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [selectedBookingFor360, setSelectedBookingFor360] = useState<MappedBooking | null>(null);
+  const [is360DialogOpen, setIs360DialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deletingBooking, setDeletingBooking] = useState<MappedBooking | null>(null);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+
   const [dragStart, setDragStart] = useState<{ boatId: string; date: Date; slot: 'AM' | 'PM' } | null>(null);
   const [dragCurrent, setDragCurrent] = useState<{ boatId: string; date: Date; slot: 'AM' | 'PM' } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [keyboardCell, setKeyboardCell] = useState<GridCellPosition | null>(null);
 
-  // Delete Confirmation State
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [deletingBooking, setDeletingBooking] = useState<Booking | null>(null);
-
-  // Generate Year Data
-  const { daysInYear, yearMonths } = useMemo(() => {
-    const yearStart = startOfYear(currentDate);
-    const yearEnd = endOfYear(currentDate);
-    const days = eachDayOfInterval({ start: yearStart, end: yearEnd });
-    const months = eachMonthOfInterval({ start: yearStart, end: yearEnd });
-
-    return { daysInYear: days, yearMonths: months };
-  }, [currentDate]);
-
-  // Total grid width based on slots (2 slots per day)
-  const totalGridWidth = (daysInYear.length * 2 * SLOT_WIDTH) + BOAT_COL_WIDTH;
-
-  const fetchData = useCallback(async (options?: { silent?: boolean }) => {
-    if (!supabase) return;
-
-    // Only show loading state if not silent and it's the first time
-    if (!options?.silent && boats.length === 0) {
-      setIsLoading(true);
-    }
-
-    try {
-      const [modelsRes, boatsRes, bookingsRes, pricesRes, extrasRes, tariffsRes] = await Promise.all([
-        supabase.from('houseboat_models').select('*'),
-        supabase.from('boats').select('*'),
-        supabase.from('bookings').select('*').not('houseboat_id', 'is', null),
-        supabase.from('houseboat_prices').select('*'),
-        supabase.from('extras').select('*').in('type', ['all', 'houseboat']),
-        supabase.from('tariffs').select('*')
-      ]);
-
-      if (modelsRes.data) setHouseboatModels(modelsRes.data as any);
-      if (boatsRes.data) setBoats(boatsRes.data as any);
-      if (pricesRes.data) setPrices(pricesRes.data as any);
-      if (tariffsRes.data) setTariffs(tariffsRes.data as any);
-      if (bookingsRes.data) {
-        setBookings((bookingsRes.data as any[]).map(b => ({
-          ...b,
-          price: b.total_price || b.price || 0, // Map total_price to price for frontend
-          clientName: b.client_name,
-          clientEmail: b.client_email,
-          clientPhone: b.client_phone,
-          startTime: b.start_time,
-          endTime: b.end_time,
-          houseboatId: b.houseboat_id,
-          restaurantTableId: b.restaurant_table_id,
-          dailyTravelPackageId: b.daily_travel_package_id,
-          numberOfGuests: b.number_of_guests || 2,
-          selectedExtras: b.selected_extras || [],
-          extras: b.selected_extras || [] // Keep as extras too for interface safety
-        })));
-      }
-      if (extrasRes.data) {
-        setAvailableExtras(extrasRes.data);
-      }
-      if (extrasRes.data) {
-        // We might want to pass these available extras to the Sidebar
-        // But for now let's just ensure they are available if we need them
-      }
-    } catch (e) {
-      console.error('Error fetching dashboard data:', e);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to load reservations.' });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [supabase, toast]);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const scrollFrameRef = useRef<number | null>(null);
+  const firstPaintMeasuredRef = useRef(false);
+  const bookingSheetOpenRef = useRef(false);
+  const [scrollState, setScrollState] = useState<CalendarScrollState>({ left: 0, top: 0, width: 0, height: 0 });
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    const timer = setTimeout(() => {
+      setSearchTerm(localSearchTerm);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [localSearchTerm]);
 
-  // Real-time Subscription
   useEffect(() => {
-    if (!supabase) return;
+    const queryYear = parseYearParam(searchParams.get('year'));
+    if (queryYear) {
+      setCurrentDate((prev) => (prev.getFullYear() === queryYear ? prev : new Date(queryYear, 0, 1)));
+    }
 
-    const channel = supabase
-      .channel('bookings-live-sync')
-      .on(
-        'postgres_changes',
-        { event: '*', table: 'bookings', schema: 'public' },
-        (payload) => {
-          console.log('Real-time change detected:', payload);
+    const querySearch = searchParams.get('q') || '';
+    setLocalSearchTerm((prev) => (prev === querySearch ? prev : querySearch));
+    setSearchTerm((prev) => (prev === querySearch ? prev : querySearch));
 
-          // Trigger a silent refresh to get the latest state
-          fetchData({ silent: true });
+    const queryModels = parseCsvParam(searchParams.get('models'));
+    setSelectedModels((prev) => (queryModels.join(',') === prev.join(',') ? prev : queryModels));
 
-          // Show notifications for external changes
-          if (payload.eventType === 'INSERT') {
-            toast({
-              title: "New Reservation!",
-              description: "A new booking has just been made.",
-              action: (
-                <ToastAction altText="View" onClick={() => {
-                  const url = new URL(window.location.href);
-                  url.searchParams.set('highlight', payload.new.id);
-                  window.history.replaceState({}, '', url.toString());
+    const queryStatuses = parseCsvParam(searchParams.get('statuses'));
+    setSelectedStatuses((prev) => (queryStatuses.join(',') === prev.join(',') ? prev : queryStatuses));
 
-                  // Trigger highlight state for immediate visual feedback
-                  setHighlightedId(payload.new.id);
+    const querySources = parseCsvParam(searchParams.get('sources'));
+    setSelectedSources((prev) => (querySources.join(',') === prev.join(',') ? prev : querySources));
+  }, [searchParams]);
 
-                  // Manual scroll trigger if possible or let the effect handle it
-                  const start = parseISO(payload.new.start_time);
-                  const targetYear = getYear(start);
-                  if (getYear(currentDate) === targetYear) {
-                    const dayOffset = differenceInCalendarDays(start, startOfYear(new Date(targetYear, 0, 1)));
-                    const scrollX = (dayOffset * 2 * SLOT_WIDTH);
-                    document.querySelector('.custom-scrollbar')?.scrollTo({ left: scrollX, behavior: 'smooth' });
-                  } else {
-                    setCurrentDate(new Date(targetYear, 0, 1));
-                  }
-                }}>
-                  View
-                </ToastAction>
-              ),
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            toast({
-              title: "Reservation Updated",
-              description: "An existing booking was modified.",
-              action: (
-                <ToastAction altText="View" onClick={() => {
-                  setHighlightedId(payload.new.id);
-                  // Just scroll/target, don't open
-                }}>
-                  View
-                </ToastAction>
-              ),
-            });
-          } else if (payload.eventType === 'DELETE') {
-            toast({
-              title: "Reservation Cancelled",
-              description: "A booking has been removed.",
-            });
-          }
-        }
-      )
-      .subscribe();
+  useEffect(() => {
+    if (!pathname) return;
+    const nextParams = new URLSearchParams();
+    nextParams.set('year', String(currentDate.getFullYear()));
+    if (searchTerm.trim()) nextParams.set('q', searchTerm.trim());
+    if (selectedModels.length > 0) nextParams.set('models', selectedModels.join(','));
+    if (selectedStatuses.length > 0) nextParams.set('statuses', selectedStatuses.join(','));
+    if (selectedSources.length > 0) nextParams.set('sources', selectedSources.join(','));
+
+    const nextQuery = nextParams.toString();
+    const currentQuery = searchParams.toString();
+    if (nextQuery === currentQuery) return;
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+  }, [
+    router,
+    pathname,
+    searchParams,
+    currentDate,
+    searchTerm,
+    selectedModels,
+    selectedStatuses,
+    selectedSources,
+  ]);
+
+  useEffect(() => {
+    if (typeof performance === 'undefined') return;
+    performance.mark('hb-calendar:first-paint:start');
+  }, []);
+
+  const { range, days, months } = useMemo(() => buildRangeCalendarData(currentDate, 'year'), [currentDate]);
+
+  const { houseboatModels, boats, bookings, prices, tariffs, availableExtras, isLoading, errorMessage, refresh } =
+    useHouseboatReservationsData({
+      supabase,
+      toast,
+      range,
+      selectedModels,
+      selectedStatuses,
+      selectedSources,
+      searchTerm,
+    });
+
+  const boatNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const boat of boats) {
+      map.set(boat.id, boat.name);
+    }
+    return map;
+  }, [boats]);
+
+  const getBoatName = useCallback(
+    (id: string | undefined) => {
+      if (!id) return 'Unknown';
+      return boatNameById.get(id) || 'Unknown';
+    },
+    [boatNameById]
+  );
+
+  const modelNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const model of houseboatModels) {
+      map.set(model.id, model.name);
+    }
+    return map;
+  }, [houseboatModels]);
+
+  const { groupedBoats, boatAliasMap } = useMemo(() => {
+    const byName = new Map<
+      string,
+      { id: string; name: string; model_id?: string; aliasIds: string[] }
+    >();
+    for (const boat of boats) {
+      const nameKey = boat.name.trim().toLowerCase();
+      const existing = byName.get(nameKey);
+      if (!existing) {
+        byName.set(nameKey, {
+          id: boat.id,
+          name: boat.name,
+          model_id: boat.model_id,
+          aliasIds: [boat.id],
+        });
+        continue;
+      }
+      existing.aliasIds.push(boat.id);
+      if (!existing.model_id && boat.model_id) {
+        existing.model_id = boat.model_id;
+      }
+    }
+
+    const aliasMap = new Map<string, string>();
+    for (const item of byName.values()) {
+      for (const aliasId of item.aliasIds) {
+        aliasMap.set(aliasId, item.id);
+      }
+    }
+
+    return {
+      groupedBoats: Array.from(byName.values()).map((item) => ({
+        id: item.id,
+        name: item.name,
+        model_id: item.model_id,
+      })),
+      boatAliasMap: aliasMap,
+    };
+  }, [boats]);
+
+  const normalizedBookings = useMemo(
+    () =>
+      bookings.map((booking) => ({
+        ...booking,
+        houseboatId: booking.houseboatId ? boatAliasMap.get(booking.houseboatId) || booking.houseboatId : booking.houseboatId,
+      })),
+    [bookings, boatAliasMap]
+  );
+
+  const bookingSearchTextByBoatId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const booking of normalizedBookings) {
+      if (!booking.houseboatId) continue;
+      const piece = `${booking.clientName || ''} ${booking.clientEmail || ''} ${booking.id}`.toLowerCase();
+      const current = map.get(booking.houseboatId);
+      map.set(booking.houseboatId, current ? `${current} ${piece}` : piece);
+    }
+    return map;
+  }, [normalizedBookings]);
+
+  const filteredBoats = useMemo(() => {
+    let result = groupedBoats;
+
+    if (selectedModels.length > 0) {
+      result = result.filter((boat) => boat.model_id && selectedModels.includes(boat.model_id));
+    }
+
+    if (searchTerm.trim()) {
+      const query = searchTerm.toLowerCase();
+      result = result.filter((boat) => {
+        const boatMatch = boat.name.toLowerCase().includes(query);
+        const bookingMatch = (bookingSearchTextByBoatId.get(boat.id) || '').includes(query);
+        return boatMatch || bookingMatch;
+      });
+    }
+
+    return [...result].sort((a, b) => {
+      const modelA = a.model_id ? modelNameById.get(a.model_id) || '' : '';
+      const modelB = b.model_id ? modelNameById.get(b.model_id) || '' : '';
+      const aMissingModel = modelA.length === 0;
+      const bMissingModel = modelB.length === 0;
+
+      if (aMissingModel !== bMissingModel) {
+        return aMissingModel ? 1 : -1;
+      }
+
+      const modelComparison = modelA.localeCompare(modelB, undefined, { sensitivity: 'base', numeric: true });
+      if (modelComparison !== 0) {
+        return modelComparison;
+      }
+
+      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true });
+    });
+  }, [groupedBoats, selectedModels, searchTerm, bookingSearchTextByBoatId, modelNameById]);
+
+  const filteredBoatIndexById = useMemo(() => {
+    const map = new Map<string, number>();
+    filteredBoats.forEach((boat, index) => {
+      map.set(boat.id, index);
+    });
+    return map;
+  }, [filteredBoats]);
+
+  const rowHeight = useMemo(() => {
+    if (filteredBoats.length === 0) return 34;
+    const viewportHeight = scrollState.height > 0 ? scrollState.height : typeof window !== 'undefined' ? window.innerHeight : 900;
+    const chromeHeight = 188;
+    const candidate = Math.floor((viewportHeight - chromeHeight) / Math.max(filteredBoats.length, 1));
+    return Math.max(28, Math.min(candidate, 42));
+  }, [filteredBoats.length, scrollState.height]);
+
+  const processedBookings = useMemo(
+    () =>
+      processBookingsForGrid({
+        bookings: normalizedBookings,
+        boats: filteredBoats,
+        range,
+        rowHeight,
+      }),
+    [normalizedBookings, filteredBoats, range, rowHeight]
+  );
+
+  const totalDaysWidth = days.length * HORIZONTAL_DAY_WIDTH;
+  const totalGridWidth = BOAT_COL_WIDTH + totalDaysWidth;
+
+  const isLowPowerDevice = useMemo(() => {
+    if (typeof navigator === 'undefined') return false;
+    const cores = navigator.hardwareConcurrency || 8;
+    const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory || 8;
+    return cores <= 4 || memory <= 4;
+  }, []);
+
+  const dayOverscan = isLowPowerDevice ? 2 : 4;
+  const rowOverscan = isLowPowerDevice ? 4 : 8;
+  const dayViewportWidth = Math.max(0, scrollState.width - BOAT_COL_WIDTH);
+  const dayStartIndex =
+    scrollState.width > 0 ? Math.max(0, Math.floor(scrollState.left / HORIZONTAL_DAY_WIDTH) - dayOverscan) : 0;
+  const dayEndIndex =
+    scrollState.width > 0
+      ? Math.min(days.length - 1, Math.ceil((scrollState.left + dayViewportWidth) / HORIZONTAL_DAY_WIDTH) + dayOverscan)
+      : Math.max(days.length - 1, 0);
+  const dayStartSlotIndex = dayStartIndex * 2;
+  const dayEndSlotIndex = Math.max(dayStartSlotIndex, (dayEndIndex + 1) * 2 - 1);
+
+  const visibleDays = useMemo(() => days.slice(dayStartIndex, dayEndIndex + 1), [days, dayStartIndex, dayEndIndex]);
+  const leftDayPadding = dayStartIndex * HORIZONTAL_DAY_WIDTH;
+  const rightDayPadding = Math.max(0, (days.length - dayEndIndex - 1) * HORIZONTAL_DAY_WIDTH);
+
+  const headerHeight = 92;
+  const bodyScrollTop = Math.max(0, scrollState.top - headerHeight);
+  const bodyViewportHeight = Math.max(0, scrollState.height - headerHeight);
+
+  const rowStartIndex =
+    scrollState.height > 0 ? Math.max(0, Math.floor(bodyScrollTop / rowHeight) - rowOverscan) : 0;
+  const rowEndIndex =
+    scrollState.height > 0
+      ? Math.min(filteredBoats.length - 1, Math.ceil((bodyScrollTop + bodyViewportHeight) / rowHeight) + rowOverscan)
+      : Math.max(filteredBoats.length - 1, 0);
+  const visibleBoats = useMemo(
+    () => filteredBoats.slice(rowStartIndex, rowEndIndex + 1),
+    [filteredBoats, rowStartIndex, rowEndIndex]
+  );
+
+  const visibleSlotStart = dayStartSlotIndex;
+  const visibleSlotEnd = dayEndSlotIndex;
+  const visibleProcessedBookings = useMemo(
+    () =>
+      processedBookings.filter(
+        (booking) =>
+          booking.boatIndex >= rowStartIndex &&
+          booking.boatIndex <= rowEndIndex &&
+          booking.endSlotIndex >= visibleSlotStart &&
+          booking.startSlotIndex <= visibleSlotEnd
+      ),
+    [processedBookings, rowStartIndex, rowEndIndex, visibleSlotStart, visibleSlotEnd]
+  );
+
+  useEffect(() => {
+    if (filteredBoats.length === 0 || days.length === 0) {
+      setKeyboardCell(null);
+      return;
+    }
+    setKeyboardCell((prev) => {
+      if (!prev) return prev;
+      const maxBoatIndex = filteredBoats.length - 1;
+      const maxSlotIndex = days.length * 2 - 1;
+      const nextBoat = Math.min(Math.max(prev.boatIndex, 0), maxBoatIndex);
+      const nextSlot = Math.min(Math.max(prev.slotIndex, 0), maxSlotIndex);
+      if (nextBoat === prev.boatIndex && nextSlot === prev.slotIndex) return prev;
+      return { boatIndex: nextBoat, slotIndex: nextSlot };
+    });
+  }, [filteredBoats.length, days.length]);
+
+  const activeCellStyle = useMemo(() => {
+    if (!keyboardCell) return null;
+    return {
+      left: keyboardCell.slotIndex * SLOT_WIDTH + 1,
+      width: Math.max(SLOT_WIDTH - 2, 10),
+      top: keyboardCell.boatIndex * rowHeight + 4,
+      height: Math.max(rowHeight - 10, 22),
+    };
+  }, [keyboardCell, rowHeight]);
+
+  const monthSegments = useMemo(
+    () =>
+      months
+        .map((month) => {
+          const monthStartIndex = differenceInCalendarDays(month, range.start);
+          const monthEndIndex = differenceInCalendarDays(
+            new Date(month.getFullYear(), month.getMonth() + 1, 0),
+            range.start
+          );
+          const monthVisibleDays = Math.max(
+            0,
+            Math.min(days.length - 1, monthEndIndex) - Math.max(0, monthStartIndex) + 1
+          );
+          if (monthVisibleDays <= 0) return null;
+          return {
+            key: month.toISOString(),
+            label: format(month, 'MMMM'),
+            width: monthVisibleDays * HORIZONTAL_DAY_WIDTH,
+          };
+        })
+        .filter((value): value is { key: string; label: string; width: number } => Boolean(value)),
+    [months, range.start, days.length]
+  );
+
+  const todayKey = startOfDay(new Date()).getTime();
+
+  const dragPreviewStyle = useMemo(() => {
+    if (!dragStart || !dragCurrent) return null;
+    const startDateTime = new Date(dragStart.date);
+    startDateTime.setHours(dragStart.slot === 'AM' ? 10 : 15, 0, 0, 0);
+    const endDateTime = new Date(dragCurrent.date);
+    endDateTime.setHours(dragCurrent.slot === 'AM' ? 10 : 15, 0, 0, 0);
+    const isBackward = endDateTime < startDateTime;
+    const visualStart = isBackward ? endDateTime : startDateTime;
+    const visualEnd = isBackward ? startDateTime : endDateTime;
+
+    const startDayOffset = differenceInCalendarDays(visualStart, range.start);
+    let startSlotIndex = startDayOffset * 2 + (visualStart.getHours() >= 12 ? 1 : 0);
+
+    const endDayOffset = differenceInCalendarDays(visualEnd, range.start);
+    let endSlotIndex = endDayOffset * 2 + (visualEnd.getHours() >= 12 ? 1 : 0);
+
+    startSlotIndex = Math.max(0, startSlotIndex);
+    endSlotIndex = Math.max(startSlotIndex, endSlotIndex);
+
+    const boatIndex = filteredBoatIndexById.get(dragStart.boatId);
+    if (boatIndex === undefined) return null;
+
+    return {
+      left: startSlotIndex * SLOT_WIDTH + 1,
+      width: (endSlotIndex - startSlotIndex + 1) * SLOT_WIDTH - 2,
+      top: boatIndex * rowHeight + 3,
+      height: Math.max(rowHeight - 6, 24),
+    };
+  }, [dragStart, dragCurrent, filteredBoatIndexById, range.start, rowHeight]);
+
+  const filterCount = selectedModels.length + selectedStatuses.length + selectedSources.length;
+
+  const handleGridScroll = useCallback((event: ReactUIEvent<HTMLDivElement>) => {
+    const target = event.currentTarget;
+    const nextLeft = target.scrollLeft;
+    const nextTop = target.scrollTop;
+
+    if (scrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(scrollFrameRef.current);
+    }
+
+    scrollFrameRef.current = window.requestAnimationFrame(() => {
+      setScrollState((prev) => {
+        if (prev.left === nextLeft && prev.top === nextTop) return prev;
+        return {
+          ...prev,
+          left: nextLeft,
+          top: nextTop,
+        };
+      });
+      scrollFrameRef.current = null;
+    });
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (scrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(scrollFrameRef.current);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const updateSize = () => {
+      setScrollState((prev) => ({
+        ...prev,
+        width: container.clientWidth,
+        height: container.clientHeight,
+      }));
+    };
+
+    updateSize();
+    window.addEventListener('resize', updateSize);
+
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(updateSize);
+      observer.observe(container);
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      window.removeEventListener('resize', updateSize);
+      observer?.disconnect();
     };
-  }, [supabase, fetchData, toast]);
+  }, []);
 
-  // Handle Highlighting and Navigation
-  useEffect(() => {
-    const highlightId = searchParams.get('highlight');
-    if (highlightId && bookings.length > 0) {
-      const target = bookings.find(b => b.id === highlightId);
-      if (target) {
-        // 1. Ensure we are in the correct year
-        const targetYear = getYear(parseISO(target.startTime));
-        if (getYear(currentDate) !== targetYear) {
-          setCurrentDate(new Date(targetYear, 0, 1));
-          return; // Next effect run will handle the rest
-        }
+  const scrollToDate = useCallback(
+    (date: Date) => {
+      const container = scrollContainerRef.current;
+      if (!container) return;
+      const dayIndex = differenceInCalendarDays(startOfDay(date), startOfDay(range.start));
+      if (dayIndex < 0) return;
+      const targetLeft = Math.max(0, dayIndex * HORIZONTAL_DAY_WIDTH - 120);
+      container.scrollTo({ left: targetLeft, behavior: 'smooth' });
+    },
+    [range.start]
+  );
 
-        // 2. Highlight Only (Don't open dialog)
-        setHighlightedId(highlightId);
+  const navigateRange = useCallback(
+    (direction: 'prev' | 'next') => {
+      const next = direction === 'next';
+      setCurrentDate((prev) => (next ? addYears(prev, 1) : subYears(prev, 1)));
+    },
+    []
+  );
 
-        // Clear highlight after 5 seconds
-        setTimeout(() => setHighlightedId(null), 5000);
-
-        // 3. Scroll into view (optional but helpful if grid is wide)
-        const start = parseISO(target.startTime);
-        const dayOffset = differenceInCalendarDays(start, startOfYear(new Date(targetYear, 0, 1)));
-        const scrollX = (dayOffset * 2 * SLOT_WIDTH);
-
-        const scrollContainer = document.querySelector('.custom-scrollbar');
-        if (scrollContainer) {
-          scrollContainer.scrollTo({
-            left: scrollX,
-            behavior: 'smooth'
-          });
-        }
-
-        // Clear highlight from URL to avoid re-triggering (cleaner URL)
-        window.history.replaceState({}, '', window.location.pathname);
-      }
+  const openNewReservation = useCallback(() => {
+    preloadBookingForm();
+    setIsPreviewOpen(false);
+    setPreviewBooking(null);
+    setIs360DialogOpen(false);
+    setIsBookingFormDirty(false);
+    setEditingBooking(null);
+    setPreselectedBoatId(undefined);
+    setPreselectedDate(undefined);
+    setPreselectedSlot(undefined);
+    setPreselectedEndDate(undefined);
+    setPreselectedEndSlot(undefined);
+    if (typeof performance !== 'undefined') {
+      performance.mark('hb:booking-sheet-open:start');
     }
-  }, [searchParams, bookings, currentDate]);
-
-  const navigateYear = (direction: 'prev' | 'next') => {
-    setCurrentDate(prev => direction === 'next' ? addYears(prev, 1) : subYears(prev, 1));
-  };
-
-  const scrollToMonth = useCallback((monthIndex: number) => {
-    const yearStart = startOfYear(currentDate);
-    const targetMonth = new Date(getYear(currentDate), monthIndex, 1);
-    const dayOffset = differenceInCalendarDays(targetMonth, yearStart);
-    const scrollX = (dayOffset * 2 * SLOT_WIDTH);
-
-    const scrollContainer = document.querySelector('.custom-scrollbar');
-    if (scrollContainer) {
-      scrollContainer.scrollTo({
-        left: scrollX,
-        behavior: 'smooth'
-      });
-    }
-  }, [currentDate]);
-
-  const navigateMonth = (direction: 'prev' | 'next') => {
-    const calendarMonth = currentDate.getMonth();
-    if (direction === 'next') {
-      if (calendarMonth === 11) {
-        // Go to next year Jan
-        setCurrentDate(addYears(currentDate, 1));
-        // After year change, we need to scroll to Jan (offset 0)
-        setTimeout(() => scrollToMonth(0), 100);
-      } else {
-        scrollToMonth(calendarMonth + 1);
-        setCurrentDate(new Date(getYear(currentDate), calendarMonth + 1, 1));
-      }
-    } else {
-      if (calendarMonth === 0) {
-        // Go to prev year Dec
-        setCurrentDate(subYears(currentDate, 1));
-        setTimeout(() => scrollToMonth(11), 100);
-      } else {
-        scrollToMonth(calendarMonth - 1);
-        setCurrentDate(new Date(getYear(currentDate), calendarMonth - 1, 1));
-      }
-    }
-  };
-
-  // CRUD Handlers
-  const handleSaveBooking = useCallback(async (bookingData: Partial<Booking>) => {
-    // Optimistic Update
-    const oldBookings = [...bookings];
-    if (bookingData.id) {
-      setBookings(prev => prev.map(b => b.id === bookingData.id ? { ...b, ...bookingData } as Booking : b));
-    }
-
-    try {
-      const method = bookingData.id ? 'PUT' : 'POST';
-      const response = await fetch('/api/bookings', {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bookingData)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to save booking');
-      }
-
-      toast({ title: 'Success', description: `Booking ${bookingData.id ? 'updated' : 'created'} successfully` });
-      await fetchData({ silent: true }); // Refresh data in background
-    } catch (error: any) {
-      setBookings(oldBookings); // Rollback
-      console.error('Error saving booking:', error);
-      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Failed to save booking' });
-    }
-  }, [bookings, toast, fetchData]);
-
-  const handleDeleteBooking = useCallback(async () => {
-    if (!deletingBooking) return;
-
-    // Optimistic Update
-    const oldBookings = [...bookings];
-    setBookings(prev => prev.filter(b => b.id !== deletingBooking.id));
-
-    try {
-      const response = await fetch(`/api/bookings?id=${deletingBooking.id}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) throw new Error('Failed to delete booking');
-
-      toast({ title: 'Success', description: 'Booking deleted successfully' });
-      setIsDeleteDialogOpen(false);
-      setDeletingBooking(null);
-      await fetchData({ silent: true }); // Refresh data in background
-    } catch (error) {
-      setBookings(oldBookings); // Rollback
-      console.error('Error deleting booking:', error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete booking' });
-    }
-  }, [deletingBooking, bookings, toast, fetchData]);
+    setIsBookingFormOpen(true);
+  }, []);
 
   const handleCellClick = useCallback((boatId: string, date: Date, slot: 'AM' | 'PM') => {
     if (isDragging) return;
+    setIsPreviewOpen(false);
+    setPreviewBooking(null);
+    setIsBookingFormDirty(false);
+    setEditingBooking(null);
     setPreselectedBoatId(boatId);
     setPreselectedDate(date);
     setPreselectedSlot(slot);
     setPreselectedEndDate(undefined);
     setPreselectedEndSlot(undefined);
-    setEditingBooking(null);
-    setIsSidebarOpen(true);
+    if (typeof performance !== 'undefined') {
+      performance.mark('hb:booking-sheet-open:start');
+    }
+    setIsBookingFormOpen(true);
   }, [isDragging]);
 
-  const checkConflict = useCallback((boatId: string, start: Date, end: Date) => {
-    return bookings.some(b => {
-      if (b.houseboatId !== boatId || b.status === 'Cancelled') return false;
-      const bStart = parseISO(b.startTime);
-      const bEnd = parseISO(b.endTime);
-      return start < bEnd && end > bStart;
-    });
-  }, [bookings]);
+  const handleEditBooking = useCallback((booking: MappedBooking) => {
+    setPreviewBooking(null);
+    setIsPreviewOpen(false);
+    setIsBookingFormDirty(false);
+    setEditingBooking(booking as Booking);
+    setPreselectedBoatId(undefined);
+    setPreselectedDate(undefined);
+    setPreselectedSlot(undefined);
+    setPreselectedEndDate(undefined);
+    setPreselectedEndSlot(undefined);
+    if (typeof performance !== 'undefined') {
+      performance.mark('hb:booking-sheet-open:start');
+    }
+    setIsBookingFormOpen(true);
+  }, []);
 
-  const handleCellMouseDown = useCallback((boatId: string, date: Date, slot: 'AM' | 'PM', e: React.MouseEvent) => {
-    if (e.button !== 0) return; // Only left click
+  const resolveSlotFromPointer = useCallback((event: ReactMouseEvent<HTMLButtonElement>): 'AM' | 'PM' => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const offsetX = event.clientX - rect.left;
+    return offsetX < rect.width / 2 ? 'AM' : 'PM';
+  }, []);
+
+  const updateKeyboardCellForPointer = useCallback((boatId: string, day: Date, slot: 'AM' | 'PM') => {
+    const boatIndex = filteredBoatIndexById.get(boatId);
+    if (boatIndex === undefined) return;
+    const dayIndex = differenceInCalendarDays(startOfDay(day), startOfDay(range.start));
+    if (dayIndex < 0 || dayIndex >= days.length) return;
+    const slotIndex = dayIndex * 2 + (slot === 'PM' ? 1 : 0);
+    setKeyboardCell({ boatIndex, slotIndex });
+  }, [filteredBoatIndexById, range.start, days.length]);
+
+  const handleOpenPreview = useCallback((selected: MappedBooking) => {
+    setPreviewBooking(selected);
+    setIsPreviewOpen(true);
+  }, []);
+
+  const checkConflict = useCallback(
+    (boatId: string, start: Date, end: Date) => {
+      return normalizedBookings.some((booking) => {
+        if (booking.houseboatId !== boatId || booking.status === 'Cancelled') return false;
+        const bookingStart = parseISO(booking.startTime);
+        const bookingEnd = parseISO(booking.endTime);
+        return start < bookingEnd && end > bookingStart;
+      });
+    },
+    [normalizedBookings]
+  );
+
+  const handleCellMouseDown = useCallback((boatId: string, date: Date, slot: 'AM' | 'PM', event: ReactMouseEvent) => {
+    if (event.button !== 0) return;
     setDragStart({ boatId, date, slot });
     setDragCurrent({ boatId, date, slot });
     setIsDragging(true);
   }, []);
 
-  const handleCellMouseEnter = useCallback((boatId: string, date: Date, slot: 'AM' | 'PM') => {
-    if (!isDragging || !dragStart || dragStart.boatId !== boatId) return;
+  const handleCellMouseEnter = useCallback(
+    (boatId: string, date: Date, slot: 'AM' | 'PM') => {
+      if (!isDragging || !dragStart || dragStart.boatId !== boatId) return;
 
-    // Calculate candidate range
-    const startDateTime = new Date(dragStart.date);
-    startDateTime.setHours(dragStart.slot === 'AM' ? 10 : 15, 0, 0, 0);
+      const startDateTime = new Date(dragStart.date);
+      startDateTime.setHours(dragStart.slot === 'AM' ? 10 : 15, 0, 0, 0);
 
-    const candidateDateTime = new Date(date);
-    candidateDateTime.setHours(slot === 'AM' ? 10 : 15, 0, 0, 0);
+      const candidateDateTime = new Date(date);
+      candidateDateTime.setHours(slot === 'AM' ? 10 : 15, 0, 0, 0);
 
-    const actualStart = isBefore(startDateTime, candidateDateTime) ? startDateTime : candidateDateTime;
-    const actualEnd = isBefore(startDateTime, candidateDateTime) ? candidateDateTime : startDateTime;
+      const actualStart = startDateTime < candidateDateTime ? startDateTime : candidateDateTime;
+      const actualEnd = startDateTime < candidateDateTime ? candidateDateTime : startDateTime;
 
-    if (!checkConflict(boatId, actualStart, actualEnd)) {
-      setDragCurrent({ boatId, date, slot });
-    }
-  }, [isDragging, dragStart, checkConflict]);
+      if (!checkConflict(boatId, actualStart, actualEnd)) {
+        setDragCurrent({ boatId, date, slot });
+      }
+    },
+    [isDragging, dragStart, checkConflict]
+  );
+
+  const handleDayCellMouseDown = useCallback(
+    (boatId: string, day: Date, event: ReactMouseEvent<HTMLButtonElement>) => {
+      const slot = resolveSlotFromPointer(event);
+      updateKeyboardCellForPointer(boatId, day, slot);
+      handleCellMouseDown(boatId, day, slot, event);
+    },
+    [resolveSlotFromPointer, updateKeyboardCellForPointer, handleCellMouseDown]
+  );
+
+  const handleDayCellHover = useCallback(
+    (boatId: string, day: Date, event: ReactMouseEvent<HTMLButtonElement>) => {
+      if (!isDragging) return;
+      const slot = resolveSlotFromPointer(event);
+      handleCellMouseEnter(boatId, day, slot);
+    },
+    [isDragging, resolveSlotFromPointer, handleCellMouseEnter]
+  );
+
+  const handleDayCellClick = useCallback(
+    (boatId: string, day: Date, event: ReactMouseEvent<HTMLButtonElement>) => {
+      const slot = resolveSlotFromPointer(event);
+      updateKeyboardCellForPointer(boatId, day, slot);
+      handleCellClick(boatId, day, slot);
+    },
+    [resolveSlotFromPointer, updateKeyboardCellForPointer, handleCellClick]
+  );
 
   const finalizeDrag = useCallback(() => {
     if (!isDragging || !dragStart || !dragCurrent) {
@@ -845,515 +879,642 @@ export default function HouseboatReservationsPage() {
 
     const startDateTime = new Date(dragStart.date);
     startDateTime.setHours(dragStart.slot === 'AM' ? 10 : 15, 0, 0, 0);
-
     const endDateTime = new Date(dragCurrent.date);
     endDateTime.setHours(dragCurrent.slot === 'AM' ? 10 : 15, 0, 0, 0);
 
-    const isBackward = isBefore(endDateTime, startDateTime);
+    const isBackward = endDateTime < startDateTime;
     const finalStart = isBackward ? dragCurrent : dragStart;
     const finalEnd = isBackward ? dragStart : dragCurrent;
 
+    setEditingBooking(null);
     setPreselectedBoatId(dragStart.boatId);
     setPreselectedDate(finalStart.date);
     setPreselectedSlot(finalStart.slot);
     setPreselectedEndDate(finalEnd.date);
     setPreselectedEndSlot(finalEnd.slot);
-    setEditingBooking(null);
-    setIsSidebarOpen(true);
+    setIsBookingFormDirty(false);
+    if (typeof performance !== 'undefined') {
+      performance.mark('hb:booking-sheet-open:start');
+    }
+    setIsBookingFormOpen(true);
 
-    setIsDragging(false);
     setDragStart(null);
     setDragCurrent(null);
+    setIsDragging(false);
   }, [isDragging, dragStart, dragCurrent]);
 
   useEffect(() => {
-    if (isDragging) {
-      window.addEventListener('mouseup', finalizeDrag);
-      return () => window.removeEventListener('mouseup', finalizeDrag);
-    }
+    if (!isDragging) return;
+    const onMouseUp = () => finalizeDrag();
+    window.addEventListener('mouseup', onMouseUp);
+    return () => window.removeEventListener('mouseup', onMouseUp);
   }, [isDragging, finalizeDrag]);
 
-  const handleEditBooking = (booking: Booking) => {
-    setEditingBooking(booking);
-    setPreselectedBoatId(undefined);
-    setPreselectedDate(undefined);
-    setPreselectedSlot(undefined);
-    setPreselectedEndDate(undefined);
-    setPreselectedEndSlot(undefined);
-    setIsSidebarOpen(true);
-  };
+  const scrollKeyboardCellIntoView = useCallback((boatIndex: number, slotIndex: number) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
 
-  const filteredBoats = useMemo(() => {
-    let result = boats;
+    const viewportDaysWidth = Math.max(0, container.clientWidth - BOAT_COL_WIDTH);
+    const cellLeft = slotIndex * SLOT_WIDTH;
+    const cellRight = cellLeft + SLOT_WIDTH;
+    const viewLeft = container.scrollLeft;
+    const viewRight = viewLeft + viewportDaysWidth;
 
-    // Filter by Search Term (matches boat name OR matches any client name in that boat)
-    if (searchTerm) {
-      const lowerSearch = searchTerm.toLowerCase();
-      result = result.filter(boat => {
-        const matchesBoatName = boat.name.toLowerCase().includes(lowerSearch);
-        const hasMatchingBooking = bookings.some(b =>
-          b.houseboatId === boat.id &&
-          b.clientName?.toLowerCase().includes(lowerSearch)
-        );
-        return matchesBoatName || hasMatchingBooking;
-      });
+    let nextLeft = container.scrollLeft;
+    if (cellLeft < viewLeft) {
+      nextLeft = Math.max(0, cellLeft - HORIZONTAL_DAY_WIDTH);
+    } else if (cellRight > viewRight) {
+      nextLeft = Math.max(0, cellRight - viewportDaysWidth + HORIZONTAL_DAY_WIDTH);
     }
 
-    // Filter by Selected Models
-    if (selectedModels.length > 0) {
-      result = result.filter(boat => boat.model_id && selectedModels.includes(boat.model_id));
+    const headerHeight = 92;
+    const cellTop = boatIndex * rowHeight + headerHeight;
+    const cellBottom = cellTop + rowHeight;
+    const viewTop = container.scrollTop + headerHeight;
+    const viewBottom = container.scrollTop + container.clientHeight;
+
+    let nextTop = container.scrollTop;
+    if (cellTop < viewTop) {
+      nextTop = Math.max(0, boatIndex * rowHeight);
+    } else if (cellBottom > viewBottom) {
+      nextTop = Math.max(0, boatIndex * rowHeight - container.clientHeight + rowHeight + headerHeight);
     }
 
-    return result;
-  }, [boats, searchTerm, bookings, selectedModels]);
+    if (nextLeft !== container.scrollLeft || nextTop !== container.scrollTop) {
+      container.scrollTo({ left: nextLeft, top: nextTop, behavior: 'smooth' });
+    }
+  }, [rowHeight]);
 
-  const processedBookings = useMemo(() => {
-    const yearStart = startOfYear(currentDate);
-    const yearEnd = endOfYear(currentDate);
+  const handleGridFocus = useCallback(() => {
+    if (keyboardCell || filteredBoats.length === 0 || days.length === 0) return;
+    setKeyboardCell({ boatIndex: rowStartIndex, slotIndex: dayStartSlotIndex });
+  }, [keyboardCell, filteredBoats.length, days.length, rowStartIndex, dayStartSlotIndex]);
 
-    return bookings.map(booking => {
-      // 1. Basic Visibility Check (Correct Year/Month)
-      const start = parseISO(booking.startTime);
-      const end = parseISO(booking.endTime);
-      if (isAfter(start, yearEnd) || isBefore(end, yearStart)) return null;
+  const handleGridKeyDown = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (filteredBoats.length === 0 || days.length === 0) return;
 
-      // 2. Filter by Status
-      if (selectedStatuses.length > 0 && !selectedStatuses.includes(booking.status)) return null;
+    const maxBoatIndex = filteredBoats.length - 1;
+    const maxSlotIndex = days.length * 2 - 1;
+    const current = keyboardCell || { boatIndex: rowStartIndex, slotIndex: dayStartSlotIndex };
 
-      // 3. Filter by Source
-      if (selectedSources.length > 0 && !selectedSources.includes(booking.source || 'manual')) return null;
+    let nextBoatIndex = current.boatIndex;
+    let nextSlotIndex = current.slotIndex;
+    let handled = false;
 
-      // 4. Filter by Search (Case insensitive client name)
-      if (searchTerm) {
-        const lowerSearch = searchTerm.toLowerCase();
-        const matchesClient = booking.clientName?.toLowerCase().includes(lowerSearch);
-        const matchesBoat = boats.find(b => b.id === booking.houseboatId)?.name.toLowerCase().includes(lowerSearch);
-        if (!matchesClient && !matchesBoat) return null;
+    switch (event.key) {
+      case 'ArrowRight':
+        nextSlotIndex = Math.min(maxSlotIndex, current.slotIndex + 1);
+        handled = true;
+        break;
+      case 'ArrowLeft':
+        nextSlotIndex = Math.max(0, current.slotIndex - 1);
+        handled = true;
+        break;
+      case 'ArrowDown':
+        nextBoatIndex = Math.min(maxBoatIndex, current.boatIndex + 1);
+        handled = true;
+        break;
+      case 'ArrowUp':
+        nextBoatIndex = Math.max(0, current.boatIndex - 1);
+        handled = true;
+        break;
+      case 'Enter': {
+        const boat = filteredBoats[current.boatIndex];
+        const dayIndex = Math.floor(current.slotIndex / 2);
+        const day = days[dayIndex];
+        const slot = current.slotIndex % 2 === 0 ? 'AM' : 'PM';
+        if (boat && day) {
+          handleCellClick(boat.id, day, slot);
+        }
+        handled = true;
+        break;
       }
+      default:
+        break;
+    }
 
-      const boatIndex = filteredBoats.findIndex(b => b.id === booking.houseboatId);
-      if (boatIndex === -1) return null;
+    if (!handled) return;
+    event.preventDefault();
 
-      const dayOffsetStart = differenceInCalendarDays(start, yearStart);
-      let startSlotIndex = dayOffsetStart * 2;
-      if (start.getHours() >= 12) startSlotIndex += 1;
+    setKeyboardCell({ boatIndex: nextBoatIndex, slotIndex: nextSlotIndex });
+    scrollKeyboardCellIntoView(nextBoatIndex, nextSlotIndex);
+  }, [
+    filteredBoats,
+    days,
+    keyboardCell,
+    rowStartIndex,
+    dayStartSlotIndex,
+    handleCellClick,
+    scrollKeyboardCellIntoView,
+  ]);
 
-      const dayOffsetEnd = differenceInCalendarDays(end, yearStart);
-      let endSlotIndex = dayOffsetEnd * 2;
-      if (end.getHours() >= 12) endSlotIndex += 1;
+  const handleSaveBooking = useCallback(
+    async (
+      bookingData: Partial<Booking> & { selectedExtras?: string[] },
+      options?: { closeAfterSave?: boolean }
+    ) => {
+      try {
+        const method = bookingData.id ? 'PUT' : 'POST';
+        const response = await fetch('/api/bookings', {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(bookingData),
+        });
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Failed to save reservation');
+        }
 
-      const widthSlots = (endSlotIndex - startSlotIndex) + 1;
-
-      return {
-        ...booking,
-        left: startSlotIndex * SLOT_WIDTH,
-        width: widthSlots * SLOT_WIDTH,
-        top: boatIndex * ROW_HEIGHT,
-        isOverflowLeft: isBefore(start, yearStart),
-        isOverflowRight: isAfter(end, yearEnd),
-      };
-    }).filter(Boolean);
-  }, [bookings, currentDate, filteredBoats, searchTerm, selectedStatuses, boats]);
-
-  if (isLoading) return (
-    <div className="p-8">
-      <Skeleton className="h-12 w-64 mb-6" />
-      <Skeleton className="h-[600px] w-full rounded-xl" />
-    </div>
+        toast({ title: 'Saved', description: `Reservation ${bookingData.id ? 'updated' : 'created'} successfully.` });
+        setIsBookingFormDirty(false);
+        if (options?.closeAfterSave ?? true) {
+          if (typeof performance !== 'undefined') {
+            performance.mark('hb:booking-sheet-close:start');
+          }
+          setIsBookingFormOpen(false);
+          setEditingBooking(null);
+        }
+        await refresh({ silent: true });
+      } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Error', description: error.message || 'Failed to save reservation.' });
+      }
+    },
+    [refresh, toast]
   );
 
-  return (
-    <div className="flex flex-col h-screen p-4 lg:p-6 overflow-hidden bg-gray-50/30">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 shrink-0">
-        <div className="flex items-center gap-6">
-          <h1 className="text-xl font-bold tracking-tight">Houseboat Reservations</h1>
+  const handleDeleteBooking = useCallback(async () => {
+    if (!deletingBooking) return;
 
-          <div className="flex items-center gap-2">
-            <div className="relative w-56">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search unit or client..."
-                value={localSearchTerm}
-                onChange={(e) => setLocalSearchTerm(e.target.value)}
-                className="pl-9 h-9 text-xs shadow-sm bg-white"
-              />
-            </div>
+    try {
+      const response = await fetch(`/api/bookings?id=${deletingBooking.id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Failed to delete reservation');
+      toast({ title: 'Deleted', description: 'Reservation removed successfully.' });
+      setIsDeleteDialogOpen(false);
+      setDeletingBooking(null);
+      setPreviewBooking(null);
+      setIsPreviewOpen(false);
+      await refresh({ silent: true });
+    } catch {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete reservation.' });
+    }
+  }, [deletingBooking, refresh, toast]);
 
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={cn(
-                    "h-9 gap-2 shadow-sm font-bold",
-                    (selectedModels.length > 0 || selectedStatuses.length > 0) && "border-emerald-500 bg-emerald-50 text-emerald-700"
-                  )}
-                >
-                  <Filter className="h-3.5 w-3.5" />
-                  Filters
-                  {(selectedModels.length > 0 || selectedStatuses.length > 0) && (
-                    <Badge variant="secondary" className="h-4 px-1.5 min-w-[18px] text-[10px] bg-emerald-200 text-emerald-800 border-none">
-                      {selectedModels.length + selectedStatuses.length}
-                    </Badge>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80 p-5 rounded-2xl shadow-xl mt-2" align="start">
-                <div className="space-y-5">
-                  <div>
-                    <h4 className="font-black text-[10px] uppercase tracking-widest text-muted-foreground mb-4">Boat Models</h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      {houseboatModels.map(model => (
-                        <div key={model.id} className="flex items-center space-x-2.5">
-                          <Checkbox
-                            id={`model-${model.id}`}
-                            checked={selectedModels.includes(model.id)}
-                            onCheckedChange={(checked) => {
-                              setSelectedModels(prev =>
-                                checked ? [...prev, model.id] : prev.filter(id => id !== model.id)
-                              );
-                            }}
-                          />
-                          <label htmlFor={`model-${model.id}`} className="text-xs font-bold leading-none cursor-pointer truncate">
-                            {model.name}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+  const attemptCloseBookingForm = useCallback(() => {
+    if (isBookingFormDirty) {
+      const shouldDiscard = window.confirm('You have unsaved changes. Discard them?');
+      if (!shouldDiscard) return false;
+    }
+    if (typeof performance !== 'undefined') {
+      performance.mark('hb:booking-sheet-close:start');
+    }
+    setIsBookingFormDirty(false);
+    setIsBookingFormOpen(false);
+    setEditingBooking(null);
+    return true;
+  }, [isBookingFormDirty]);
 
-                  <div className="pt-4 border-t">
-                    <h4 className="font-black text-[10px] uppercase tracking-widest text-muted-foreground mb-4">Reservation Status</h4>
-                    <div className="flex gap-6">
-                      {['Confirmed', 'Pending'].map(status => (
-                        <div key={status} className="flex items-center space-x-2.5">
-                          <Checkbox
-                            id={`status-${status}`}
-                            checked={selectedStatuses.includes(status)}
-                            onCheckedChange={(checked) => {
-                              setSelectedStatuses(prev =>
-                                checked ? [...prev, status] : prev.filter(s => s !== status)
-                              );
-                            }}
-                          />
-                          <label htmlFor={`status-${status}`} className="text-xs font-bold leading-none cursor-pointer">
-                            {status}
-                          </label>
-                        </div>
-                      ))}
-                      <div className="flex items-center space-x-2.5">
-                        <Checkbox
-                          id="status-Maintenance"
-                          checked={selectedStatuses.includes('Maintenance')}
-                          onCheckedChange={(checked) => {
-                            setSelectedStatuses(prev =>
-                              checked ? [...prev, 'Maintenance'] : prev.filter(s => s !== 'Maintenance')
-                            );
-                          }}
-                        />
-                        <label htmlFor="status-Maintenance" className="text-xs font-bold leading-none cursor-pointer">
-                          Maintenance
-                        </label>
-                      </div>
-                    </div>
-                  </div>
+  const openFullEditPage = useCallback(() => {
+    if (editingBooking?.id) {
+      router.push(`/dashboard/houseboat-reservations/${editingBooking.id}/edit`);
+      return;
+    }
 
-                  <div className="pt-4 border-t">
-                    <h4 className="font-black text-[10px] uppercase tracking-widest text-muted-foreground mb-4">Source</h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      {[
-                        { id: 'website', name: 'Website' },
-                        { id: 'nicols', name: 'Nicols' },
-                        { id: 'diaria', name: 'Diária' },
-                        { id: 'ancorado', name: 'Ancorado' },
-                        { id: 'manual', name: 'Manual' }
-                      ].map(source => (
-                        <div key={source.id} className="flex items-center space-x-2.5">
-                          <Checkbox
-                            id={`source-${source.id}`}
-                            checked={selectedSources.includes(source.id)}
-                            onCheckedChange={(checked) => {
-                              setSelectedSources(prev =>
-                                checked ? [...prev, source.id] : prev.filter(id => id !== source.id)
-                              );
-                            }}
-                          />
-                          <label htmlFor={`source-${source.id}`} className="text-xs font-bold leading-none cursor-pointer truncate">
-                            {source.name}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+    const params = new URLSearchParams();
+    if (preselectedBoatId) params.set('boatId', preselectedBoatId);
+    if (preselectedDate) params.set('startDate', format(preselectedDate, 'yyyy-MM-dd'));
+    if (preselectedSlot) params.set('startSlot', preselectedSlot);
+    if (preselectedEndDate) params.set('endDate', format(preselectedEndDate, 'yyyy-MM-dd'));
+    if (preselectedEndSlot) params.set('endSlot', preselectedEndSlot);
 
-                  {(selectedModels.length > 0 || selectedStatuses.length > 0 || selectedSources.length > 0) && (
-                    <div className="pt-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full h-9 text-xs font-bold text-muted-foreground hover:text-destructive hover:bg-destructive/5"
-                        onClick={() => {
-                          setSelectedModels([]);
-                          setSelectedStatuses([]);
-                          setSelectedSources([]);
-                        }}
-                      >
-                        Clear All Filters
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-        </div>
+    const query = params.toString();
+    router.push(
+      query
+        ? `/dashboard/houseboat-reservations/new?${query}`
+        : '/dashboard/houseboat-reservations/new'
+    );
+  }, [
+    router,
+    editingBooking,
+    preselectedBoatId,
+    preselectedDate,
+    preselectedSlot,
+    preselectedEndDate,
+    preselectedEndSlot,
+  ]);
 
-        <div className="flex items-center gap-3">
-          {/* Month Navigation */}
-          <div className="flex items-center gap-0.5 border rounded-full p-1 bg-white shadow-sm h-10">
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-slate-50" onClick={() => navigateMonth('prev')}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
+  useEffect(() => {
+    const highlightId = searchParams.get('highlight');
+    if (!highlightId || bookings.length === 0) return;
 
-            <Select
-              value={currentDate.getMonth().toString()}
-              onValueChange={(val) => {
-                const month = parseInt(val);
-                scrollToMonth(month);
-                setCurrentDate(new Date(getYear(currentDate), month, 1));
-              }}
-            >
-              <SelectTrigger className="h-8 border-none shadow-none text-sm font-black w-[110px] focus:ring-0 uppercase tracking-tight">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl font-bold">
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <SelectItem key={i} value={i.toString()} className="text-xs uppercase font-bold tracking-tight">
-                    {format(new Date(2024, i, 1), 'MMMM')}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+    const target = bookings.find((booking) => booking.id === highlightId);
+    if (!target) return;
 
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-slate-50" onClick={() => navigateMonth('next')}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+    const start = parseISO(target.startTime);
+    if (!bookingOverlapsRange(target, range)) {
+      setCurrentDate(start);
+      return;
+    }
 
-          <div className="h-6 w-px bg-slate-200" />
+    setHighlightedId(highlightId);
+    scrollToDate(start);
+    const timeout = setTimeout(() => setHighlightedId(null), 5000);
 
-          {/* Year Navigation */}
-          <div className="flex items-center border rounded-full overflow-hidden bg-white shadow-sm h-10 p-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-slate-50" onClick={() => navigateYear('prev')}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <div className="px-3 font-black text-sm min-w-[65px] text-center tracking-tighter">
-              {format(currentDate, 'yyyy')}
-            </div>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-slate-50" onClick={() => navigateYear('next')}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+    const nextParams = new URLSearchParams(window.location.search);
+    nextParams.delete('highlight');
+    const nextQuery = nextParams.toString();
+    window.history.replaceState(
+      {},
+      '',
+      nextQuery ? `${window.location.pathname}?${nextQuery}` : window.location.pathname
+    );
+    return () => clearTimeout(timeout);
+  }, [searchParams, bookings, range, scrollToDate]);
 
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-10 px-4 rounded-full text-xs font-black uppercase tracking-widest shadow-sm hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
-            onClick={() => {
-              const today = new Date();
-              setCurrentDate(today);
-              setTimeout(() => scrollToMonth(today.getMonth()), 100);
-            }}
-          >
-            Today
+  useEffect(() => {
+    if (typeof performance === 'undefined') return;
+    if (!isLoading && scrollState.width > 0 && !firstPaintMeasuredRef.current) {
+      firstPaintMeasuredRef.current = true;
+      performance.mark('hb-calendar:first-paint:end');
+      try {
+        performance.measure(
+          'hb-calendar:first-paint',
+          'hb-calendar:first-paint:start',
+          'hb-calendar:first-paint:end'
+        );
+      } catch {
+        // Ignore duplicate measurements in development refresh cycles.
+      }
+    }
+  }, [isLoading, scrollState.width]);
+
+  useEffect(() => {
+    if (typeof performance === 'undefined') return;
+    if (!bookingSheetOpenRef.current && isBookingFormOpen) {
+      performance.mark('hb:booking-sheet-open:end');
+      try {
+        performance.measure(
+          'hb:booking-sheet-open',
+          'hb:booking-sheet-open:start',
+          'hb:booking-sheet-open:end'
+        );
+      } catch {
+        // Ignore duplicate measurements.
+      }
+    }
+    if (bookingSheetOpenRef.current && !isBookingFormOpen) {
+      performance.mark('hb:booking-sheet-close:end');
+      try {
+        performance.measure(
+          'hb:booking-sheet-close',
+          'hb:booking-sheet-close:start',
+          'hb:booking-sheet-close:end'
+        );
+      } catch {
+        // Ignore duplicate measurements.
+      }
+    }
+    bookingSheetOpenRef.current = isBookingFormOpen;
+  }, [isBookingFormOpen]);
+
+  useEffect(() => {
+    const handleShortcuts = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isEditable =
+        target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.getAttribute('contenteditable') === 'true';
+      if (!isEditable && event.key === '/') {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+      if (!isEditable && event.key.toLowerCase() === 'n') {
+        event.preventDefault();
+        openNewReservation();
+        return;
+      }
+      if (event.key === 'Escape') {
+        setIsPreviewOpen(false);
+        setPreviewBooking(null);
+        attemptCloseBookingForm();
+      }
+    };
+
+    window.addEventListener('keydown', handleShortcuts);
+    return () => window.removeEventListener('keydown', handleShortcuts);
+  }, [openNewReservation, attemptCloseBookingForm]);
+
+  if (isLoading && bookings.length === 0) {
+    return (
+      <div className="p-6">
+        <Skeleton className="mb-4 h-14 w-full rounded-xl" />
+        <Skeleton className="h-[640px] w-full rounded-xl" />
+      </div>
+    );
+  }
+
+  if (errorMessage && bookings.length === 0) {
+    return (
+      <div className="p-6">
+        <div className="flex min-h-[40vh] flex-col items-center justify-center rounded-xl border border-border bg-card p-6 text-center">
+          <p className="text-base font-semibold text-foreground">Unable to load calendar data</p>
+          <p className="mt-1 text-sm text-muted-foreground">{errorMessage}</p>
+          <Button className="mt-4 rounded-full" onClick={() => refresh()}>
+            Retry
           </Button>
         </div>
       </div>
+    );
+  }
 
-      <div className="flex-1 flex gap-4 min-h-0 overflow-hidden">
-        <Card className={cn(
-          "flex-1 flex flex-col border border-border bg-background shadow-sm overflow-hidden transition-all duration-300",
-          isSidebarOpen ? "w-2/3" : "w-full"
-        )}>
-          <div className="w-full overflow-x-auto overflow-y-hidden relative custom-scrollbar h-full">
-            <div className="inline-block min-w-full" style={{ width: totalGridWidth }}>
-              <GridHeader
-                yearMonths={yearMonths}
-                daysInYear={daysInYear}
-                isSameDayNow={isSameDayNow}
-              />
+  const showNoResultsState = !isLoading && filteredBoats.length === 0;
 
-              <div className="relative">
-                {filteredBoats.map((boat) => (
-                  <BoatRow
-                    key={boat.id}
-                    boat={boat}
-                    modelName={houseboatModels.find(m => m.id === boat.model_id)?.name || ''}
-                    daysInYear={daysInYear}
-                    rowHeight={ROW_HEIGHT}
-                    onMouseDown={handleCellMouseDown}
-                    onMouseEnter={handleCellMouseEnter}
-                    onCellClick={handleCellClick}
-                    isSameDayNow={isSameDayNow}
-                  />
-                ))}
-
-                <div className="absolute top-0 pointer-events-none" style={{ left: BOAT_COL_WIDTH }}>
-                  {/* Drag Selection Preview */}
-                  {dragStart && dragCurrent && (
-                    <div
-                      className="absolute bg-emerald-400/30 border-2 border-emerald-500/50 rounded-lg pointer-events-none z-10 animate-pulse"
-                      style={(() => {
-                        const boatIndex = filteredBoats.findIndex(b => b.id === dragStart.boatId);
-                        const startD = new Date(dragStart.date);
-                        startD.setHours(dragStart.slot === 'AM' ? 10 : 15);
-                        const endD = new Date(dragCurrent.date);
-                        endD.setHours(dragCurrent.slot === 'AM' ? 10 : 15);
-
-                        const isBackward = isBefore(endD, startD);
-                        const visualStart = isBackward ? endD : startD;
-                        const visualEnd = isBackward ? startD : endD;
-
-                        const yearStart = startOfYear(currentDate);
-                        const dayOffsetStart = differenceInCalendarDays(visualStart, yearStart);
-                        let startSlotIndex = dayOffsetStart * 2;
-                        if (visualStart.getHours() >= 12) startSlotIndex += 1;
-
-                        const dayOffsetEnd = differenceInCalendarDays(visualEnd, yearStart);
-                        let endSlotIndex = dayOffsetEnd * 2;
-                        if (visualEnd.getHours() >= 12) endSlotIndex += 1;
-
-                        const left = startSlotIndex * SLOT_WIDTH;
-                        const width = (endSlotIndex - startSlotIndex + 1) * SLOT_WIDTH;
-
-                        return {
-                          left: left + 1,
-                          width: width - 2,
-                          top: boatIndex * ROW_HEIGHT + 3,
-                          height: Math.max(ROW_HEIGHT - 6, 24)
-                        };
-                      })()}
-                    />
-                  )}
-
-                  {processedBookings.map((booking: any) => (
-                    <BookingItem
-                      key={booking.id}
-                      booking={booking}
-                      isHighlighted={highlightedId === booking.id}
-                      onEdit={handleEditBooking}
-                      onDelete={(b) => {
-                        setDeletingBooking(b);
-                        setIsDeleteDialogOpen(true);
-                      }}
-                      on360={(b) => {
-                        setSelectedBookingFor360(b);
-                        setIs360DialogOpen(true);
-                      }}
-                      getBoatName={getBoatName}
-                      rowHeight={ROW_HEIGHT}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
+  return (
+    <div className="flex h-[calc(100vh-64px)] min-h-0 flex-col bg-background">
+      <div className="sticky top-14 z-20 border-b border-border bg-background/95 px-2 py-2.5 backdrop-blur sm:px-3">
+        <div className="flex items-center gap-2">
+          <div className="hidden xl:flex shrink-0 items-center gap-1.5">
+            <span className="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold text-white">Website</span>
+            <span className="inline-flex items-center rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-zinc-950">Nicols</span>
+            <span className="inline-flex items-center rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-semibold text-white">Pending</span>
+            <span className="inline-flex items-center rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] font-semibold text-white">Maintenance</span>
           </div>
-        </Card>
 
-        <BookingSidebar
-          isOpen={isSidebarOpen}
-          onClose={() => {
-            setIsSidebarOpen(false);
-            setEditingBooking(null);
-          }}
-          onSave={handleSaveBooking}
-          onDelete={() => {
-            if (editingBooking) {
-              setDeletingBooking(editingBooking);
-              setIsDeleteDialogOpen(true);
-            }
-          }}
-          booking={editingBooking}
-          boats={boats}
-          models={houseboatModels}
-          prices={prices}
-          tariffs={tariffs}
-          availableExtras={availableExtras}
-          preselectedBoatId={preselectedBoatId}
-          preselectedDate={preselectedDate}
-          preselectedSlot={preselectedSlot}
-          preselectedEndDate={preselectedEndDate}
-          preselectedEndSlot={preselectedEndSlot}
-        />
+          <div className="custom-scrollbar min-w-0 flex flex-1 items-center justify-end gap-2 overflow-x-auto whitespace-nowrap pb-1 -mb-1">
+            <div className="relative min-w-[18rem] w-72">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                ref={searchInputRef}
+                value={localSearchTerm}
+                onChange={(event) => setLocalSearchTerm(event.target.value)}
+                placeholder="Search boat, client or reservation ID..."
+                className="h-10 rounded-full border-border bg-card pl-9 text-sm shadow-none"
+              />
+            </div>
+
+            <div className="flex items-center rounded-full border border-border bg-card p-1">
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => navigateRange('prev')}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="px-2 text-sm font-semibold text-foreground">{format(currentDate, 'MMM yyyy')}</span>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => navigateRange('next')}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <Button
+              variant="outline"
+              className="h-10 rounded-full px-4"
+              onClick={() => {
+                const today = new Date();
+                setCurrentDate(today);
+                setTimeout(() => scrollToDate(today), 80);
+              }}
+            >
+              <CalendarDays className="mr-2 h-4 w-4" />
+              Today
+            </Button>
+            <Button variant="outline" className="h-10 rounded-full px-4" onClick={() => refresh()}>
+              <Settings2 className="mr-2 h-4 w-4" />
+              Refresh
+            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-10 rounded-full px-4">
+                  <Filter className="mr-2 h-4 w-4" />
+                  Filters
+                  {filterCount > 0 ? (
+                    <Badge variant="secondary" className="ml-2 h-5 rounded-full bg-muted px-2 text-xs text-foreground">
+                      {filterCount}
+                    </Badge>
+                  ) : null}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-[310px] border-border p-0 shadow-none">
+                <FilterRail
+                  collapsed={false}
+                  models={houseboatModels}
+                  modelCount={houseboatModels.length}
+                  selectedModels={selectedModels}
+                  selectedStatuses={selectedStatuses}
+                  selectedSources={selectedSources}
+                  onToggleModel={(modelId, checked) =>
+                    setSelectedModels((prev) => (checked ? [...new Set([...prev, modelId])] : prev.filter((id) => id !== modelId)))
+                  }
+                  onToggleStatus={(status, checked) =>
+                    setSelectedStatuses((prev) => (checked ? [...new Set([...prev, status])] : prev.filter((value) => value !== status)))
+                  }
+                  onToggleSource={(source, checked) =>
+                    setSelectedSources((prev) => (checked ? [...new Set([...prev, source])] : prev.filter((value) => value !== source)))
+                  }
+                  onReset={() => {
+                    setSelectedModels([]);
+                    setSelectedStatuses([]);
+                    setSelectedSources([]);
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
+            <Button
+              className="h-10 rounded-full px-4"
+              onMouseEnter={preloadBookingForm}
+              onFocus={preloadBookingForm}
+              onClick={openNewReservation}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              New reservation
+            </Button>
+          </div>
+        </div>
       </div>
 
-      <Dialog open={is360DialogOpen} onOpenChange={setIs360DialogOpen}>
-        <DialogContent className="max-w-3xl p-0 overflow-hidden border-none shadow-2xl rounded-2xl bg-white">
-          <DialogHeader className="px-6 py-4 border-b bg-slate-50/50 backdrop-blur-md">
-            <div>
-              <DialogTitle className="text-xl font-bold tracking-tight text-slate-900 text-left">Customer 360 View</DialogTitle>
-              <DialogDescription className="text-xs text-slate-500 font-medium text-left">Comprehensive history and insights for this customer</DialogDescription>
+      <div className="flex min-h-0 flex-1">
+        <main className="min-w-0 flex-1 p-2">
+          {showNoResultsState ? (
+            <div className="flex h-full items-center justify-center rounded-xl border border-border bg-card p-6 text-center">
+              <div>
+                <p className="text-base font-semibold text-foreground">No boats match the current filters.</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Adjust filters or clear search to load the full fleet calendar.
+                </p>
+                <Button
+                  variant="outline"
+                  className="mt-4 rounded-full"
+                  onClick={() => {
+                    setLocalSearchTerm('');
+                    setSearchTerm('');
+                    setSelectedModels([]);
+                    setSelectedStatuses([]);
+                    setSelectedSources([]);
+                  }}
+                >
+                  Clear all filters
+                </Button>
+              </div>
             </div>
+          ) : (
+            <CalendarGrid
+              scrollContainerRef={scrollContainerRef}
+              onGridScroll={handleGridScroll}
+              onGridKeyDown={handleGridKeyDown}
+              onGridFocus={handleGridFocus}
+              totalGridWidth={totalGridWidth}
+              totalDaysWidth={totalDaysWidth}
+              monthSegments={monthSegments}
+              visibleDays={visibleDays}
+              leftDayPadding={leftDayPadding}
+              rightDayPadding={rightDayPadding}
+              todayKey={todayKey}
+              filteredBoatsCount={filteredBoats.length}
+              rowHeight={rowHeight}
+              rowStartIndex={rowStartIndex}
+              rowEndIndex={rowEndIndex}
+              visibleBoats={visibleBoats}
+              modelNameById={modelNameById}
+              visibleProcessedBookings={visibleProcessedBookings}
+              highlightedId={highlightedId}
+              dragPreviewStyle={dragPreviewStyle}
+              activeCellStyle={activeCellStyle}
+              onOpenBooking={handleOpenPreview}
+              onDayCellMouseDown={handleDayCellMouseDown}
+              onDayCellHover={handleDayCellHover}
+              onDayCellClick={handleDayCellClick}
+            />
+          )}
+        </main>
+      </div>
+
+      <QuickPreviewDrawer
+        open={isPreviewOpen}
+        booking={previewBooking}
+        getBoatName={getBoatName}
+        onOpenChange={(open: boolean) => {
+          setIsPreviewOpen(open);
+          if (!open) setPreviewBooking(null);
+        }}
+        onEdit={handleEditBooking}
+        onDelete={(booking) => {
+          setDeletingBooking(booking);
+          setIsPreviewOpen(false);
+          setPreviewBooking(null);
+          setIsDeleteDialogOpen(true);
+        }}
+        onCustomer360={(booking) => {
+          setSelectedBookingFor360(booking);
+          setIsPreviewOpen(false);
+          setPreviewBooking(null);
+          setIs360DialogOpen(true);
+        }}
+      />
+
+      <Sheet
+        modal={false}
+        open={isBookingFormOpen}
+        onOpenChange={(open: boolean) => {
+          if (open) {
+            setIsBookingFormOpen(true);
+            return;
+          }
+          attemptCloseBookingForm();
+        }}
+      >
+        <SheetContent side="right" className="w-[470px] max-w-[96vw] border-l border-border bg-card p-0">
+          <SheetTitle className="sr-only">Reservation form</SheetTitle>
+          <BookingFormSheet
+            mode="quick"
+            booking={editingBooking}
+            boats={boats}
+            models={houseboatModels}
+            prices={prices}
+            tariffs={tariffs}
+            availableExtras={availableExtras}
+            preselectedBoatId={preselectedBoatId}
+            preselectedDate={preselectedDate}
+            preselectedSlot={preselectedSlot}
+            preselectedEndDate={preselectedEndDate}
+            preselectedEndSlot={preselectedEndSlot}
+            onClose={() => {
+              attemptCloseBookingForm();
+            }}
+            onDirtyChange={setIsBookingFormDirty}
+            onOpenFullEdit={openFullEditPage}
+            onSave={handleSaveBooking}
+            onDelete={
+              editingBooking
+                ? () => {
+                    setDeletingBooking(editingBooking as MappedBooking);
+                    setIsDeleteDialogOpen(true);
+                  }
+                : undefined
+            }
+          />
+        </SheetContent>
+      </Sheet>
+
+      <Dialog modal={false} open={is360DialogOpen} onOpenChange={setIs360DialogOpen}>
+        <DialogContent className="max-w-4xl border border-border bg-card p-0 shadow-none">
+          <DialogHeader className="border-b border-border px-6 py-4">
+            <DialogTitle className="text-lg font-semibold text-foreground">Customer 360</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Unified history, communication context, and operational notes for this guest.
+            </DialogDescription>
           </DialogHeader>
-          <div className="p-6 overflow-y-auto max-h-[80vh]">
-            {selectedBookingFor360 && (
+          <div className="custom-scrollbar max-h-[78vh] overflow-y-auto p-6">
+            {selectedBookingFor360 ? (
               <Customer360View
                 clientEmail={selectedBookingFor360.clientEmail}
                 clientName={selectedBookingFor360.clientName}
               />
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading customer profile...
+              </div>
             )}
           </div>
         </DialogContent>
       </Dialog>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="border border-border bg-card shadow-none">
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete the reservation for <strong>{deletingBooking?.clientName}</strong>. This action cannot be undone.
+            <AlertDialogTitle className="text-xl font-semibold text-foreground">Delete reservation?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground">
+              This will permanently remove the reservation for <strong>{deletingBooking?.clientName || 'this guest'}</strong>. This
+              action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDeletingBooking(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteBooking}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            <AlertDialogCancel
+              className="rounded-xl"
+              onClick={() => {
+                setDeletingBooking(null);
+              }}
             >
-              Delete Reservation
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDeleteBooking}
+            >
+              Delete reservation
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       <style jsx global>{`
-        @keyframes shining {
-          0% { transform: scale(1); filter: brightness(1); }
-          50% { transform: scale(1.05); filter: brightness(1.3); }
-          100% { transform: scale(1); filter: brightness(1); }
-        }
-        .animate-shining {
-          animation: shining 1.5s ease-in-out infinite;
-          z-index: 50 !important;
-        }
         .custom-scrollbar::-webkit-scrollbar {
-          width: 8px;
-          height: 12px;
+          width: 10px;
+          height: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
-          background: #f1f1f1;
+          background: transparent;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #ddd;
-          border-radius: 10px;
-          border: 2px solid #f1f1f1;
+          background: hsl(var(--border));
+          border-radius: 9999px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #ccc;
-        }
-        /* Ensure the unit labels stay on top of the overlay shadows */
-        .sticky.left-0 {
-          z-index: 45 !important;
+          background: hsl(var(--muted-foreground) / 0.45);
         }
       `}</style>
     </div>

@@ -1,5 +1,6 @@
 
 'use client';
+// Deprecated: dashboard shell now uses SupabaseSidebar to avoid split UX patterns.
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -33,7 +34,7 @@ const navLinks: NavLink[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid, exact: true, permission: 'canViewDashboard' },
   { href: '/dashboard/houseboat-reservations', label: 'Houseboats', icon: Ship, permission: 'canViewHouseboatReservations' },
   { href: '/dashboard/restaurant-reservations', label: 'Restaurant', icon: Utensils, permission: 'canViewRestaurantReservations' },
-  { href: '/dashboard/daily-travel-reservations', label: 'Daily Travel', icon: Calendar, permission: 'canViewDailyTravelReservations' },
+  { href: '/dashboard/river-cruise-reservations', label: 'River Cruise', icon: Calendar, permission: 'canViewRiverCruiseReservations' },
   { href: '/dashboard/clients', label: 'Clients', icon: Users, permission: 'canViewClients' },
   { href: '/dashboard/messages', label: 'Messages', icon: MessageSquare, permission: 'canViewMessages' },
   { href: '/dashboard/activity-log', label: 'Activity Log', icon: History, permission: 'canManageStaff' },
@@ -156,3 +157,4 @@ export default function DashboardSidebar({
     </aside>
   );
 }
+

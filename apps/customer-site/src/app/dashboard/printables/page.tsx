@@ -6,13 +6,13 @@ import { format, startOfDay, endOfDay } from 'date-fns';
 import { useSupabase } from '@/components/providers/supabase-provider';
 import { useToast } from '@/hooks/use-toast';
 import { generateActivityReport } from '@/lib/pdf-designs';
-import type { Booking } from '@/lib/pdf-designs';
+import type { Booking } from '@/lib/types';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarIcon, FileDown, Printer } from 'lucide-react';
+import { Calendar as CalendarIcon, FileDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/page-header';
 

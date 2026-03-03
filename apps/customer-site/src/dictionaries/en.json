@@ -1,9 +1,26 @@
 {
+  "navigation": {
+    "links": {
+      "home": "Home",
+      "houseboats": "Houseboats",
+      "restaurant": "Restaurant",
+      "riverCruise": "River Cruise",
+      "contact": "Contact",
+      "services": "Services"
+    },
+    "auth": {
+      "login": "Login",
+      "register": "Register",
+      "logout": "Logout",
+      "dashboard": "Dashboard",
+      "myBookings": "My Bookings"
+    }
+  },
   "homepage": {
     "hero": {
-      "title": "Your Houseboat Adventure",
-      "subtitle": "Just choose your dates and crew to cast off.",
-      "licenseFree": "No License Required To Operate",
+      "title": "Discover the magic of Alqueva Lake with Amieira Marina",
+      "subtitle": "Discover the Serenity of Alqueva Lake",
+      "licenseFree": "No License Required",
       "form": {
         "checkIn": "Check-in",
         "checkOut": "Check-out",
@@ -19,12 +36,12 @@
       "viewAll": "View all houseboats"
     },
     "featured": {
-      "title": "Our Featured Fleet",
-      "subtitle": "A selection of our most popular boats for an unforgettable adventure."
+      "title": "Your Home Port at Amieira Marina",
+      "subtitle": "We provide everything you need for a safe and comfortable voyage, from provisioning to technical expertise."
     },
     "dining": {
-      "title": "Exquisite Dining by the Lake",
-      "description": "Our restaurant offers a menu inspired by the rich flavors of Portugal, prepared with the freshest local ingredients. Enjoy your meal on our terrace overlooking the magnificent Alqueva Lake.",
+      "title": "A Legacy of Quality in Alentejo",
+      "description": "Founded with a vision to bring high-end nautical tourism to the Alentejo region, Amieira Marina has become a benchmark for sustainability and service quality in Portugal. We are proud to hold the Blue Flag certification.",
       "button": "View Menu"
     },
     "testimonials": {
@@ -141,8 +158,8 @@
       "scenery": "Scenery"
     }
   },
-  "dailyTravel": {
-    "title": "Daily Travel",
+  "riverCruise": {
+    "title": "River Cruise",
     "subtitle": "Discover the beauty of Alqueva with our guided boat tours. Perfect for a day of adventure and relaxation.",
     "duration": "Duration",
     "hours": "Hours",
@@ -175,6 +192,19 @@
         "submitting": "Sending..."
       }
     }
+  },
+  "offers": {
+    "title": "Special Offers & Packages",
+    "subtitle": "Unforgettable experiences at exceptional value. Discover our curated seasonal bundles and exclusive discounts.",
+    "viewOffer": "View Details",
+    "claim": "Check Availability & Claim",
+    "backToList": "Back to Offers",
+    "noOffers": {
+      "title": "No offers available currently",
+      "description": "Please check back later for our new seasonal packages."
+    },
+    "conditions": "Promotion Conditions",
+    "policyInfo": "This offer is capped at a 25% maximum discount on the base reservation price. Terms and conditions apply."
   },
   "payment": {
     "title": "Reservation Request Sent!",

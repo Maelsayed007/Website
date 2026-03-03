@@ -1,0 +1,27 @@
+{
+  "ci": {
+    "collect": {
+      "numberOfRuns": 1,
+      "startServerCommand": "npm run start --workspace=@amieira/customer-site",
+      "startServerReadyPattern": "Ready",
+      "startServerReadyTimeout": 120000,
+      "chromeFlags": "--headless --disable-gpu --user-data-dir=.lighthouseci/chrome-profile",
+      "url": [
+        "http://localhost:3000/",
+        "http://localhost:3000/houseboats",
+        "http://localhost:3000/river-cruise"
+      ]
+    },
+    "assert": {
+      "assertions": {
+        "largest-contentful-paint": ["warn", { "maxNumericValue": 3500 }],
+        "interactive": ["warn", { "maxNumericValue": 4500 }],
+        "total-blocking-time": ["warn", { "maxNumericValue": 350 }]
+      }
+    },
+    "upload": {
+      "target": "filesystem",
+      "outputDir": ".lighthouseci/reports"
+    }
+  }
+}

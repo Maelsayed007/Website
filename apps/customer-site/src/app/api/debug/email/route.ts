@@ -1,10 +1,20 @@
 
 import { sendEmail } from '@/lib/email';
 import { NextResponse } from 'next/server';
+import { hasPermission, validateSession } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
+    if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
+    const user = await validateSession();
+    if (!user || !hasPermission(user, 'canEditSettings')) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const to = searchParams.get('to');
 
@@ -36,8 +46,7 @@ export async function GET(request: Request) {
         console.error('[Debug] Email send failed:', error);
         return NextResponse.json({
             success: false,
-            error: error.message,
-            stack: error.stack
+            error: error.message
         }, { status: 500 });
     }
 }

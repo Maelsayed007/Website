@@ -1,0 +1,10 @@
+▲ Next.js 16.1.1 (webpack)
+- Local:         http://localhost:9011
+- Network:       http://192.168.1.21:9011
+- Environments: .env
+
+✓ Starting...
+✓ Ready in 9.1s
+○ Compiling / ...
+ GET / 200 in 105s (compile: 20.2s, proxy.ts: 280ms, render: 85s)
+ GET /offers 200 in 2.5s (compile: 1725ms, proxy.ts: 33ms, render: 735ms)

@@ -1,8 +1,27 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { validateSession, hasPermission, hashPassword } from '@/lib/admin-auth';
+import {
+    getRolePermissions,
+    normalizePermissions,
+    type StaffRole,
+} from '@/lib/auth/permissions';
 
 export const dynamic = 'force-dynamic';
+const ALLOWED_ROLES: StaffRole[] = [
+    'super_admin',
+    'accountant',
+    'customer_support',
+    'operations_support',
+    'reception',
+    'manager',
+    'staff',
+];
+
+function normalizeRole(value: unknown): StaffRole {
+    const role = String(value || 'staff') as StaffRole;
+    return ALLOWED_ROLES.includes(role) ? role : 'staff';
+}
 
 // GET - List all users (SuperAdmin only)
 export async function GET() {
@@ -20,7 +39,10 @@ export async function GET() {
 
         if (error) throw error;
 
-        return NextResponse.json({ users: data });
+        return NextResponse.json(
+            { users: data },
+            { headers: { 'Cache-Control': 'private, no-store, max-age=0' } }
+        );
     } catch (error: any) {
         console.error('Error fetching users:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -70,23 +92,20 @@ export async function POST(request: Request) {
 
         const passwordHash = await hashPassword(password);
 
+        const normalizedRole = normalizeRole(role);
+        const normalizedPermissions = normalizePermissions({
+            role: normalizedRole,
+            permissions: permissions || getRolePermissions(normalizedRole),
+        });
+
         const { data, error } = await supabase
             .from('admin_users')
             .insert({
                 username: username.toLowerCase().trim(),
                 password_hash: passwordHash,
                 display_name: displayName || username,
-                role: role || 'staff',
-                permissions: permissions || {
-                    canViewDashboard: true,
-                    canViewBookings: true,
-                    canEditBookings: false,
-                    canDeleteBookings: false,
-                    canManagePayments: false,
-                    canViewSettings: false,
-                    canEditSettings: false,
-                    canManageUsers: false
-                }
+                role: normalizedRole,
+                permissions: normalizedPermissions,
             })
             .select('id, username, display_name, role, permissions')
             .single();
@@ -116,14 +135,27 @@ export async function PUT(request: Request) {
         }
 
         const supabase = createAdminClient();
+        const { data: existingUser } = await supabase
+            .from('admin_users')
+            .select('role, permissions')
+            .eq('id', id)
+            .single();
 
         const updateData: any = {
             updated_at: new Date().toISOString()
         };
 
         if (displayName !== undefined) updateData.display_name = displayName;
-        if (role !== undefined) updateData.role = role;
-        if (permissions !== undefined) updateData.permissions = permissions;
+        const nextRole = role !== undefined ? normalizeRole(role) : undefined;
+        if (nextRole !== undefined) updateData.role = nextRole;
+
+        if (permissions !== undefined || nextRole !== undefined) {
+            const normalizedPermissions = normalizePermissions({
+                role: nextRole || existingUser?.role || undefined,
+                permissions: permissions || existingUser?.permissions,
+            });
+            updateData.permissions = normalizedPermissions;
+        }
         if (isActive !== undefined) updateData.is_active = isActive;
 
         // If password is being changed

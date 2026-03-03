@@ -1,8 +1,7 @@
 'use client';
 
-import { Suspense, useMemo, useState, useEffect } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Skeleton } from '@/components/ui/skeleton';
 import { HouseboatModel, HouseboatModelPrice, Tariff, Booking } from '@/lib/types';
 import {
   Select,
@@ -79,7 +78,7 @@ const HouseboatsPageInner = ({ dictionary, initialData }: HouseboatsPageContentP
 
   if (isSearchView) {
     return (
-      <div className="container mx-auto max-w-7xl px-4 py-16 sm:py-24">
+      <div className="container mx-auto max-w-[1440px] px-4 py-16 sm:py-24">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
           <aside className="lg:col-span-4 xl:col-span-3">
             <div className="sticky top-28 space-y-8">
@@ -140,7 +139,6 @@ const HouseboatsPageInner = ({ dictionary, initialData }: HouseboatsPageContentP
                   <HouseboatCard
                     key={boat.id}
                     houseboat={boat}
-                    price={boat.calculatedPrice}
                     isAvailable={boat.isAvailable!}
                   />
                 ))}
@@ -188,7 +186,7 @@ const HouseboatsPageInner = ({ dictionary, initialData }: HouseboatsPageContentP
 
 export default function HouseboatsPageContent(props: HouseboatsPageContentProps) {
   return (
-    <Suspense fallback={<div className="container mx-auto max-w-7xl px-4 py-16 sm:py-24"><div className="animate-pulse bg-muted h-96 rounded-2xl" /></div>}>
+    <Suspense fallback={<div className="container mx-auto max-w-[1440px] px-4 py-16 sm:py-24"><div className="animate-pulse bg-muted h-96 rounded-2xl" /></div>}>
       <HouseboatsPageInner {...props} />
     </Suspense>
   );

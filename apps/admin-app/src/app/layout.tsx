@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
     title: 'Amieira Admin',
-    description: 'Staff Management Portal',
+    description: 'Staff management portal',
 };
 
 export default function RootLayout({
@@ -13,7 +13,7 @@ export default function RootLayout({
 }) {
     return (
         <html lang="en">
-            <body className="antialiased bg-gray-50 text-gray-900">
+            <body className="antialiased min-h-screen text-[#18230F]">
                 {children}
             </body>
         </html>

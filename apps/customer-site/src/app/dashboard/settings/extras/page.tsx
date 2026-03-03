@@ -49,7 +49,7 @@ type Extra = {
   name: string;
   description: string;
   price: number;
-  type: 'houseboat' | 'daily-travel' | 'restaurant' | 'all';
+  type: 'houseboat' | 'daily_travel' | 'restaurant' | 'all';
   price_type?: 'per_stay' | 'per_day' | 'per_person';
 };
 
@@ -158,7 +158,7 @@ export default function ExtrasSettingsPage() {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to save extra.',
+        description: error instanceof Error ? error.message : 'Failed to save extra. Please check your connection or permissions.',
       });
     }
   };
@@ -319,7 +319,7 @@ export default function ExtrasSettingsPage() {
                   <SelectContent>
                     <SelectItem value="all">All Booking Types</SelectItem>
                     <SelectItem value="houseboat">Houseboat</SelectItem>
-                    <SelectItem value="daily_travel">Daily Travel</SelectItem>
+                    <SelectItem value="daily_travel">River Cruise</SelectItem>
                     <SelectItem value="restaurant">Restaurant</SelectItem>
                   </SelectContent>
                 </Select>

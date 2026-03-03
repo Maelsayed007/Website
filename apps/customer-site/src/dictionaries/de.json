@@ -1,10 +1,26 @@
-
 {
+  "navigation": {
+    "links": {
+      "home": "Home",
+      "houseboats": "Hausboote",
+      "restaurant": "Restaurant",
+      "riverCruise": "Flusskreuzfahrt",
+      "contact": "Kontakt",
+      "services": "Leistungen"
+    },
+    "auth": {
+      "login": "Anmelden",
+      "register": "Registrieren",
+      "logout": "Abmelden",
+      "dashboard": "Dashboard",
+      "myBookings": "Meine Buchungen"
+    }
+  },
   "homepage": {
     "hero": {
-      "title": "Ihr Hausboot-Abenteuer",
-      "subtitle": "Wählen Sie einfach Ihre Daten und Ihre Crew, um loszulegen.",
-      "licenseFree": "Kein Führerschein zum Fahren erforderlich",
+      "title": "Entdecken Sie die Magie des Alqueva-Sees mit Amieira Marina",
+      "subtitle": "Entdecken Sie die Gelassenheit des Alqueva-Sees",
+      "licenseFree": "Keine Lizenz erforderlich",
       "form": {
         "checkIn": "Check-in",
         "checkOut": "Check-out",
@@ -20,12 +36,12 @@
       "viewAll": "Alle Hausboote ansehen"
     },
     "featured": {
-      "title": "Unsere vorgestellte Flotte",
-      "subtitle": "Eine Auswahl unserer beliebtesten Boote für ein unvergessliches Abenteuer."
+      "title": "Ihr Heimathafen in der Amieira Marina",
+      "subtitle": "Wir bieten alles, was Sie für eine sichere und komfortable Reise benötigen, vom Proviant bis zum technischen Fachwissen."
     },
     "dining": {
-      "title": "Exquisites Essen am See",
-      "description": "Unser Restaurant bietet ein Menü, das von den reichen Aromen Portugals inspiriert ist und mit den frischesten lokalen Zutaten zubereitet wird. Genießen Sie Ihre Mahlzeit auf unserer Terrasse mit Blick auf den herrlichen Alqueva-See.",
+      "title": "Ein Erbe an Qualität im Alentejo",
+      "description": "Gegründet mit der Vision, hochwertigen nautischen Tourismus in die Region Alentejo zu bringen, hat sich die Amieira Marina zu einem Maßstab für Nachhaltigkeit und Servicequalität in Portugal entwickelt. Wir sind stolz darauf, die Blaue Flagge-Zertifizierung zu tragen.",
       "button": "Menü ansehen"
     },
     "testimonials": {
@@ -88,7 +104,7 @@
   "restaurant": {
     "hero": {
       "title": "Amieira Restaurant",
-      "subtitle": "Erleben Sie exquisites Essen mit Aussicht."
+      "subtitle": "Erleben Sie exquise Essen mit Aussicht."
     },
     "about": {
       "title": "Eine kulinarische Reise",
@@ -142,7 +158,7 @@
       "scenery": "Landschaft"
     }
   },
-  "dailyTravel": {
+  "riverCruise": {
     "title": "Tagesausflüge",
     "subtitle": "Entdecken Sie die Schönheit des Alqueva mit unseren geführten Bootstouren. Perfekt für einen Tag voller Abenteuer und Entspannung.",
     "duration": "Dauer",
@@ -176,6 +192,19 @@
         "submitting": "Wird gesendet..."
       }
     }
+  },
+  "offers": {
+    "title": "Sonderangebote & Pakete",
+    "subtitle": "Unvergessliche Erlebnisse zu einem außergewöhnlichen Preis. Entdecken Sie unsere saisonalen Pakete und exklusiven Rabatte.",
+    "viewOffer": "Details anzeigen",
+    "claim": "Verfügbarkeit prüfen",
+    "backToList": "Zurück zu Angeboten",
+    "noOffers": {
+      "title": "Derzeit keine Angebote verfügbar",
+      "description": "Bitte schauen Sie später wieder vorbei, um unsere neuen saisonalen Pakete zu sehen."
+    },
+    "conditions": "Aktionsbedingungen",
+    "policyInfo": "Dieses Angebot ist auf einen maximalen Rabatt von 25 % auf den Basispreis der Reservierung begrenzt. Es gelten die allgemeinen Geschäftsbedingungen."
   },
   "payment": {
     "title": "Reservierungsanfrage gesendet!",
@@ -257,5 +286,25 @@
         "submitting": "Wird gesendet..."
       }
     }
+  },
+  "footer": {
+    "tagline": "Ihr unvergessliches Abenteuer am See.",
+    "explore": {
+      "title": "Entdecken",
+      "home": "Home",
+      "houseboats": "Hausboote",
+      "restaurant": "Restaurant",
+      "gallery": "Galerie",
+      "contact": "Kontakt"
+    },
+    "legal": {
+      "title": "Rechtliches",
+      "privacy": "Datenschutzrichtlinie",
+      "terms": "Nutzungsbedingungen"
+    },
+    "connect": {
+      "title": "Verbinden"
+    },
+    "rightsReserved": "Alle Rechte vorbehalten."
   }
 }

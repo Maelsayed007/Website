@@ -9,7 +9,7 @@ const routeLabels: Record<string, string> = {
   dashboard: 'Dashboard',
   'houseboat-reservations': 'Houseboat Reservations',
   'restaurant-reservations': 'Restaurant Reservations',
-  'daily-travel-reservations': 'Daily Travel Reservations',
+  'river-cruise-reservations': 'River Cruise Reservations',
   clients: 'Clients',
   messages: 'Messages',
   'activity-log': 'Activity Log',
@@ -18,10 +18,9 @@ const routeLabels: Record<string, string> = {
   general: 'General',
   houseboats: 'Houseboats',
   tariffs: 'Tariffs',
-  'daily-travel': 'Daily Travel',
+  'river-cruise': 'River Cruise',
   restaurant: 'Restaurant',
   extras: 'Extras',
-  vouchers: 'Vouchers',
   testimonials: 'Testimonials',
   documents: 'Documents',
   staff: 'Staff',
@@ -29,19 +28,19 @@ const routeLabels: Record<string, string> = {
 
 export default function DashboardBreadcrumb() {
   const pathname = usePathname();
-  
+
   const pathSegments = pathname.split('/').filter(Boolean);
   const segments = pathSegments.slice(1);
 
   return (
     <nav className="flex items-center gap-1.5 text-sm">
-      <Link 
-        href="/dashboard" 
+      <Link
+        href="/dashboard"
         className="text-muted-foreground hover:text-foreground transition-colors font-medium"
       >
         Dashboard
       </Link>
-      
+
       {segments.map((segment, index) => {
         const href = '/dashboard/' + segments.slice(0, index + 1).join('/');
         const label = routeLabels[segment] || segment;
@@ -53,7 +52,7 @@ export default function DashboardBreadcrumb() {
             {isLast ? (
               <span className="font-semibold text-foreground">{label}</span>
             ) : (
-              <Link 
+              <Link
                 href={href}
                 className="text-muted-foreground hover:text-foreground transition-colors font-medium"
               >

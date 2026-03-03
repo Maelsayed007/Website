@@ -1,41 +1,19 @@
-
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { NextResponse } from 'next/server';
-import { sendPaymentLinkEmail } from '@/lib/email';
+import { sendSecurePaymentLinkEmail } from '@/lib/email';
+import { hasPermission, validateSession } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
-    const supabase = createAdminClient(); // Use admin client for DB ops to bypass RLS need for regular user
-
-    // 1. Auth Check (Admin/Staff only)
-    // 1. Auth Check (Admin logic - cookie based)
-    // We check for the custom admin session first, as this is the primary staff auth method
-    let user = null;
-    try {
-        const { validateSession } = await import('@/lib/admin-auth');
-        user = await validateSession();
-    } catch (e) {
-        console.warn('Admin auth check failed, falling back to Supabase auth check', e);
+    const supabase = createAdminClient();
+    const user = await validateSession();
+    if (!user || !hasPermission(user, 'canManagePayments')) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-
-    // Fallback if admin auth lib fails or returns null
-    if (!user) {
-        // If not custom admin, check standard supabase auth
-        // We need a standard client for this check
-        const standardSupabase = await createClient();
-        const { data: { session } } = await standardSupabase.auth.getSession();
-        if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-    }
-
-    // Double check admin role? Assuming authenticated staff can generate links.
-
     try {
-        const { bookingId, email, amount, skipEmail } = await request.json();
+        const { bookingId, email, amount, skipEmail, description, dueDate } = await request.json();
 
         if (!bookingId) {
             return NextResponse.json({ error: 'Missing bookingId' }, { status: 400 });
@@ -66,50 +44,31 @@ export async function POST(request: Request) {
         }
 
         // 3. Generate Token
-        // We insert into payment_tokens table.
-        // expires_at = now + 48 hours
-        const expiresAt = new Date();
-        expiresAt.setHours(expiresAt.getHours() + 48);
-
-        let tokenData;
-        let tokenError;
-
-        // Try inserting with requested_amount first
-        try {
-            const res = await supabase
-                .from('payment_tokens')
-                .insert({
-                    booking_id: bookingId,
-                    expires_at: expiresAt.toISOString(),
-                    requested_amount: finalAmount
-                })
-                .select('token')
-                .single();
-            tokenData = res.data;
-            tokenError = res.error;
-        } catch (e) {
-            tokenError = e;
+        // expires_at = dueDate OR now + 48 hours
+        let expiresAt = new Date();
+        if (dueDate) {
+            expiresAt = new Date(dueDate);
+            // Ensure end of day if only date provided, or just use as is
+            expiresAt.setHours(23, 59, 59, 999);
+        } else {
+            expiresAt.setHours(expiresAt.getHours() + 48);
         }
 
-        // If that failed (likely due to column missing), try legacy insert
+        // 4. Create Payment Token
+        const { data: tokenData, error: tokenError } = await supabase
+            .from('payment_tokens')
+            .insert({
+                booking_id: bookingId,
+                expires_at: expiresAt.toISOString(),
+                requested_amount: finalAmount,
+                description: description || `Payment for Booking #${booking.id.slice(0, 8)}`
+            })
+            .select('token')
+            .single();
+
         if (tokenError) {
-            console.warn('Insert with requested_amount failed, trying legacy insert:', tokenError);
-            const res = await supabase
-                .from('payment_tokens')
-                .insert({
-                    booking_id: bookingId,
-                    expires_at: expiresAt.toISOString()
-                    // Create token without requested_amount
-                })
-                .select('token')
-                .single();
-            tokenData = res.data;
-            tokenError = res.error;
-        }
-
-        if (tokenError || !tokenData) {
-            console.error('Token create error final:', tokenError);
-            return NextResponse.json({ error: 'Failed to generate token' }, { status: 500 });
+            console.error('Token Creation Error:', tokenError);
+            throw new Error('Failed to create payment token');
         }
 
         const token = tokenData.token;
@@ -123,7 +82,7 @@ export async function POST(request: Request) {
         let emailSent = false;
         if (!skipEmail) {
             try {
-                await sendPaymentLinkEmail(targetEmail, clientName, link, bookingType, finalAmount);
+                await sendSecurePaymentLinkEmail(targetEmail, clientName, link, bookingType, finalAmount);
                 // 5. Update booking to mark email sent
                 await supabase.from('bookings').update({ email_sent: true }).eq('id', bookingId);
                 emailSent = true;

@@ -1,0 +1,387 @@
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px) translateX(0px);
+  }
+
+  50% {
+    transform: translateY(-15px) translateX(5px);
+  }
+}
+
+@keyframes mesh-drift {
+  0% {
+    background-position: 0% 0%, 100% 0%, 50% 100%;
+  }
+
+  50% {
+    background-position: 8% 6%, 92% 10%, 46% 94%;
+  }
+
+  100% {
+    background-position: 0% 0%, 100% 0%, 50% 100%;
+  }
+}
+
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translateY(0px) translateX(0px) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-10px) translateX(-5px) rotate(5deg);
+  }
+}
+
+@keyframes pulse-slow {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes wave {
+  0%,
+  100% {
+    transform: translateX(0) translateY(0);
+  }
+
+  50% {
+    transform: translateX(-25px) translateY(-10px);
+  }
+}
+
+@keyframes wave-slow {
+  0%,
+  100% {
+    transform: translateX(0) translateY(0);
+  }
+
+  50% {
+    transform: translateX(25px) translateY(-5px);
+  }
+}
+
+@keyframes blob {
+  0%,
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes cta-flow {
+  0% {
+    background-position: 0% 62%;
+  }
+
+  18% {
+    background-position: 34% 40%;
+  }
+
+  37% {
+    background-position: 72% 67%;
+  }
+
+  59% {
+    background-position: 46% 43%;
+  }
+
+  78% {
+    background-position: 96% 60%;
+  }
+
+  100% {
+    background-position: 138% 48%;
+  }
+}
+
+@keyframes cta-wave-surge {
+  0% {
+    transform: translateX(-11%) translateY(0%) scaleX(1);
+  }
+
+  31% {
+    transform: translateX(7%) translateY(-9%) scaleX(1.08);
+  }
+
+  58% {
+    transform: translateX(-4%) translateY(6%) scaleX(0.96);
+  }
+
+  100% {
+    transform: translateX(14%) translateY(-3%) scaleX(1.1);
+  }
+}
+
+@keyframes cta-mesh {
+  0% {
+    background-position: 0% 0%, 100% 0%, 0% 50%;
+  }
+
+  35% {
+    background-position: 12% 8%, 90% 18%, 45% 62%;
+  }
+
+  70% {
+    background-position: 4% 18%, 96% 6%, 86% 38%;
+  }
+
+  100% {
+    background-position: 0% 0%, 100% 0%, 0% 50%;
+  }
+}
+
+@keyframes hero-breathe {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.035);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-float-delay-1 {
+  animation: float 7s ease-in-out infinite;
+  animation-delay: 1s;
+}
+
+.animate-float-delay-2 {
+  animation: float 8s ease-in-out infinite;
+  animation-delay: 2s;
+}
+
+.animate-float-delay-3 {
+  animation: float 5.5s ease-in-out infinite;
+  animation-delay: 1.5s;
+}
+
+.animate-float-slow {
+  animation: float-slow 10s ease-in-out infinite;
+}
+
+.animate-float-slow-delay {
+  animation: float-slow 12s ease-in-out infinite;
+  animation-delay: 2s;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 4s ease-in-out infinite;
+}
+
+.animate-wave {
+  animation: wave 8s ease-in-out infinite;
+}
+
+.animate-wave-slow {
+  animation: wave-slow 12s ease-in-out infinite;
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.4s ease-out;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}
+
+.enter-fade {
+  animation: fade-in var(--motion-medium) var(--ease-emphasized);
+}
+
+.enter-slide-up {
+  animation: fade-in-up var(--motion-medium) var(--ease-emphasized);
+}
+
+.enter-slide-right {
+  animation: slide-in-right var(--motion-medium) var(--ease-emphasized);
+}
+
+.stagger-children > * {
+  animation: fade-in-up 0.4s ease-out;
+  animation-fill-mode: both;
+}
+
+.stagger-children > *:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.stagger-children > *:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.stagger-children > *:nth-child(3) {
+  animation-delay: 0.15s;
+}
+
+.stagger-children > *:nth-child(4) {
+  animation-delay: 0.2s;
+}
+
+.stagger-children > *:nth-child(5) {
+  animation-delay: 0.25s;
+}
+
+.stagger-list > * {
+  animation: fade-in-up var(--motion-medium) var(--ease-emphasized);
+  animation-fill-mode: both;
+}
+
+.stagger-list > *:nth-child(1) {
+  animation-delay: 40ms;
+}
+
+.stagger-list > *:nth-child(2) {
+  animation-delay: 80ms;
+}
+
+.stagger-list > *:nth-child(3) {
+  animation-delay: 120ms;
+}
+
+.stagger-list > *:nth-child(4) {
+  animation-delay: 160ms;
+}
+
+.stagger-list > *:nth-child(5) {
+  animation-delay: 200ms;
+}
+
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity var(--motion-medium) var(--ease-emphasized),
+    transform var(--motion-medium) var(--ease-emphasized);
+}
+
+.reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.cta-shimmer {
+  position: relative;
+  border: 1px solid rgba(30, 68, 166, 0.25);
+  background:
+    radial-gradient(circle at 16% 22%, rgba(112, 159, 255, 0.42), transparent 46%),
+    radial-gradient(circle at 86% 78%, rgba(37, 88, 212, 0.45), transparent 52%),
+    linear-gradient(128deg, #2b5fd8 0%, #3d76f2 44%, #1e4dbb 100%);
+  background-size: 170% 170%;
+  animation: cta-mesh 16s ease-in-out infinite;
+  box-shadow: none;
+  transition:
+    transform var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard),
+    filter var(--motion-fast) var(--ease-standard);
+}
+
+.cta-shimmer::before {
+  display: none;
+}
+
+.cta-shimmer::after {
+  display: none;
+}
+
+.cta-shimmer:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  box-shadow: none;
+}
+
+.hero-breathe {
+  animation: hero-breathe 22s ease-in-out infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .reveal-on-scroll {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .cta-shimmer {
+    animation: none !important;
+  }
+}

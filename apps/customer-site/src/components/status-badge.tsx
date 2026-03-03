@@ -9,17 +9,23 @@ type StatusBadgeProps = {
 
 export function StatusBadge({ status, children }: StatusBadgeProps) {
   const variants = {
-    confirmed: 'bg-[#E8F5E9] text-[#2E7D32] border-[#90C17C]',
-    pending: 'bg-[#FFF9E6] text-[#F57C00] border-[#FFB74D]',
-    maintenance: 'bg-[#FFE0B2] text-[#E65100] border-[#FF9800]',
-    cancelled: 'bg-[#FFEBEE] text-[#C62828] border-[#EF5350]',
-    checkout: 'bg-[#E3F2FD] text-[#1565C0] border-[#42A5F5]',
-    reserved: 'bg-[#F3E5F5] text-[#6A1B9A] border-[#AB47BC]'
+    confirmed:
+      'border border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-700/40 dark:bg-emerald-500/15 dark:text-emerald-300',
+    pending:
+      'border border-amber-200 bg-amber-100 text-amber-800 dark:border-amber-700/40 dark:bg-amber-500/15 dark:text-amber-300',
+    maintenance:
+      'border border-slate-300 bg-slate-200 text-slate-800 dark:border-slate-600 dark:bg-slate-500/20 dark:text-slate-200',
+    cancelled:
+      'border border-red-200 bg-red-100 text-red-800 dark:border-red-700/40 dark:bg-red-500/15 dark:text-red-300',
+    checkout:
+      'border border-blue-200 bg-blue-100 text-blue-800 dark:border-blue-700/40 dark:bg-blue-500/15 dark:text-blue-300',
+    reserved:
+      'border border-indigo-200 bg-indigo-100 text-indigo-800 dark:border-indigo-700/40 dark:bg-indigo-500/15 dark:text-indigo-300'
   };
 
   return (
     <span className={cn(
-      "inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border",
+      'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold',
       variants[status]
     )}>
       {children || status.charAt(0).toUpperCase() + status.slice(1)}

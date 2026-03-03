@@ -1,14 +1,13 @@
 'use client';
 
-import { Plus, UserPlus, Wrench, Calendar, FileText, Settings } from 'lucide-react';
+import { UserPlus, Wrench, Calendar } from 'lucide-react';
 import Link from 'next/link';
 
 export function CompactQuickActions() {
     const actions = [
-        { icon: Plus, label: 'New Reservation', href: '/dashboard/houseboat-reservations', variant: 'primary' },
         { icon: UserPlus, label: 'Check-in', href: '/dashboard/houseboat-reservations', variant: 'default' },
         { icon: Wrench, label: 'Maintenance', href: '/dashboard/houseboat-reservations', variant: 'default' },
-        { icon: Calendar, label: 'Schedule', href: '/dashboard/daily-travel-reservations', variant: 'default' },
+        { icon: Calendar, label: 'Schedule', href: '/dashboard/river-cruise-reservations', variant: 'default' },
     ];
 
     return (

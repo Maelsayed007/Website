@@ -1,21 +1,19 @@
-
 {
-    "tagline": "A sua fuga para a serenidade.",
-    "explore": {
-        "title": "Explorar",
-        "home": "Início",
-        "houseboats": "Casas-Barco",
-        "restaurant": "Restaurante",
-        "gallery": "Galeria",
-        "contact": "Contato"
-    },
-    "legal": {
-        "title": "Legal",
-        "privacy": "Política de Privacidade",
-        "terms": "Termos de Serviço"
-    },
-    "connect": {
-        "title": "Conectar"
-    },
-    "rightsReserved": "Todos os direitos reservados."
+  "tagline": "Sua aventura inesquec\u00edvel \u00e0 beira do lago.",
+  "explore": {
+    "title": "Explorar",
+    "home": "Home",
+    "houseboats": "Casas-barco",
+    "restaurant": "Restaurante",
+    "contact": "Contacto"
+  },
+  "legal": {
+    "title": "Legal",
+    "privacy": "Pol\u00edtica de Privacidade",
+    "terms": "Termos de Servi\u00e7o"
+  },
+  "connect": {
+    "title": "Ligar"
+  },
+  "rightsReserved": "Todos os direitos reservados."
 }

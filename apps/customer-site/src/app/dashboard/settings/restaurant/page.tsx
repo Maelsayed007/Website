@@ -2,19 +2,22 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  PlusCircle,
   Trash2,
   Pencil,
-  GripVertical,
-  Sparkles,
   Utensils,
-  Layers,
-  Save,
   Loader2,
+  ChevronDown,
   ChevronRight,
-  Info
+  LayoutGrid,
+  FileText,
+  Euro,
+  Plus,
+  ArrowLeft,
+  Baby,
+  User,
+  UserCheck
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,7 +28,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogClose
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -38,790 +40,848 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from "@/hooks/use-toast";
-import { RestaurantMenuPackage } from '@/lib/types';
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { cn } from '@/lib/utils';
 
-interface MenuItem {
+// --- Types ---
+
+interface MenuDish {
+  id?: string;
+  menu_id: string;
+  name: string;
+  description: string;
+  ingredients?: string;
+  category: string;
+  allergens: string[];
+  is_vegetarian: boolean;
+  is_vegan: boolean;
+  is_gluten_free: boolean;
+  sort_order: number;
+}
+
+interface RestaurantMenu {
   id: string;
   name: string;
   description: string;
-  price: string;
-  ingredients: string;
-  category_id: string;
-  order_index: number;
+  price_adult: number;
+  price_child: number;
+  price_senior: number;
+  is_active: boolean;
+  sort_order: number;
+  dishes?: MenuDish[];
 }
 
-interface MenuCategory {
-  id: string;
-  name: string;
-  order_index: number;
-  items: MenuItem[];
+// Group dishes by category
+function groupByCategory(dishes: MenuDish[]): Record<string, MenuDish[]> {
+  const groups: Record<string, MenuDish[]> = {};
+  for (const dish of dishes) {
+    const cat = dish.category || 'Other';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(dish);
+  }
+  return groups;
 }
+
+// Capitalize first letter
+function capitalize(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+
 
 export default function RestaurantSettingsPage() {
-  const [categories, setCategories] = useState<MenuCategory[]>([]);
-  const [packages, setPackages] = useState<RestaurantMenuPackage[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
-  const [isItemDialogOpen, setIsItemDialogOpen] = useState(false);
-  const [isPackageDialogOpen, setIsPackageDialogOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(null);
-  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
-  const [editingPackage, setEditingPackage] = useState<RestaurantMenuPackage | null>(null);
-  const [categoryName, setCategoryName] = useState('');
-  const [currentItem, setCurrentItem] = useState<Partial<MenuItem>>({});
-  const [currentPackage, setCurrentPackage] = useState<Partial<RestaurantMenuPackage>>({
-    prices: { adult: 0, child: 0 },
-    is_active: true
-  });
-  const [draggedCategory, setDraggedCategory] = useState<MenuCategory | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-
   const supabase = createClient();
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+  const [menus, setMenus] = useState<RestaurantMenu[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Views: 'list' | 'editor'
+  const [view, setView] = useState<'list' | 'editor'>('list');
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  // Menu form
+  const [menuForm, setMenuForm] = useState({
+    name: '', description: '', price_adult: 0, price_child: 0, price_senior: 0, is_active: true
+  });
+  const [isMenuDialogOpen, setIsMenuDialogOpen] = useState(false);
+  const [editingMenuId, setEditingMenuId] = useState<string | null>(null);
+
+  // Dish/Item form
+  const [isDishDialogOpen, setIsDishDialogOpen] = useState(false);
+  const [editingDishId, setEditingDishId] = useState<string | null>(null);
+  const [dishForm, setDishForm] = useState({
+    name: '', description: '', category: 'main'
+  });
+
+  // Category Dialog
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+
+  // Expandable categories in editor
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Fetch categories and items
-      const { data: catData, error: catError } = await supabase
-        .from('restaurant_menu_categories')
-        .select(`
-          *,
-          items:restaurant_menu_items(*)
-        `)
-        .order('order_index');
+      const { data: menuData, error } = await supabase
+        .from('restaurant_menus')
+        .select(`*, dishes:menu_dishes(*)`)
+        .order('sort_order', { ascending: true });
 
-      if (catError) throw catError;
-
-      // Sort items within each category
-      const sortedCategories = (catData || []).map(cat => ({
-        ...cat,
-        items: (cat.items || []).sort((a: MenuItem, b: MenuItem) => a.order_index - b.order_index)
-      }));
-
-      setCategories(sortedCategories);
-
-      // Fetch menu packages
-      const { data: pkgData, error: pkgError } = await supabase
-        .from('restaurant_menu_packages')
-        .select('*')
-        .order('created_at');
-
-      if (pkgError && pkgError.code !== 'PGRST116') {
-        // Table might not exist yet if migration wasn't run
-        console.warn('Could not fetch packages. Table might not exist.', pkgError);
-      } else {
-        setPackages(pkgData || []);
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching menus:', error);
       }
+
+      const sortedMenus = (menuData || []).map((m: any) => ({
+        ...m,
+        price_senior: m.price_senior || 0,
+        dishes: (m.dishes || []).sort((a: MenuDish, b: MenuDish) => a.sort_order - b.sort_order)
+      }));
+      setMenus(sortedMenus);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to load restaurant data" });
-      console.error(error);
+      toast({ variant: "destructive", title: "Error", description: "Failed to load menus" });
     } finally {
       setIsLoading(false);
     }
   }, [supabase]);
 
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const activeMenu = menus.find(m => m.id === activeMenuId);
+  const groupedDishes = activeMenu?.dishes ? groupByCategory(activeMenu.dishes) : {};
+  const categoryNames = Object.keys(groupedDishes);
+
+  // Initialize expanded categories when menu changes
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  // Category Handlers
-  const openNewCategoryDialog = () => {
-    setEditingCategory(null);
-    setCategoryName('');
-    setIsCategoryDialogOpen(true);
-  };
-
-  const openEditCategoryDialog = (category: MenuCategory) => {
-    setEditingCategory(category);
-    setCategoryName(category.name);
-    setIsCategoryDialogOpen(true);
-  };
-
-  const handleSaveCategory = async () => {
-    if (!categoryName.trim()) {
-      toast({ variant: "destructive", title: "Error", description: "Category name is required" });
-      return;
+    if (categoryNames.length > 0) {
+      const expanded: Record<string, boolean> = {};
+      categoryNames.forEach(c => expanded[c] = true);
+      setExpandedCategories(expanded);
     }
+  }, [activeMenuId]);
 
-    try {
-      if (editingCategory) {
-        const { error } = await supabase
-          .from('restaurant_menu_categories')
-          .update({ name: categoryName })
-          .eq('id', editingCategory.id);
-        if (error) throw error;
-        toast({ title: "Success", description: "Category updated" });
-      } else {
-        const { error } = await supabase
-          .from('restaurant_menu_categories')
-          .insert({ name: categoryName, order_index: categories.length });
-        if (error) throw error;
-        toast({ title: "Success", description: "Category created" });
-      }
-      setIsCategoryDialogOpen(false);
-      fetchData();
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: error.message });
-    }
+  // =====================
+  // MENU HANDLERS
+  // =====================
+
+  const openNewMenu = () => {
+    setEditingMenuId(null);
+    setMenuForm({ name: '', description: '', price_adult: 0, price_child: 0, price_senior: 0, is_active: true });
+    setIsMenuDialogOpen(true);
   };
 
-  const handleDeleteCategory = async (id: string) => {
-    try {
-      const { error } = await supabase.from('restaurant_menu_categories').delete().eq('id', id);
-      if (error) throw error;
-      toast({ title: "Success", description: "Category deleted" });
-      fetchData();
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: error.message });
-    }
-  };
-
-  // Item Handlers
-  const openNewItemDialog = (categoryId: string) => {
-    setEditingItem(null);
-    setCurrentItem({ category_id: categoryId, name: '', description: '', price: '', ingredients: '' });
-    setIsItemDialogOpen(true);
-  };
-
-  const openEditItemDialog = (item: MenuItem, categoryId: string) => {
-    setEditingItem(item);
-    setCurrentItem({ ...item });
-    setIsItemDialogOpen(true);
-  };
-
-  const handleItemChange = (field: keyof MenuItem, value: string) => {
-    setCurrentItem(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleSaveItem = async () => {
-    if (!currentItem.name?.trim()) {
-      toast({ variant: "destructive", title: "Error", description: "Item name is required" });
-      return;
-    }
-
-    try {
-      if (editingItem) {
-        const { error } = await supabase
-          .from('restaurant_menu_items')
-          .update({
-            name: currentItem.name,
-            description: currentItem.description,
-            price: currentItem.price,
-            ingredients: currentItem.ingredients
-          })
-          .eq('id', editingItem.id);
-        if (error) throw error;
-        toast({ title: "Success", description: "Item updated" });
-      } else {
-        // Get current items in category to set order_index
-        const category = categories.find(c => c.id === currentItem.category_id);
-        const orderIndex = category?.items?.length || 0;
-
-        const { error } = await supabase
-          .from('restaurant_menu_items')
-          .insert({
-            ...currentItem as any,
-            order_index: orderIndex
-          });
-        if (error) throw error;
-        toast({ title: "Success", description: "Item created" });
-      }
-      setIsItemDialogOpen(false);
-      fetchData();
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: error.message });
-    }
-  };
-
-  const handleDeleteItem = async (id: string, categoryId: string) => {
-    try {
-      const { error } = await supabase.from('restaurant_menu_items').delete().eq('id', id);
-      if (error) throw error;
-      toast({ title: "Success", description: "Item deleted" });
-      fetchData();
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: error.message });
-    }
-  };
-
-  const handleGenerateDescription = async () => {
-    if (!currentItem.name) {
-      toast({ variant: "destructive", title: "Error", description: "Please enter a dish name first" });
-      return;
-    }
-
-    setIsGenerating(true);
-    try {
-      // Mock AI generation for now - in production this would call your AI endpoint
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      const ingredients = currentItem.ingredients ? ` featuring ${currentItem.ingredients}` : '';
-      const description = `${currentItem.name} is a culinary masterpiece${ingredients}, prepared with traditional techniques and the freshest local ingredients for an unforgettable experience.`;
-      handleItemChange('description', description);
-      toast({ title: "Success", description: "Description generated" });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to generate description" });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  // Package Handlers
-  const openNewPackageDialog = () => {
-    setEditingPackage(null);
-    setCurrentPackage({
-      name: '',
-      description: '',
-      prices: { adult: 0, child: 0 },
-      is_active: true
+  const openEditMenu = (menu: RestaurantMenu) => {
+    setEditingMenuId(menu.id);
+    setMenuForm({
+      name: menu.name,
+      description: menu.description,
+      price_adult: menu.price_adult,
+      price_child: menu.price_child,
+      price_senior: menu.price_senior || 0,
+      is_active: menu.is_active
     });
-    setIsPackageDialogOpen(true);
+    setIsMenuDialogOpen(true);
   };
 
-  const openEditPackageDialog = (pkg: RestaurantMenuPackage) => {
-    setEditingPackage(pkg);
-    setCurrentPackage({ ...pkg });
-    setIsPackageDialogOpen(true);
-  };
-
-  const handleSavePackage = async () => {
-    if (!currentPackage.name?.trim()) {
-      toast({ variant: "destructive", title: "Error", description: "Package name is required" });
-      return;
-    }
-
+  const handleSaveMenu = async () => {
+    if (!menuForm.name.trim()) return toast({ variant: "destructive", title: "Name required" });
+    setIsSaving(true);
     try {
-      if (editingPackage) {
-        const { error } = await supabase
-          .from('restaurant_menu_packages')
-          .update(currentPackage)
-          .eq('id', editingPackage.id);
-        if (error) throw error;
-        toast({ title: "Success", description: "Package updated" });
+      if (editingMenuId) {
+        await supabase.from('restaurant_menus').update(menuForm).eq('id', editingMenuId);
       } else {
-        const { error } = await supabase
-          .from('restaurant_menu_packages')
-          .insert(currentPackage);
-        if (error) throw error;
-        toast({ title: "Success", description: "Package created" });
+        await supabase.from('restaurant_menus').insert({ ...menuForm, sort_order: menus.length });
       }
-      setIsPackageDialogOpen(false);
-      fetchData();
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: error.message });
+      setIsMenuDialogOpen(false);
+      await fetchData();
+      toast({ title: "Saved", description: "Menu saved successfully." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message });
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleDeletePackage = async (id: string) => {
+  const handleDeleteMenu = async (id: string) => {
     try {
-      const { error } = await supabase.from('restaurant_menu_packages').delete().eq('id', id);
-      if (error) throw error;
-      toast({ title: "Success", description: "Package deleted" });
-      fetchData();
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: error.message });
+      await supabase.from('restaurant_menus').delete().eq('id', id);
+      if (activeMenuId === id) { setView('list'); setActiveMenuId(null); }
+      await fetchData();
+      toast({ title: "Deleted", description: "Menu deleted." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message });
     }
   };
 
-  // Drag and Drop
-  const handleDragStart = (e: React.DragEvent, category: MenuCategory) => {
-    setDraggedCategory(category);
-    e.dataTransfer.effectAllowed = 'move';
+  const openMenuEditor = (menuId: string) => {
+    setActiveMenuId(menuId);
+    setView('editor');
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+  // =====================
+  // DISH / ITEM HANDLERS
+  // =====================
+
+  const openNewDish = (category: string) => {
+    setEditingDishId(null);
+    setDishForm({ name: '', description: '', category });
+    setIsDishDialogOpen(true);
   };
 
-  const handleDrop = async (e: React.DragEvent, targetCategory: MenuCategory) => {
-    e.preventDefault();
-    if (!draggedCategory || draggedCategory.id === targetCategory.id) return;
+  const openEditDish = (dish: MenuDish) => {
+    setEditingDishId(dish.id || null);
+    setDishForm({ name: dish.name, description: dish.description, category: dish.category });
+    setIsDishDialogOpen(true);
+  };
 
-    const newCategories = [...categories];
-    const draggedIndex = newCategories.findIndex(c => c.id === draggedCategory.id);
-    const targetIndex = newCategories.findIndex(c => c.id === targetCategory.id);
-
-    newCategories.splice(draggedIndex, 1);
-    newCategories.splice(targetIndex, 0, draggedCategory);
-
-    // Update state immediately for smooth UI
-    setCategories(newCategories.map((c, i) => ({ ...c, order_index: i })));
-
-    // Save to DB
+  const handleSaveDish = async () => {
+    if (!dishForm.name.trim()) return toast({ variant: "destructive", title: "Name required" });
+    if (!activeMenuId) return;
+    setIsSaving(true);
     try {
-      const updates = newCategories.map((c, i) => ({
-        id: c.id,
-        name: c.name,
-        order_index: i
-      }));
-
-      const { error } = await supabase.from('restaurant_menu_categories').upsert(updates);
-      if (error) throw error;
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to save new order" });
-      fetchData();
+      if (editingDishId) {
+        await supabase.from('menu_dishes').update({
+          name: dishForm.name,
+          description: dishForm.description,
+          category: dishForm.category
+        }).eq('id', editingDishId);
+      } else {
+        const count = activeMenu?.dishes?.filter(d => d.category === dishForm.category).length || 0;
+        await supabase.from('menu_dishes').insert({
+          menu_id: activeMenuId,
+          name: dishForm.name,
+          description: dishForm.description,
+          category: dishForm.category,
+          allergens: [],
+          is_vegetarian: false,
+          is_vegan: false,
+          is_gluten_free: false,
+          sort_order: count
+        });
+      }
+      setIsDishDialogOpen(false);
+      await fetchData();
+      toast({ title: "Saved", description: "Item saved." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message });
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">Restaurant Management</h1>
-        <p className="text-muted-foreground">Configure your menu categories, items, and pricing strategies.</p>
+  const handleDeleteDish = async (id: string) => {
+    try {
+      await supabase.from('menu_dishes').delete().eq('id', id);
+      await fetchData();
+      toast({ title: "Deleted", description: "Item removed." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e.message });
+    }
+  };
+
+  // =====================
+  // CATEGORY HANDLER
+  // =====================
+
+  const handleAddCategory = () => {
+    if (!newCategoryName.trim()) return;
+    const key = newCategoryName.trim().toLowerCase();
+    setExpandedCategories(prev => ({ ...prev, [key]: true }));
+    setIsCategoryDialogOpen(false);
+    // Open new dish dialog for this category immediately
+    setEditingDishId(null);
+    setDishForm({ name: '', description: '', category: key });
+    setIsDishDialogOpen(true);
+    setNewCategoryName('');
+  };
+
+  const toggleCategory = (cat: string) => {
+    setExpandedCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
+  };
+
+  // =====================
+  // RENDER
+  // =====================
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-64" />
+        <div className="grid grid-cols-3 gap-4">
+          <Skeleton className="h-48 rounded-xl" />
+          <Skeleton className="h-48 rounded-xl" />
+          <Skeleton className="h-48 rounded-xl" />
+        </div>
       </div>
+    );
+  }
 
-      <Tabs defaultValue="menu" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-8 h-12 rounded-xl bg-slate-100 p-1">
-          <TabsTrigger value="menu" className="rounded-lg font-bold data-[state=active]:bg-white">
-            Categories & Items
-          </TabsTrigger>
-          <TabsTrigger value="packages" className="rounded-lg font-bold data-[state=active]:bg-white">
-            Menu Packages (Pricing)
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="menu" className="space-y-4">
-          <Card className="border-none overflow-hidden">
-            <CardHeader className="flex flex-row justify-between items-center bg-slate-50/50">
-              <div className="space-y-1">
-                <CardTitle className="text-xl flex items-center gap-2">
-                  <Utensils className="h-5 w-5 text-primary" />
-                  Menu Categories
-                </CardTitle>
-                <CardDescription>Drag and drop to reorder categories</CardDescription>
-              </div>
-              <Button onClick={openNewCategoryDialog} className="rounded-full">
-                <PlusCircle className="mr-2 h-4 w-4" /> Add Category
-              </Button>
-            </CardHeader>
-            <CardContent className="pt-6">
-              {isLoading ? (
-                <div className="space-y-4">
-                  {[1, 2, 3].map(i => <Skeleton key={i} className="h-32 w-full rounded-xl" />)}
-                </div>
-              ) : categories.length > 0 ? (
-                <div className="space-y-10">
-                  {categories.map((category) => (
-                    <div
-                      key={category.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, category)}
-                      onDragOver={handleDragOver}
-                      onDrop={(e) => handleDrop(e, category)}
-                      className="group relative animate-in fade-in slide-in-from-bottom-2 duration-300"
-                    >
-                      <div className="flex justify-between items-center mb-6 pl-2 border-l-4 border-primary/20 hover:border-primary transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className="p-1.5 cursor-grab active:cursor-grabbing text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <GripVertical className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <h3 className="text-2xl font-bold tracking-tight text-slate-800">{category.name}</h3>
-                            <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">{category.items?.length || 0} items</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="secondary" size="sm" onClick={() => openNewItemDialog(category.id)} className="rounded-full">
-                            <PlusCircle className="mr-1.5 h-3.5 w-3.5" /> New Item
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => openEditCategoryDialog(category)} className="rounded-full">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 rounded-full">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Category?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This will permanently delete "{category.name}" and all menu items within it.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteCategory(category.id)} className="bg-destructive hover:bg-destructive/90">
-                                  Delete Category
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-8">
-                        {category.items?.map(item => (
-                          <Card key={item.id} className="group/item border border-slate-200/60 hover:border-primary/30 transition-all hover:-translate-y-0.5 overflow-hidden">
-                            <div className="p-4 flex flex-col justify-between h-full">
-                              <div>
-                                <div className="flex justify-between items-start mb-1">
-                                  <h4 className="font-bold text-slate-800 group-hover/item:text-primary transition-colors">{item.name}</h4>
-                                  <span className="text-sm font-black bg-slate-100 px-2 py-0.5 rounded text-slate-700">{item.price}</span>
-                                </div>
-                                <p className="text-sm text-muted-foreground line-clamp-2 mb-2 italic">"{item.description}"</p>
-                                {item.ingredients && (
-                                  <div className="flex items-center gap-1.5 text-[10px] text-slate-400 px-2 py-1 rounded w-fit">
-                                    <span className="font-bold uppercase">Base:</span>
-                                    <span>{item.ingredients}</span>
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex justify-end gap-1 mt-4 opacity-0 group-hover/item:opacity-100 transition-opacity">
-                                <Button variant="ghost" size="icon" onClick={() => openEditItemDialog(item, category.id)} className="h-8 w-8 rounded-full">
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10">
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Delete Dish?</AlertDialogTitle>
-                                      <AlertDialogDescription>Are you sure you want to remove "{item.name}" from the menu?</AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                      <AlertDialogAction onClick={() => handleDeleteItem(item.id, category.id)} className="bg-destructive hover:bg-destructive/90">Delete dish</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </div>
-                            </div>
-                          </Card>
-                        ))}
-                        {category.items?.length === 0 && (
-                          <div className="col-span-full py-8 text-center bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
-                            <p className="text-sm text-muted-foreground">No dishes in this category yet.</p>
-                            <Button variant="link" size="sm" onClick={() => openNewItemDialog(category.id)}>Add your first dish</Button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-slate-200 rounded-2xl gap-4">
-                  <div className="p-4 flex items-center justify-center">
-                    <Utensils className="h-8 w-8 text-slate-300" />
-                  </div>
-                  <div className="text-center">
-                    <p className="font-bold text-slate-600">No categories found</p>
-                    <p className="text-sm text-slate-400">Create a category to start building your menu.</p>
-                  </div>
-                  <Button onClick={openNewCategoryDialog} className="rounded-full">Create First Category</Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="packages" className="space-y-4">
-          <Card className="border-none overflow-hidden">
-            <CardHeader className="flex flex-row justify-between items-center bg-slate-50/50">
-              <div className="space-y-1">
-                <CardTitle className="text-xl flex items-center gap-2">
-                  <Layers className="h-5 w-5 text-primary" />
-                  Menu Packages
-                </CardTitle>
-                <CardDescription>Setup price-per-person packages for easy billing</CardDescription>
-              </div>
-              <Button onClick={openNewPackageDialog} className="rounded-full">
-                <PlusCircle className="mr-2 h-4 w-4" /> Add Package
-              </Button>
-            </CardHeader>
-            <CardContent className="pt-6">
-              {isLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[1, 2, 3].map(i => <Skeleton key={i} className="h-48 w-full rounded-2xl" />)}
-                </div>
-              ) : packages.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {packages.map(pkg => (
-                    <Card key={pkg.id} className="group border-2 border-slate-100 hover:border-primary/30 transition-all overflow-hidden rounded-2xl">
-                      {!pkg.is_active && (
-                        <div className="absolute top-2 right-2 bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full z-10 border border-amber-200">
-                          HIDDEN
-                        </div>
-                      )}
-                      <div className="p-6 space-y-6">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h4 className="font-black text-xl text-slate-800 leading-tight mb-1">{pkg.name}</h4>
-                            <p className="text-xs text-muted-foreground line-clamp-2 italic">"{pkg.description}"</p>
-                          </div>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button variant="ghost" size="icon" onClick={() => openEditPackageDialog(pkg)} className="h-8 w-8 rounded-full">
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10">
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Package?</AlertDialogTitle>
-                                  <AlertDialogDescription>This will remove the "{pkg.name}" pricing model.</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeletePackage(pkg.id)} className="bg-destructive hover:bg-destructive/90">Delete Package</AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-100 hover:bg-white transition-all text-center">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Adult</p>
-                            <div className="flex items-baseline justify-center gap-0.5">
-                              <span className="text-sm font-bold text-primary/70">€</span>
-                              <span className="text-2xl font-black text-primary">{pkg.prices.adult}</span>
-                            </div>
-                          </div>
-                          <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-100 hover:bg-white transition-all text-center">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Child</p>
-                            <div className="flex items-baseline justify-center gap-0.5">
-                              <span className="text-sm font-bold text-primary/70">€</span>
-                              <span className="text-2xl font-black text-primary">{pkg.prices.child}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 pt-2 opacity-60">
-                          <Info className="h-3 w-3" />
-                          <span>Assign to guests in reservations</span>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                  <button
-                    onClick={openNewPackageDialog}
-                    className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-200 rounded-2xl hover:border-primary/40 hover:bg-primary/5 transition-all group"
-                  >
-                    <div className="p-3 bg-slate-50 rounded-full mb-3 group-hover:bg-primary/10 group-hover:scale-110 transition-all">
-                      <PlusCircle className="h-6 w-6 text-slate-300 group-hover:text-primary" />
-                    </div>
-                    <span className="font-bold text-slate-500 group-hover:text-primary">Add New Package</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-slate-200 rounded-2xl gap-4">
-                  <div className="p-4 bg-slate-50 rounded-full">
-                    <Layers className="h-8 w-8 text-slate-300" />
-                  </div>
-                  <div className="text-center">
-                    <p className="font-bold text-slate-600">No packages defined</p>
-                    <p className="text-sm text-slate-400">Add common menu packages like "Standard Lunch" or "Buffet".</p>
-                  </div>
-                  <Button onClick={openNewPackageDialog}>Create First Package</Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Category Dialog */}
-      <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold tracking-tight">
-              {editingCategory ? 'Edit' : 'New'} Menu Category
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-6 space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="category-name" className="text-sm font-bold uppercase tracking-widest text-slate-500">
-                Category Name
-              </Label>
-              <Input
-                id="category-name"
-                value={categoryName}
-                onChange={e => setCategoryName(e.target.value)}
-                placeholder="e.g., Starters, Main Course, Drinks"
-                className="h-12 text-lg focus-visible:ring-primary"
-              />
+  // =====================
+  // MENU EDITOR VIEW
+  // =====================
+  if (view === 'editor' && activeMenu) {
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => setView('list')} className="rounded-full">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-black tracking-tight text-slate-900">{activeMenu.name}</h1>
+              <p className="text-sm text-muted-foreground">{activeMenu.description || 'No description'}</p>
             </div>
           </div>
-          <DialogFooter className="bg-slate-50 p-4 -mx-6 -mb-6 rounded-b-lg">
-            <DialogClose asChild>
-              <Button variant="outline" className="rounded-full">Cancel</Button>
-            </DialogClose>
-            <Button onClick={handleSaveCategory} className="rounded-full px-8">
-              {editingCategory ? 'Update' : 'Create'} Category
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Item Dialog */}
-      <Dialog open={isItemDialogOpen} onOpenChange={setIsItemDialogOpen}>
-        <DialogContent className="max-w-2xl overflow-hidden border-none shadow-2xl">
-          <DialogHeader className="bg-slate-50/80 p-6 border-b">
-            <DialogTitle className="text-2xl font-bold tracking-tight text-slate-800">
-              {editingItem ? 'Edit Dish' : 'Add New Dish'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="p-6 grid grid-cols-2 gap-8">
-            <div className="col-span-2 space-y-2">
-              <Label htmlFor="item-name" className="text-[10px] font-black uppercase tracking-widest text-slate-500">Dish Name</Label>
-              <Input
-                id="item-name"
-                value={currentItem.name || ''}
-                onChange={e => handleItemChange('name', e.target.value)}
-                placeholder="What's for dinner?"
-                className="h-12 text-lg focus-visible:ring-primary bg-slate-50/50"
-              />
+          <div className="flex items-center gap-2">
+            {/* Pricing Badges */}
+            <div className="flex gap-1.5">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-lg">
+                <span className="text-[10px] font-bold text-blue-500 uppercase">Kid</span>
+                <span className="text-xs font-bold text-blue-700">€{activeMenu.price_child}</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-lg">
+                <span className="text-[10px] font-bold text-emerald-500 uppercase">Adult</span>
+                <span className="text-xs font-bold text-emerald-700">€{activeMenu.price_adult}</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-lg">
+                <span className="text-[10px] font-bold text-amber-500 uppercase">Senior</span>
+                <span className="text-xs font-bold text-amber-700">€{activeMenu.price_senior || 0}</span>
+              </div>
             </div>
 
-            <div className="space-y-8">
-              <div className="space-y-2">
-                <Label htmlFor="item-price" className="text-[10px] font-black uppercase tracking-widest text-slate-500">Internal Price / Ref</Label>
-                <div className="relative">
-                  <Input
-                    id="item-price"
-                    value={currentItem.price || ''}
-                    onChange={e => handleItemChange('price', e.target.value)}
-                    placeholder="€24.00"
-                    className="pl-8 h-12 font-bold bg-slate-50/50"
-                  />
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">€</div>
+            <Button variant="outline" size="sm" onClick={() => openEditMenu(activeMenu)}>
+              <Pencil className="h-3.5 w-3.5 mr-1.5" /> Edit Menu
+            </Button>
+            <Button
+              size="sm"
+              className="bg-[#34C759] hover:bg-[#2DA64D] text-slate-900 font-bold"
+              onClick={() => setIsCategoryDialogOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Category
+            </Button>
+          </div>
+        </div>
+
+        {/* Category Columns */}
+        {categoryNames.length === 0 ? (
+          <div className="text-center py-20 border-2 border-dashed rounded-2xl bg-slate-50/50">
+            <Utensils className="h-10 w-10 mx-auto text-slate-300 mb-3" />
+            <p className="text-lg font-bold text-slate-400">No categories yet</p>
+            <p className="text-sm text-slate-400 mt-1">Add a category to start building your menu.</p>
+            <Button className="mt-4" onClick={() => setIsCategoryDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" /> Add First Category
+            </Button>
+          </div>
+        ) : (
+          <div className={cn(
+            "grid gap-5",
+            categoryNames.length === 1 ? "grid-cols-1" :
+              categoryNames.length === 2 ? "grid-cols-2" :
+                "grid-cols-2 xl:grid-cols-3"
+          )}>
+            {categoryNames.map(cat => {
+              const items = groupedDishes[cat] || [];
+              const isExpanded = expandedCategories[cat] !== false;
+
+              return (
+                <div
+                  key={cat}
+                  className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm"
+                >
+                  {/* Category Header */}
+                  <div
+                    className="flex items-center justify-between px-4 py-3 bg-slate-50/80 border-b border-slate-100 cursor-pointer select-none"
+                    onClick={() => toggleCategory(cat)}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <h3 className="text-sm font-black uppercase tracking-wider text-slate-700">
+                        {capitalize(cat)}
+                      </h3>
+                      <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-bold">
+                        {items.length}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                        onClick={(e) => { e.stopPropagation(); openNewDish(cat); }}
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1" />
+                        <span className="text-xs font-bold">Item</span>
+                      </Button>
+                      {isExpanded
+                        ? <ChevronDown className="h-4 w-4 text-slate-400" />
+                        : <ChevronRight className="h-4 w-4 text-slate-400" />
+                      }
+                    </div>
+                  </div>
+
+                  {/* Items List */}
+                  {isExpanded && (
+                    <div className="divide-y divide-slate-50">
+                      {items.length === 0 ? (
+                        <div className="px-4 py-6 text-center">
+                          <p className="text-xs text-slate-400">No items yet.</p>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="mt-2 text-xs text-emerald-600 hover:bg-emerald-50"
+                            onClick={() => openNewDish(cat)}
+                          >
+                            <Plus className="h-3 w-3 mr-1" /> Add Item
+                          </Button>
+                        </div>
+                      ) : (
+                        items.map(dish => (
+                          <div
+                            key={dish.id}
+                            className="group flex items-start justify-between px-4 py-2.5 hover:bg-slate-50/50 transition-colors"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-slate-800 leading-snug truncate">
+                                {dish.name}
+                              </p>
+                              {dish.description && (
+                                <p className="text-[11px] text-slate-400 leading-snug mt-0.5 line-clamp-2">
+                                  {dish.description}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-slate-400 hover:text-slate-700"
+                                onClick={() => openEditDish(dish)}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-slate-400 hover:text-red-500"
+                                onClick={() => handleDeleteDish(dish.id!)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ===================== DIALOGS ===================== */}
+
+        {/* Add Category Dialog */}
+        <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>New Category</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <Label className="text-xs font-bold">Category Name</Label>
+              <Input
+                value={newCategoryName}
+                onChange={e => setNewCategoryName(e.target.value)}
+                placeholder="e.g. Starters, Mains, Desserts"
+                onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
+                autoFocus
+              />
+              <p className="text-[10px] text-slate-400">
+                After creating the category, you can add items to it.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button onClick={handleAddCategory} disabled={!newCategoryName.trim()}>
+                Create Category
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Add / Edit Dish Dialog */}
+        <Dialog open={isDishDialogOpen} onOpenChange={setIsDishDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>{editingDishId ? 'Edit Item' : 'New Item'}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Name</Label>
+                <Input
+                  value={dishForm.name}
+                  onChange={e => setDishForm(p => ({ ...p, name: e.target.value }))}
+                  placeholder="e.g. Grilled Sea Bass"
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Description</Label>
+                <Textarea
+                  value={dishForm.description}
+                  onChange={e => setDishForm(p => ({ ...p, description: e.target.value }))}
+                  placeholder="Brief description of the dish..."
+                  rows={3}
+                  className="resize-none"
+                />
+              </div>
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <LayoutGrid className="h-3.5 w-3.5" />
+                <span>Category: <strong className="text-slate-600">{capitalize(dishForm.category)}</strong></span>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={handleSaveDish} disabled={isSaving}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {editingDishId ? 'Update Item' : 'Add Item'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Menu Dialog */}
+        <Dialog open={isMenuDialogOpen} onOpenChange={setIsMenuDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{editingMenuId ? 'Edit Menu' : 'New Menu'}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Menu Name</Label>
+                <Input
+                  value={menuForm.name}
+                  onChange={e => setMenuForm(p => ({ ...p, name: e.target.value }))}
+                  placeholder="e.g. Lunch Menu, Dinner Menu"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Description</Label>
+                <Textarea
+                  value={menuForm.description}
+                  onChange={e => setMenuForm(p => ({ ...p, description: e.target.value }))}
+                  placeholder="Brief description..."
+                  rows={2}
+                  className="resize-none"
+                />
+              </div>
+
+              {/* 3-Tier Pricing */}
+              <div className="bg-slate-50 rounded-xl p-4 space-y-3">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  Pricing per Person
+                </Label>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <Baby className="h-3.5 w-3.5 text-blue-500" />
+                      <Label className="text-xs font-bold text-blue-600">Kid</Label>
+                    </div>
+                    <div className="relative">
+                      <Euro className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.5}
+                        value={menuForm.price_child}
+                        onChange={e => setMenuForm(p => ({ ...p, price_child: Number(e.target.value) }))}
+                        className="pl-8 h-9 text-sm font-bold"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <User className="h-3.5 w-3.5 text-emerald-600" />
+                      <Label className="text-xs font-bold text-emerald-700">Adult</Label>
+                    </div>
+                    <div className="relative">
+                      <Euro className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.5}
+                        value={menuForm.price_adult}
+                        onChange={e => setMenuForm(p => ({ ...p, price_adult: Number(e.target.value) }))}
+                        className="pl-8 h-9 text-sm font-bold"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <UserCheck className="h-3.5 w-3.5 text-amber-600" />
+                      <Label className="text-xs font-bold text-amber-700">Senior</Label>
+                    </div>
+                    <div className="relative">
+                      <Euro className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.5}
+                        value={menuForm.price_senior}
+                        onChange={e => setMenuForm(p => ({ ...p, price_senior: Number(e.target.value) }))}
+                        className="pl-8 h-9 text-sm font-bold"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="item-ingredients" className="text-[10px] font-black uppercase tracking-widest text-slate-500">Primary Ingredient / Note</Label>
-                <Input
-                  id="item-ingredients"
-                  value={currentItem.ingredients || ''}
-                  onChange={e => handleItemChange('ingredients', e.target.value)}
-                  placeholder="e.g., fresh octopus, wild herbs"
-                  className="h-12 bg-slate-50/50"
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold">Visible on Website</Label>
+                <Switch
+                  checked={menuForm.is_active}
+                  onCheckedChange={c => setMenuForm(p => ({ ...p, is_active: c }))}
                 />
               </div>
             </div>
+            <DialogFooter>
+              <Button onClick={handleSaveMenu} disabled={isSaving}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Menu
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
 
-            <div className="space-y-2">
-              <div className="flex justify-between items-center mb-1">
-                <Label htmlFor="item-description" className="text-[10px] font-black uppercase tracking-widest text-slate-500">Menu Description</Label>
-                <Button
-                  variant="link"
-                  size="sm"
-                  onClick={handleGenerateDescription}
-                  disabled={isGenerating || !currentItem.name}
-                  className="h-auto p-0 text-[10px] font-bold uppercase tracking-tight"
-                >
-                  {isGenerating ? <Loader2 className="animate-spin h-3 w-3 mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
-                  Generate AI
-                </Button>
+  // =====================
+  // MENU LIST VIEW (Default)
+  // =====================
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight text-slate-900">Restaurant Menus</h1>
+          <p className="text-sm text-muted-foreground">Create and manage your set menus with categories, items, and pricing.</p>
+        </div>
+        <Button
+          onClick={openNewMenu}
+          className="bg-[#34C759] hover:bg-[#2DA64D] text-slate-900 font-bold rounded-lg shadow-sm"
+        >
+          <Plus className="mr-2 h-4 w-4" /> Add Menu Page
+        </Button>
+      </div>
+
+      {menus.length === 0 ? (
+        <div className="text-center py-24 border-2 border-dashed rounded-2xl bg-slate-50/50">
+          <FileText className="h-12 w-12 mx-auto text-slate-300 mb-4" />
+          <p className="text-lg font-bold text-slate-400">No menus created yet.</p>
+          <p className="text-sm text-slate-400 mt-1">Click "Add Menu Page" to create your first menu.</p>
+          <Button onClick={openNewMenu} className="mt-6">
+            <Plus className="h-4 w-4 mr-2" /> Create First Menu
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {menus.map(menu => {
+            const dishCount = menu.dishes?.length || 0;
+            const categoryCount = menu.dishes ? Object.keys(groupByCategory(menu.dishes)).length : 0;
+
+            return (
+              <div
+                key={menu.id}
+                className={cn(
+                  "group relative bg-white border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer",
+                  menu.is_active ? "border-slate-200" : "border-slate-100 opacity-70"
+                )}
+                onClick={() => openMenuEditor(menu.id)}
+              >
+                {/* Color bar */}
+                <div className={cn(
+                  "h-1.5 w-full",
+                  menu.is_active ? "bg-gradient-to-r from-emerald-400 to-teal-500" : "bg-slate-200"
+                )} />
+
+                <div className="p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h3 className="text-lg font-black text-slate-800 leading-tight">{menu.name}</h3>
+                      {menu.description && (
+                        <p className="text-xs text-slate-400 mt-1 line-clamp-2">{menu.description}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={(e) => { e.stopPropagation(); openEditMenu(menu); }}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-red-400 hover:text-red-600"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete "{menu.name}"?</AlertDialogTitle>
+                            <AlertDialogDescription>This will permanently delete this menu and all its items.</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteMenu(menu.id)}>Delete</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="flex gap-3 mb-4">
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                      <LayoutGrid className="h-3.5 w-3.5" />
+                      <span className="font-semibold">{categoryCount} categories</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                      <Utensils className="h-3.5 w-3.5" />
+                      <span className="font-semibold">{dishCount} items</span>
+                    </div>
+                  </div>
+
+                  {/* Pricing */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="flex flex-col items-center p-2 bg-blue-50/50 border border-blue-100 rounded-lg">
+                      <span className="text-[10px] font-bold text-blue-500 uppercase">Kid</span>
+                      <span className="text-sm font-black text-blue-700">€{menu.price_child}</span>
+                    </div>
+                    <div className="flex flex-col items-center p-2 bg-emerald-50/50 border border-emerald-100 rounded-lg">
+                      <span className="text-[10px] font-bold text-emerald-600 uppercase">Adult</span>
+                      <span className="text-sm font-black text-emerald-700">€{menu.price_adult}</span>
+                    </div>
+                    <div className="flex flex-col items-center p-2 bg-amber-50/50 border border-amber-100 rounded-lg">
+                      <span className="text-[10px] font-bold text-amber-600 uppercase">Senior</span>
+                      <span className="text-sm font-black text-amber-700">€{menu.price_senior || 0}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {!menu.is_active && (
+                  <div className="absolute top-4 right-4">
+                    <Badge variant="secondary" className="text-[10px] font-bold">Hidden</Badge>
+                  </div>
+                )}
               </div>
-              <Textarea
-                id="item-description"
-                value={currentItem.description || ''}
-                onChange={e => handleItemChange('description', e.target.value)}
-                placeholder="Describe this dish to your guests..."
-                className="min-h-[148px] resize-none bg-slate-50/50 leading-relaxed italic"
-              />
-            </div>
-          </div>
-          <DialogFooter className="bg-slate-50 p-6 border-t rounded-b-lg">
-            <DialogClose asChild>
-              <Button variant="outline" className="rounded-full">Cancel</Button>
-            </DialogClose>
-            <Button onClick={handleSaveItem} className="rounded-full px-10 bg-primary hover:bg-primary/90">
-              <Save className="mr-2 h-4 w-4" /> Save Dish
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            );
+          })}
+        </div>
+      )}
 
-      {/* Package Dialog */}
-      <Dialog open={isPackageDialogOpen} onOpenChange={setIsPackageDialogOpen}>
-        <DialogContent className="sm:max-w-[480px] overflow-hidden border-none shadow-2xl">
-          <DialogHeader className="bg-slate-50/80 p-6 border-b">
-            <DialogTitle className="text-2xl font-bold tracking-tight text-slate-800 flex items-center gap-2">
-              <Layers className="h-5 w-5 text-primary" />
-              {editingPackage ? 'Edit Package' : 'New Pricing Package'}
-            </DialogTitle>
+      {/* New/Edit Menu Dialog (for list view) */}
+      <Dialog open={isMenuDialogOpen} onOpenChange={setIsMenuDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingMenuId ? 'Edit Menu' : 'New Menu'}</DialogTitle>
           </DialogHeader>
-          <div className="p-8 space-y-8">
-            <div className="space-y-2">
-              <Label htmlFor="pkg-name" className="text-[10px] font-black uppercase tracking-widest text-slate-500">Package Name</Label>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Menu Name</Label>
               <Input
-                id="pkg-name"
-                value={currentPackage.name || ''}
-                onChange={e => setCurrentPackage(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="e.g., Standard Lunch Menu"
-                className="h-12 text-lg focus-visible:ring-primary bg-slate-50/50 font-bold"
+                value={menuForm.name}
+                onChange={e => setMenuForm(p => ({ ...p, name: e.target.value }))}
+                placeholder="e.g. Lunch Menu, Dinner Menu"
+                autoFocus
               />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="pkg-desc" className="text-[10px] font-black uppercase tracking-widest text-slate-500">Short Description</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Description</Label>
               <Textarea
-                id="pkg-desc"
-                value={currentPackage.description || ''}
-                onChange={e => setCurrentPackage(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Include what's typically included in this price..."
-                className="min-h-[80px] bg-slate-50/50 resize-none"
+                value={menuForm.description}
+                onChange={e => setMenuForm(p => ({ ...p, description: e.target.value }))}
+                placeholder="Brief description..."
+                rows={2}
+                className="resize-none"
               />
             </div>
-
-            <div className="bg-slate-50/50 p-6 rounded-2xl border-2 border-slate-100 flex flex-col gap-6">
-              <p className="text-[10px] font-black uppercase tracking-widest text-center text-slate-400">Pricing Strategy (€)</p>
-              <div className="grid grid-cols-2 gap-8">
-                <div className="space-y-2">
-                  <Label htmlFor="pkg-adult" className="text-[10px] font-bold text-slate-500 pl-1 uppercase">Adult Price</Label>
+            <div className="bg-slate-50 rounded-xl p-4 space-y-3">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                Pricing per Person
+              </Label>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs font-bold text-blue-600">Kid (€)</Label>
+                  </div>
                   <div className="relative">
+                    <Euro className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                     <Input
-                      id="pkg-adult"
                       type="number"
-                      value={currentPackage.prices?.adult || 0}
-                      onChange={e => setCurrentPackage(prev => ({ ...prev, prices: { ...prev.prices!, adult: Number(e.target.value) } }))}
-                      className="h-14 text-2xl font-black pl-8 bg-white"
+                      min={0}
+                      step={0.5}
+                      value={menuForm.price_child}
+                      onChange={e => setMenuForm(p => ({ ...p, price_child: Number(e.target.value) }))}
+                      className="pl-8 h-9 text-sm font-bold"
                     />
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold italic">€</div>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="pkg-child" className="text-[10px] font-bold text-slate-500 pl-1 uppercase">Child Price</Label>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs font-bold text-emerald-700">Adult (€)</Label>
+                  </div>
                   <div className="relative">
+                    <Euro className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                     <Input
-                      id="pkg-child"
                       type="number"
-                      value={currentPackage.prices?.child || 0}
-                      onChange={e => setCurrentPackage(prev => ({ ...prev, prices: { ...prev.prices!, child: Number(e.target.value) } }))}
-                      className="h-14 text-2xl font-black pl-8 shadow-sm bg-white text-primary"
+                      min={0}
+                      step={0.5}
+                      value={menuForm.price_adult}
+                      onChange={e => setMenuForm(p => ({ ...p, price_adult: Number(e.target.value) }))}
+                      className="pl-8 h-9 text-sm font-bold"
                     />
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold italic">€</div>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs font-bold text-amber-700">Senior (€)</Label>
+                  </div>
+                  <div className="relative">
+                    <Euro className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      value={menuForm.price_senior}
+                      onChange={e => setMenuForm(p => ({ ...p, price_senior: Number(e.target.value) }))}
+                      className="pl-8 h-9 text-sm font-bold"
+                    />
                   </div>
                 </div>
               </div>
             </div>
-
-            <div className="flex items-center space-x-2 p-2 bg-blue-50/50 rounded-lg border border-blue-100/50">
-              <Info className="h-4 w-4 text-blue-500" />
-              <p className="text-[10px] text-blue-700 font-medium">This package will be available for selection when making reservations.</p>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-bold">Visible on Website</Label>
+              <Switch
+                checked={menuForm.is_active}
+                onCheckedChange={c => setMenuForm(p => ({ ...p, is_active: c }))}
+              />
             </div>
           </div>
-          <DialogFooter className="bg-slate-50 p-6 border-t rounded-b-lg">
-            <DialogClose asChild>
-              <Button variant="outline" className="rounded-full px-6">Cancel</Button>
-            </DialogClose>
-            <Button onClick={handleSavePackage} className="rounded-full px-10 shadow-lg shadow-primary/20">
-              {editingPackage ? 'Update Strategy' : 'Create Package'}
+          <DialogFooter>
+            <Button onClick={handleSaveMenu} disabled={isSaving}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Menu
             </Button>
           </DialogFooter>
         </DialogContent>

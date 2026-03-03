@@ -1,4 +1,4 @@
-import ContactPageContent from '@/components/contact-page-content';
+import { ContactPageContent } from '@/features/home';
 import { getDictionary } from '@/lib/dictionary';
 import { cookies } from 'next/headers';
 

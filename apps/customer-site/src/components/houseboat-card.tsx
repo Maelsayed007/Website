@@ -9,14 +9,13 @@ import { useSearchParams } from 'next/navigation';
 
 type HouseboatCardProps = {
   houseboat: HouseboatModel & { calculatedPrice?: number, isAvailable?: boolean };
-  price?: number;
   className?: string;
   isAvailable: boolean;
 };
 
-export default function HouseboatCard({ houseboat, price, className, isAvailable }: HouseboatCardProps) {
+export default function HouseboatCard({ houseboat, className, isAvailable }: HouseboatCardProps) {
   const searchParams = useSearchParams();
-  const { id, name, description, optimalCapacity, maximumCapacity, bedrooms, imageUrls } = houseboat;
+  const { name, description, optimalCapacity, maximumCapacity, bedrooms, imageUrls } = houseboat;
 
   const images = imageUrls || [];
   const existingParams = new URLSearchParams(Array.from(searchParams.entries()));
